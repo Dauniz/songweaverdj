@@ -6,7 +6,6 @@ import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MoodChat } from "@/components/crate/MoodChat";
 import { RadioProvider } from "@/components/crate/radio-context";
-import { RadioPlayer } from "@/components/crate/RadioPlayer";
 import { LibraryPanel } from "@/components/crate/LibraryPanel";
 import { MemoryInspector } from "@/components/crate/MemoryInspector";
 import { cn } from "@/lib/utils";
@@ -119,7 +118,6 @@ function Studio() {
           <MemoryInspector />
         </aside>
       </div>
-      <RadioPlayer />
     </div>
     </RadioProvider>
   );

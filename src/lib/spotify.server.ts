@@ -6,6 +6,8 @@ export const SPOTIFY_SCOPES = [
   "user-library-read",
   "user-read-recently-played",
   "user-top-read",
+  "user-read-playback-state",
+  "user-modify-playback-state",
 ].join(" ");
 
 export function spotifyCreds() {
