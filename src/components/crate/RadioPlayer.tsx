@@ -29,7 +29,7 @@ function loadSpotifyApi() {
 }
 
 export function RadioPlayer() {
-  const { radio, stopRadio, next, upNext, thinking, askSteer, dismissSteer, toggleChip } = useRadio();
+  const { radio, stopRadio, next, askSteer, dismissSteer, toggleChip } = useRadio();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [paused, setPaused] = useState(false);
   const [chipsOpen, setChipsOpen] = useState(false);
