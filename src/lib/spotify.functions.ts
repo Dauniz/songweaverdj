@@ -56,9 +56,35 @@ export const disconnectSpotify = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+type SyncProgress = {
+  stage: string;
+  done: number;
+  total: number | null;
+  finished: boolean;
+  error?: string;
+  result?: { imported: number; playlists: number; liked: number; recent: number };
+};
+const syncProgress = new Map<string, SyncProgress>();
+
+export const getSyncProgress = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    return syncProgress.get(context.userId) ?? null;
+  });
+
 export const syncSpotifyLibrary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const setP = (p: Partial<SyncProgress>) =>
+      syncProgress.set(context.userId, {
+        stage: "Starting…",
+        done: 0,
+        total: null,
+        finished: false,
+        ...syncProgress.get(context.userId),
+        ...p,
+      });
+    setP({ finished: false, error: undefined, result: undefined });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: conn } = await supabaseAdmin
       .from("spotify_connections")
