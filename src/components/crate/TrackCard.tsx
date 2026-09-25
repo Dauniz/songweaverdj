@@ -106,9 +106,6 @@ export function TrackCard({
           )}
         </div>
       </div>
-      {track.reason && (
-        <p className="mt-3 text-sm leading-relaxed text-foreground/85">{track.reason}</p>
-      )}
       {playing &&
         (canEmbed ? (
           <iframe
