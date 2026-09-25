@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Pause, Play, RotateCcw, Send, SkipForward, X } from "lucide-react";
+import { Pause, Play, RotateCcw, SkipForward, SlidersHorizontal, X } from "lucide-react";
+import { SteerChips } from "./SteerChips";
 import { useRadio } from "./radio-context";
 import { cn } from "@/lib/utils";
 
@@ -26,14 +27,12 @@ function loadSpotifyApi() {
 }
 
 export function RadioPlayer() {
-  const { radio, stopRadio, next, steer, refilling } = useRadio();
+  const { radio, stopRadio, next, upNext, thinking, askSteer, dismissSteer, toggleChip } = useRadio();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [paused, setPaused] = useState(false);
-  const [steerText, setSteerText] = useState("");
-  const [steering, setSteering] = useState(false);
+  const [chipsOpen, setChipsOpen] = useState(false);
 
-  const current = radio.queue[radio.currentIndex];
-  const upNext = radio.queue.slice(radio.currentIndex + 1, radio.currentIndex + 4);
+  const current = radio.current;
 
   const embedHost = useRef<HTMLDivElement>(null);
   const ctrlRef = useRef<SpotifyController | null>(null);
@@ -67,7 +66,7 @@ export function RadioPlayer() {
           setPaused(Boolean(isPaused));
           if (duration > 0 && position >= duration - 800 && !endedRef.current) {
             endedRef.current = true;
-            nextRef.current("ended");
+            nextRef.current("played");
           }
         });
       });
@@ -108,7 +107,7 @@ export function RadioPlayer() {
       audio.play().catch(() => setPaused(true));
       setPaused(false);
     }
-  }, [current?.id, current?.preview_url, current?.spotify_id, useEmbed, radio.currentIndex]);
+  }, [current, useEmbed]);
 
   function togglePause() {
     if (useEmbed) {
@@ -136,7 +135,7 @@ export function RadioPlayer() {
       ratio = audio && audio.duration ? audio.currentTime / audio.duration : 0;
     }
     // early skip = before 30% of the track; otherwise it counts as listened
-    next(ratio < 0.3 ? "skipped" : "ended");
+    next(ratio < 0.3 ? "skipped" : "played");
   }
 
   const skipRef = useRef(skip);
@@ -168,22 +167,24 @@ export function RadioPlayer() {
     };
   }, [active]);
 
-  async function sendSteer() {
-    const t = steerText.trim();
-    if (!t || steering) return;
-    setSteering(true);
-    setSteerText("");
-    await steer(t).catch(() => null);
-    setSteering(false);
-  }
-
   if (!active || !current) return null;
 
   return (
-    <div className="border-t bg-sidebar/95 backdrop-blur">
+    <div className="relative border-t bg-sidebar/95 backdrop-blur">
+      {(askSteer || chipsOpen) && (
+        <SteerChips
+          prompt={askSteer && !chipsOpen}
+          active={radio.chips}
+          onToggle={toggleChip}
+          onClose={() => {
+            dismissSteer();
+            setChipsOpen(false);
+          }}
+        />
+      )}
       <audio
         ref={audioRef}
-        onEnded={() => next("ended")}
+        onEnded={() => next("played")}
         className="hidden"
       />
       <div
@@ -230,48 +231,47 @@ export function RadioPlayer() {
           </button>
         </div>
 
-        {radio.modeLabel && (
-          <span className="hidden shrink-0 rounded-full bg-magenta/15 px-2.5 py-1 text-[11px] font-semibold text-magenta sm:inline">
-            {radio.modeLabel}
+        <div className="hidden min-w-0 flex-col md:flex">
+          <span
+            className={cn(
+              "truncate text-[11px] font-semibold",
+              radio.road === "era" ? "text-magenta" : "text-primary",
+            )}
+          >
+            {radio.road === "vibe"
+              ? "Following the vibe"
+              : radio.road === "era"
+                ? "Staying in the era"
+                : "Trying a new angle"}
+            {current.why ? ` · ${current.why}` : ""}
           </span>
-        )}
-        {refilling && (
-          <span className="hidden shrink-0 animate-pulse text-[11px] text-muted-foreground md:inline">
-            Queuing more…
+          <span className="truncate text-[11px] text-muted-foreground">
+            {thinking
+              ? "Finding the next turn…"
+              : upNext
+                ? `Up next: ${upNext.name} — ${upNext.artists}`
+                : "Working out the next song…"}
           </span>
-        )}
+        </div>
 
-        <div className="ml-auto hidden min-w-0 flex-1 items-center gap-2 md:flex">
-          <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto">
-            {upNext.map((t) => (
-              <div
-                key={t.id}
-                className="flex shrink-0 items-center gap-1.5 rounded-full border bg-surface px-2 py-1 text-[11px] text-muted-foreground"
-              >
-                {t.image_url && (
-                  <img src={t.image_url} alt="" className="h-4 w-4 rounded-full object-cover" />
-                )}
-                <span className="max-w-32 truncate">{t.name}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex shrink-0 items-center gap-1 rounded-full border bg-surface px-3 py-1">
-            <input
-              value={steerText}
-              onChange={(e) => setSteerText(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && sendSteer()}
-              placeholder="Steer: “sadder”, “newer”…"
-              className="w-36 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-            />
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+          {radio.chips.map((c) => (
             <button
-              aria-label="Steer the radio"
-              onClick={sendSteer}
-              disabled={!steerText.trim() || steering}
-              className="text-muted-foreground transition hover:text-primary disabled:opacity-30"
+              key={c}
+              onClick={() => toggleChip(c)}
+              className="hidden rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-semibold text-primary sm:inline"
+              title="Tap to remove"
             >
-              <Send className="h-3.5 w-3.5" />
+              {c} ×
             </button>
-          </div>
+          ))}
+          <button
+            aria-label="Steer the radio"
+            onClick={() => setChipsOpen((o) => !o)}
+            className="flex items-center gap-1 rounded-full border bg-surface px-2.5 py-1 text-[11px] text-muted-foreground transition hover:text-foreground"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" /> Steer
+          </button>
         </div>
 
         <button

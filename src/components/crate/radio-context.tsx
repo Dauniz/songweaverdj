@@ -1,77 +1,120 @@
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
-import { logListeningEvent, refillRadioQueue } from "@/lib/radio.functions";
+import { logListeningEvent } from "@/lib/radio.functions";
+import { nextPathTrack } from "@/lib/path.functions";
 import type { CardTrack } from "./TrackCard";
 
-export type RadioMode = "era" | "vibe";
+export type Road = "vibe" | "era" | "mixed";
+export type RadioTrack = CardTrack & { why?: string };
 
 /** Real Spotify tracks play through the Spotify embed; others need an audio preview. */
 export function isPlayable(t: CardTrack) {
   return Boolean(t.preview_url || (t.spotify_id && !t.spotify_id.startsWith("demo-")));
 }
 
+export const STEER_CHIPS = [
+  "Svenskt",
+  "Engelskt",
+  "UK",
+  "Nostalgi",
+  "Instrumental",
+  "Lugnare",
+  "Mer energi",
+] as const;
+
+type HistoryItem = { spotifyId: string; name: string; artists: string; outcome: "played" | "skipped" };
+
 export type RadioState = {
   active: boolean;
-  queue: CardTrack[];
-  currentIndex: number;
-  mode: RadioMode | null;
-  modeLabel: string | null;
+  current: RadioTrack | null;
+  seed: RadioTrack | null;
   seedPrompt: string;
+  road: Road;
+  chips: string[];
+  history: HistoryItem[];
+  consecutiveSkips: number;
   sessionId: string;
 };
 
+type Outcome = "played" | "skipped" | "replay";
+
 type RadioContextValue = {
   radio: RadioState;
+  upNext: RadioTrack | null;
+  thinking: boolean;
+  askSteer: boolean;
+  dismissSteer: () => void;
   startRadio: (tracks: CardTrack[], seedPrompt: string, startAt?: number) => void;
   stopRadio: () => void;
-  next: (reason: "ended" | "skipped" | "replay") => void;
-  steer: (text: string) => Promise<void>;
-  logEvent: (
-    track: CardTrack,
-    event: "play_through" | "early_skip" | "replay" | "explicit_fav" | "explicit_skip",
-  ) => void;
-  refilling: boolean;
+  next: (outcome: Outcome) => void;
+  toggleChip: (chip: string) => void;
 };
 
 const RadioContext = createContext<RadioContextValue | null>(null);
 
 const IDLE: RadioState = {
   active: false,
-  queue: [],
-  currentIndex: 0,
-  mode: null,
-  modeLabel: null,
+  current: null,
+  seed: null,
   seedPrompt: "",
+  road: "vibe",
+  chips: [],
+  history: [],
+  consecutiveSkips: 0,
   sessionId: "",
 };
 
+const NOSTALGIA = /nostalg|minns|remember|throwback|back in|förr|gamla|\b(19|20)\d\d\b|era|då när/i;
+
+type Branch = { track: RadioTrack; road: Road } | null;
+
+/** Pure road logic: what the next state looks like after an outcome. */
+function advance(s: RadioState, outcome: "played" | "skipped"): RadioState {
+  const cur = s.current!;
+  const history = [
+    ...s.history,
+    { spotifyId: cur.spotify_id ?? cur.id, name: cur.name, artists: cur.artists, outcome },
+  ].slice(-25);
+  if (outcome === "played") return { ...s, history, consecutiveSkips: 0 };
+  const skips = s.consecutiveSkips + 1;
+  const road: Road = skips === 1 ? (s.road === "vibe" ? "era" : s.road === "era" ? "vibe" : "vibe") : "mixed";
+  return { ...s, history, consecutiveSkips: skips, road };
+}
+
 export function RadioProvider({ children }: { children: ReactNode }) {
   const [radio, setRadio] = useState<RadioState>(IDLE);
-  const [refilling, setRefilling] = useState(false);
+  const [thinking, setThinking] = useState(false);
+  const [askSteer, setAskSteer] = useState(false);
   const logFn = useServerFn(logListeningEvent);
-  const refillFn = useServerFn(refillRadioQueue);
+  const pathFn = useServerFn(nextPathTrack);
   const qc = useQueryClient();
-  const feedbackRef = useRef<{ event: string; track: string }[]>([]);
-  const playedIdsRef = useRef<string[]>([]);
-  const artistSkipsRef = useRef<Map<string, number>>(new Map());
-  const avoidArtists = () =>
-    [...artistSkipsRef.current.entries()].filter(([, n]) => n >= 2).map(([a]) => a);
 
-  const logEvent = useCallback(
-    (track: CardTrack, event: "play_through" | "early_skip" | "replay" | "explicit_fav" | "explicit_skip") => {
-      feedbackRef.current = [
-        ...feedbackRef.current.slice(-19),
-        { event, track: `${track.name} — ${track.artists}` },
-      ];
+  const radioRef = useRef(radio);
+  radioRef.current = radio;
+  const artistSkips = useRef<Map<string, number>>(new Map());
+  const played = useRef<string[]>([]);
+  // Two prefetched branches per song: one assuming you finish it, one assuming you skip it.
+  const branches = useRef<{ key: string; played: Promise<Branch>; skipped: Promise<Branch> } | null>(
+    null,
+  );
+  const [upNext, setUpNext] = useState<RadioTrack | null>(null);
+  const lastSteerAsk = useRef(0);
+  const lastSkipAsk = useRef(0);
+
+  const avoidArtists = () =>
+    [...artistSkips.current.entries()].filter(([, n]) => n >= 2).map(([a]) => a);
+
+  const log = useCallback(
+    (track: { id?: string | null; name: string; artists: string } | null, event: string, s: RadioState) => {
       logFn({
         data: {
-          trackId: track.id ?? null,
-          trackName: track.name,
-          artists: track.artists,
-          event,
-          sessionId: radio.sessionId || "none",
-          mode: radio.mode,
+          trackId: track?.id && !String(track.id).startsWith("demo") ? track.id : null,
+          trackName: track?.name ?? "",
+          artists: track?.artists ?? "",
+          event: event as "play_through",
+          sessionId: s.sessionId || "none",
+          mode: s.road,
         },
       })
         .then((r) => {
@@ -79,112 +122,167 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         })
         .catch(() => null);
     },
-    [logFn, qc, radio.sessionId, radio.mode],
+    [logFn, qc],
   );
 
-  const refill = useCallback(
-    async (state: RadioState, steering?: string) => {
-      setRefilling(true);
+  const fetchBranch = useCallback(
+    async (s: RadioState): Promise<Branch> => {
+      if (!s.seed) return null;
       try {
-        const r = await refillFn({
+        const r = await pathFn({
           data: {
-            seedPrompt: state.seedPrompt,
-            mode: state.mode,
-            steering,
-            excludeIds: playedIdsRef.current.slice(-200),
+            seed: {
+              spotifyId: s.seed.spotify_id ?? s.seed.id,
+              name: s.seed.name,
+              artists: s.seed.artists,
+            },
+            seedPrompt: s.seedPrompt.slice(0, 1000),
+            history: s.history,
+            road: s.road,
+            chips: s.chips,
             avoidArtists: avoidArtists(),
-            recentFeedback: feedbackRef.current,
+            excludeSpotifyIds: [
+              ...played.current.slice(-500),
+              ...(s.current?.spotify_id ? [s.current.spotify_id] : []),
+            ],
           },
         });
-        const avoid = new Set(avoidArtists());
-        const playable = (r.tracks as CardTrack[]).filter(
-          (t) => isPlayable(t) && !avoid.has(t.artists),
-        );
-        setRadio((prev) => ({
-          ...prev,
-          queue: [...prev.queue, ...playable],
-          mode: r.mode,
-          modeLabel: r.modeLabel,
-        }));
+        if (!r.track) return null;
+        return { track: { ...(r.track as CardTrack), why: r.why }, road: r.road };
       } catch {
-        // keep playing what's left; next refill attempt happens on the next advance
-      } finally {
-        setRefilling(false);
+        return null;
       }
     },
-    [refillFn],
+    [pathFn],
   );
+
+  // Whenever the current song (or steering) changes, prefetch both branches.
+  const prefetch = useCallback(
+    (s: RadioState) => {
+      if (!s.active || !s.current) return;
+      const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}`;
+      if (branches.current?.key === key) return;
+      const playedB = fetchBranch(advance(s, "played"));
+      const skippedB = fetchBranch(advance(s, "skipped"));
+      branches.current = { key, played: playedB, skipped: skippedB };
+      setUpNext(null);
+      playedB.then((b) => {
+        if (branches.current?.key === key) setUpNext(b?.track ?? null);
+      });
+    },
+    [fetchBranch],
+  );
+
+  useEffect(() => {
+    prefetch(radio);
+  }, [radio, prefetch]);
 
   const startRadio = useCallback(
     (tracks: CardTrack[], seedPrompt: string, startAt = 0) => {
       const ordered = [...tracks.slice(startAt), ...tracks.slice(0, startAt)];
-      const playable = ordered.filter(isPlayable);
-      // If none of the picks are playable, start empty — the background refill
-      // will queue playable tracks from the library.
-      feedbackRef.current = [];
-      playedIdsRef.current = [];
-      artistSkipsRef.current = new Map();
-      const state: RadioState = {
+      const first = ordered.find(isPlayable) ?? null;
+      artistSkips.current = new Map();
+      played.current = [];
+      branches.current = null;
+      setAskSteer(false);
+      if (!first) {
+        setRadio(IDLE);
+        return;
+      }
+      setRadio({
+        ...IDLE,
         active: true,
-        queue: playable,
-        currentIndex: 0,
-        mode: null,
-        modeLabel: null,
+        current: first,
+        seed: first,
         seedPrompt,
+        road: NOSTALGIA.test(seedPrompt) ? "era" : "vibe",
         sessionId: crypto.randomUUID(),
-      };
-      setRadio(state);
-      // Classify mode + top up the queue in the background
-      void refill(state);
-    },
-    [refill],
-  );
-
-  const stopRadio = useCallback(() => setRadio(IDLE), []);
-
-  const next = useCallback(
-    (reason: "ended" | "skipped" | "replay") => {
-      setRadio((prev) => {
-        if (!prev.active) return prev;
-        const current = prev.queue[prev.currentIndex];
-        if (current) {
-          if (reason === "ended") logEvent(current, "play_through");
-          if (reason === "skipped") {
-            logEvent(current, "early_skip");
-            const n = (artistSkipsRef.current.get(current.artists) ?? 0) + 1;
-            artistSkipsRef.current.set(current.artists, n);
-            if (n >= 2) {
-              // Session-only: drop this artist from what's still queued
-              const kept = prev.queue.filter(
-                (t, i) => i <= prev.currentIndex || t.artists !== current.artists,
-              );
-              prev = { ...prev, queue: kept };
-            }
-          }
-          if (reason === "replay") logEvent(current, "replay");
-          playedIdsRef.current.push(current.id);
-        }
-        const nextIndex = reason === "replay" ? prev.currentIndex : prev.currentIndex + 1;
-        const remaining = prev.queue.length - nextIndex;
-        if (remaining < 3 && !refilling) void refill({ ...prev, currentIndex: nextIndex });
-        if (remaining <= 0) return prev; // wait for refill
-        return { ...prev, currentIndex: nextIndex };
       });
     },
-    [logEvent, refill, refilling],
+    [],
   );
 
-  const steer = useCallback(
-    async (text: string) => {
-      if (!radio.active) return;
-      await refill(radio, text);
+  const stopRadio = useCallback(() => {
+    branches.current = null;
+    setAskSteer(false);
+    setRadio(IDLE);
+  }, []);
+
+  const next = useCallback(
+    async (outcome: Outcome) => {
+      const s = radioRef.current;
+      if (!s.active || !s.current) return;
+      const cur = s.current;
+      if (outcome === "replay") {
+        log(cur, "replay", s);
+        setRadio({ ...s, current: { ...cur } }); // new object -> player restarts
+        return;
+      }
+      log(cur, outcome === "played" ? "play_through" : "early_skip", s);
+      if (cur.spotify_id) played.current.push(cur.spotify_id);
+      if (outcome === "skipped") {
+        artistSkips.current.set(cur.artists, (artistSkips.current.get(cur.artists) ?? 0) + 1);
+      }
+      const nextState = advance(s, outcome);
+      if (nextState.consecutiveSkips >= 2 && Date.now() - lastSkipAsk.current > 60_000) {
+        lastSkipAsk.current = Date.now();
+        lastSteerAsk.current = Date.now();
+        setAskSteer(true);
+      }
+      const pending = branches.current?.[outcome];
+      setThinking(true);
+      let b = pending ? await pending : null;
+      // The skip branch may now include an avoided artist — refetch if so.
+      if (!b || avoidArtists().includes(b.track.artists)) b = await fetchBranch(nextState);
+      setThinking(false);
+      if (radioRef.current.sessionId !== s.sessionId) return; // stopped/restarted meanwhile
+      if (!b) {
+        setRadio({ ...nextState, current: null, active: false });
+        return;
+      }
+      setRadio({ ...nextState, current: b.track, road: b.road });
     },
-    [radio, refill],
+    [log, fetchBranch],
+  );
+
+  // Gentle periodic steering offer (~every 20 min of listening)
+  useEffect(() => {
+    if (!radio.active) return;
+    const t = setInterval(() => {
+      if (Date.now() - lastSteerAsk.current > 20 * 60_000) {
+        lastSteerAsk.current = Date.now();
+        setAskSteer(true);
+      }
+    }, 60_000);
+    lastSteerAsk.current = Date.now();
+    return () => clearInterval(t);
+  }, [radio.active, radio.sessionId]);
+
+  const toggleChip = useCallback(
+    (chip: string) => {
+      const s = radioRef.current;
+      const on = !s.chips.includes(chip);
+      const chips = on ? [...s.chips, chip] : s.chips.filter((c) => c !== chip);
+      if (on) log({ name: chip, artists: "" }, "steer", s);
+      branches.current = null; // steering invalidates the prefetched paths
+      setRadio({ ...s, chips });
+    },
+    [log],
   );
 
   return (
     <RadioContext.Provider
-      value={{ radio, startRadio, stopRadio, next, steer, logEvent, refilling }}
+      value={{
+        radio,
+        upNext,
+        thinking,
+        askSteer,
+        dismissSteer: () => setAskSteer(false),
+        startRadio,
+        stopRadio,
+        next,
+        toggleChip,
+      }}
     >
       {children}
     </RadioContext.Provider>
