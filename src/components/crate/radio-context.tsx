@@ -6,6 +6,11 @@ import type { CardTrack } from "./TrackCard";
 
 export type RadioMode = "era" | "vibe";
 
+/** Real Spotify tracks play through the Spotify embed; others need an audio preview. */
+export function isPlayable(t: CardTrack) {
+  return Boolean(t.preview_url || (t.spotify_id && !t.spotify_id.startsWith("demo-")));
+}
+
 export type RadioState = {
   active: boolean;
   queue: CardTrack[];
@@ -18,7 +23,7 @@ export type RadioState = {
 
 type RadioContextValue = {
   radio: RadioState;
-  startRadio: (tracks: CardTrack[], seedPrompt: string) => void;
+  startRadio: (tracks: CardTrack[], seedPrompt: string, startAt?: number) => void;
   stopRadio: () => void;
   next: (reason: "ended" | "skipped" | "replay") => void;
   steer: (text: string) => Promise<void>;
@@ -49,6 +54,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const feedbackRef = useRef<{ event: string; track: string }[]>([]);
   const playedIdsRef = useRef<string[]>([]);
+  const artistSkipsRef = useRef<Map<string, number>>(new Map());
+  const avoidArtists = () =>
+    [...artistSkipsRef.current.entries()].filter(([, n]) => n >= 2).map(([a]) => a);
 
   const logEvent = useCallback(
     (track: CardTrack, event: "play_through" | "early_skip" | "replay" | "explicit_fav" | "explicit_skip") => {
@@ -84,10 +92,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             mode: state.mode,
             steering,
             excludeIds: playedIdsRef.current.slice(-200),
+            avoidArtists: avoidArtists(),
             recentFeedback: feedbackRef.current,
           },
         });
-        const playable = (r.tracks as CardTrack[]).filter((t) => t.preview_url);
+        const avoid = new Set(avoidArtists());
+        const playable = (r.tracks as CardTrack[]).filter(
+          (t) => isPlayable(t) && !avoid.has(t.artists),
+        );
         setRadio((prev) => ({
           ...prev,
           queue: [...prev.queue, ...playable],
@@ -104,12 +116,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   );
 
   const startRadio = useCallback(
-    (tracks: CardTrack[], seedPrompt: string) => {
-      const playable = tracks.filter((t) => t.preview_url);
+    (tracks: CardTrack[], seedPrompt: string, startAt = 0) => {
+      const ordered = [...tracks.slice(startAt), ...tracks.slice(0, startAt)];
+      const playable = ordered.filter(isPlayable);
       // If none of the picks are playable, start empty — the background refill
       // will queue playable tracks from the library.
       feedbackRef.current = [];
       playedIdsRef.current = [];
+      artistSkipsRef.current = new Map();
       const state: RadioState = {
         active: true,
         queue: playable,
@@ -135,7 +149,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const current = prev.queue[prev.currentIndex];
         if (current) {
           if (reason === "ended") logEvent(current, "play_through");
-          if (reason === "skipped") logEvent(current, "early_skip");
+          if (reason === "skipped") {
+            logEvent(current, "early_skip");
+            const n = (artistSkipsRef.current.get(current.artists) ?? 0) + 1;
+            artistSkipsRef.current.set(current.artists, n);
+            if (n >= 2) {
+              // Session-only: drop this artist from what's still queued
+              const kept = prev.queue.filter(
+                (t, i) => i <= prev.currentIndex || t.artists !== current.artists,
+              );
+              prev = { ...prev, queue: kept };
+            }
+          }
           if (reason === "replay") logEvent(current, "replay");
           playedIdsRef.current.push(current.id);
         }
