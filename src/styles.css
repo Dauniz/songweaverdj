@@ -51,6 +51,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-player: var(--player);
+  --color-player-foreground: var(--player-foreground);
+  --color-player-muted: var(--player-muted);
+  --color-player-track: var(--player-track);
 }
 
 /* Dark-only music-player palette */
@@ -93,6 +97,10 @@
   --sidebar-accent-foreground: oklch(0.97 0.005 285);
   --sidebar-border: oklch(1 0 0 / 9%);
   --sidebar-ring: oklch(0.86 0.21 135 / 60%);
+  --player: oklch(0.115 0.003 285);
+  --player-foreground: oklch(0.98 0 0);
+  --player-muted: oklch(0.69 0.008 285);
+  --player-track: oklch(0.32 0.006 285);
   --gradient-glow: radial-gradient(60% 50% at 20% 0%, oklch(0.86 0.21 135 / 16%), transparent 70%),
     radial-gradient(50% 40% at 90% 10%, oklch(0.68 0.26 350 / 14%), transparent 70%);
 }
