@@ -29,7 +29,7 @@ function loadSpotifyApi() {
 }
 
 export function RadioPlayer() {
-  const { radio, stopRadio, next, upNext, thinking, askSteer, dismissSteer, toggleChip } = useRadio();
+  const { radio, stopRadio, next, askSteer, dismissSteer, toggleChip } = useRadio();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [paused, setPaused] = useState(false);
   const [chipsOpen, setChipsOpen] = useState(false);
@@ -179,7 +179,6 @@ export function RadioPlayer() {
     const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
     return `${Math.floor(totalSeconds / 60)}:${String(totalSeconds % 60).padStart(2, "0")}`;
   };
-  const roadLabel = radio.road === "vibe" ? "Following the vibe" : radio.road === "era" ? "Staying in the era" : "Trying a new angle";
 
   return (
     <TooltipProvider delayDuration={350}>
@@ -269,12 +268,6 @@ export function RadioPlayer() {
         </div>
 
         <div className="flex min-w-0 items-center justify-end gap-1 md:gap-2">
-          <div className="hidden min-w-0 flex-col text-right lg:flex">
-            <span className={cn("truncate text-xs font-semibold", radio.road === "era" ? "text-magenta" : "text-primary")}>{roadLabel}</span>
-            <span className="max-w-64 truncate text-[11px] text-player-muted">
-              {thinking ? "Finding the next turn…" : upNext ? `Up next: ${upNext.name} — ${upNext.artists}` : current.why || "Working out the next song…"}
-            </span>
-          </div>
           {radio.chips.slice(0, 1).map((chip) => (
             <Button key={chip} onClick={() => toggleChip(chip)} variant="ghost" size="xs" className="hidden rounded-full bg-primary/15 px-2 text-[11px] font-semibold text-primary hover:bg-primary/25 hover:text-primary xl:inline-flex">
               {chip} <X className="h-3 w-3" />
