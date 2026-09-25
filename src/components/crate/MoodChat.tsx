@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -29,39 +29,49 @@ import { useRadio } from "./radio-context";
 import { Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 import logo from "@/assets/crate-logo.jpg";
 
-export const PRESETS = [
-  {
-    label: "Late-night coding",
-    prompt: "Late night coding session, need focus but with some warmth — nothing too busy.",
-  },
-  {
-    label: "Nostalgic drive",
-    prompt: "Nostalgic drive at golden hour, windows down, feeling sentimental.",
-  },
-  { label: "Rainy focus", prompt: "Rainy afternoon, deep focus, moody and soft." },
-  {
-    label: "Sunday reset",
-    prompt: "Slow Sunday morning reset, coffee, cleaning the apartment, gentle and hopeful.",
-  },
-  { label: "Pre-party hype", prompt: "Getting ready to go out, want energy and swagger." },
-  {
-    label: "Heartache hours",
-    prompt: "Bit heartbroken tonight, want songs that sit with the feeling.",
-  },
-];
+type PromptMemory = { id: string; kind: string; content: string };
 
-const ERAS = ["Any era", "2+ years ago", "Last year", "This year"] as const;
+function suggestionFromMemory(memory: PromptMemory) {
+  const content = memory.content.replace(/[.!]+$/, "").trim();
+  const quoted = content.match(/[“"]([^”"]+)[”"]/u)?.[1];
+  const prompt =
+    memory.kind === "favorite" && quoted
+      ? `Build a vibe around ${quoted}`
+      : memory.kind === "session"
+        ? `Continue this feeling: ${content}`
+        : memory.kind === "mood_trigger"
+          ? `Play for this mood: ${content}`
+          : `Lean into this: ${content}`;
+  return prompt.length > 74 ? `${prompt.slice(0, 71).trim()}…` : prompt;
+}
 
 export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
-  const [era, setEra] = useState<(typeof ERAS)[number]>("Any era");
   const [deepCuts, setDeepCuts] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { startRadio } = useRadio();
   const lastUserText = useRef("");
+  const { data: promptMemories = [] } = useQuery({
+    queryKey: ["prompt-memories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("memory_nodes")
+        .select("id, kind, content")
+        .in("kind", ["taste", "genre", "mood_trigger", "session", "favorite"])
+        .order("created_at", { ascending: false })
+        .limit(12);
+      if (error) throw error;
+      return data as PromptMemory[];
+    },
+  });
+  const personalizedPrompts = useMemo(
+    () => [...new Set(promptMemories.map(suggestionFromMemory))].slice(0, 3),
+    [promptMemories],
+  );
 
   const transport = useMemo(
     () =>
@@ -114,16 +124,15 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
     if (!t || busy) return;
     lastUserText.current = t;
     const filters: string[] = [];
-    if (era !== "Any era") filters.push(`era: ${era}`);
     if (deepCuts) filters.push("prefer deep cuts I haven't heard in a while");
     sendMessage({ text: filters.length ? `${t}\n\n(Filters: ${filters.join("; ")})` : t });
     setText("");
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="chat-enter flex h-full flex-col">
       <Conversation className="flex-1">
-        <ConversationContent className="mx-auto w-full max-w-3xl">
+        <ConversationContent className="chat-transcript mx-auto w-full max-w-4xl gap-4 px-5 pb-8 pt-2 lg:px-7">
           {messages.length === 0 && (
             <div className="flex flex-col items-center py-16 text-center">
               <img
@@ -141,7 +150,11 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
             </div>
           )}
           {messages.map((m) => (
-            <Message key={m.id} from={m.role}>
+            <Message
+              key={m.id}
+              from={m.role}
+              className={cn("chat-message-reveal", m.role === "assistant" && "!max-w-full")}
+            >
               <MessageContent
                 className={cn(
                   m.role === "user"
@@ -163,13 +176,13 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
                         ? (part.output as { vibe_title: string; tracks: CardTrack[] })
                         : null;
                     return (
-                      <div key={i} className="my-2 w-full">
+                      <div key={i} className="song-results-reveal my-1 w-full">
                         {out ? (
                           <>
-                            <div className="mb-2 font-display text-lg font-bold text-primary">
+                            <div className="mb-1.5 font-display text-lg font-bold text-primary">
                               {out.vibe_title}
                             </div>
-                            <div className="grid gap-2 sm:grid-cols-2">
+                            <div className="grid gap-1.5 sm:grid-cols-2">
                               {out.tracks.map((t, j) => (
                                 <TrackCard
                                   key={t.id}
@@ -182,12 +195,13 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
                               ))}
                             </div>
                             {out.tracks.length > 0 && (
-                              <button
+                              <Button
                                 onClick={() => startRadio(out.tracks, lastUserText.current || out.vibe_title)}
-                                className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition hover:scale-[1.02]"
+                                size="sm"
+                                className="mt-2 rounded-full px-4 transition-transform hover:scale-[1.02]"
                               >
                                 <Radio className="h-3.5 w-3.5" /> Start vibe radio from these picks
-                              </button>
+                              </Button>
                             )}
                           </>
                         ) : part.state === "output-error" ? (
@@ -200,7 +214,7 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
                   }
                   if (part.type === "tool-save_memory") {
                     return (
-                      <Tool key={i} defaultOpen={false} className="my-1">
+                      <Tool key={i} defaultOpen={false} className="memory-reveal my-0.5">
                         <ToolHeader
                           type={part.type}
                           state={part.state}
@@ -221,7 +235,7 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
             </Message>
           ))}
           {status === "submitted" && (
-            <Message from="assistant">
+            <Message from="assistant" className="!max-w-full">
               <MessageContent className="bg-transparent">
                 <Shimmer>Listening to your vibe…</Shimmer>
               </MessageContent>
@@ -231,36 +245,36 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
         <ConversationScrollButton />
       </Conversation>
 
-      <div className="border-t bg-background/80 p-4 backdrop-blur">
-        <div className="mx-auto w-full max-w-3xl">
-          <div className="scrollbar-thin mb-3 flex gap-2 overflow-x-auto pb-1">
-            {PRESETS.map((p) => (
-              <button
-                key={p.label}
-                onClick={() => send(p.prompt)}
-                disabled={busy}
-                className="shrink-0 rounded-full border bg-surface px-3 py-1.5 text-xs font-medium transition hover:border-primary hover:text-primary disabled:opacity-50"
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-            {ERAS.map((e) => (
-              <button
-                key={e}
-                onClick={() => setEra(e)}
-                className={cn(
-                  "rounded-full px-2.5 py-1 transition",
-                  era === e
-                    ? "bg-magenta text-magenta-foreground"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {e}
-              </button>
-            ))}
-            <label className="ml-auto inline-flex cursor-pointer items-center gap-1.5 text-muted-foreground">
+      <div className="composer-reveal border-t bg-background/80 px-5 pb-8 pt-3 backdrop-blur lg:px-7 lg:pb-10">
+        <div className="mx-auto w-full max-w-4xl">
+          {personalizedPrompts.length > 0 && (
+            <div className="scrollbar-thin mb-2 flex gap-1.5 overflow-x-auto pb-1">
+              {personalizedPrompts.map((prompt) => (
+                <Button
+                  key={prompt}
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={() => send(prompt)}
+                  disabled={busy}
+                  className="shrink-0 rounded-full bg-surface px-3 text-muted-foreground hover:border-primary hover:text-primary"
+                >
+                  {prompt}
+                </Button>
+              ))}
+            </div>
+          )}
+          <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90">
+            <PromptInputTextarea
+              ref={textareaRef}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="Describe the vibe, setting, or a song to start from…"
+              className="min-h-24 text-base"
+            />
+            <PromptInputFooter className="grid grid-cols-[minmax(0,1fr)_auto] items-center">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
               <input
                 type="checkbox"
                 checked={deepCuts}
@@ -268,35 +282,34 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
                 className="accent-primary"
               />
               Deep cuts
-            </label>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
+                </label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
                     type="button"
                     aria-label="About deep cuts"
-                    className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-muted-foreground/40 text-[10px] leading-none text-muted-foreground transition hover:border-primary hover:text-primary"
+                    variant="outline"
+                    size="icon-xs"
+                    className="h-5 w-5 shrink-0 rounded-full border-muted-foreground/40 p-0 text-[10px] text-muted-foreground hover:border-primary hover:text-primary"
                   >
                     ?
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[240px]">
-                  Skips tracks you have played a lot recently and digs up
-                  overlooked ones instead — album tracks, older saves and songs
-                  you have not heard in years.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <PromptInput onSubmit={(msg) => send(msg.text)}>
-            <PromptInputTextarea
-              ref={textareaRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="e.g. 2am, city lights, finishing a project…"
-            />
-            <PromptInputFooter className="justify-end">
-              <PromptInputSubmit status={status} onStop={stop} disabled={!busy && !text.trim()} />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[240px]">
+                      Skips tracks you have played a lot recently and digs up overlooked ones instead
+                      — album tracks, older saves and songs you have not heard in years.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              <PromptInputSubmit
+                status={status}
+                onStop={stop}
+                disabled={!busy && !text.trim()}
+                size="icon-sm"
+                className="h-10 w-10"
+              />
             </PromptInputFooter>
           </PromptInput>
         </div>
