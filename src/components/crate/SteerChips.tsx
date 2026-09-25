@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { X } from "lucide-react";
 import { STEER_CHIPS } from "./radio-context";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 /** Small, optional steering card. Auto-hides when shown as a prompt; music never stops. */
 export function SteerChips({
@@ -22,31 +23,34 @@ export function SteerChips({
   }, [prompt, onClose]);
 
   return (
-    <div className="absolute bottom-full left-1/2 mb-2 w-[min(560px,calc(100%-2rem))] -translate-x-1/2 animate-in fade-in slide-in-from-bottom-2 rounded-2xl border bg-popover p-3 shadow-lg">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs font-semibold">
-          {prompt ? "Want to steer? Totally optional." : "Steer the radio"}
+    <div className="absolute bottom-full right-3 mb-3 w-[min(430px,calc(100%-1.5rem))] animate-in rounded-lg border border-border bg-popover p-4 shadow-2xl fade-in slide-in-from-bottom-2 sm:right-5">
+      <div className="mb-3 flex items-center justify-between">
+        <span className="text-sm font-bold">
+          {prompt ? "Want to steer?" : "Steer the radio"}
         </span>
-        <button aria-label="Close" onClick={onClose} className="text-muted-foreground hover:text-foreground">
+        <Button aria-label="Close" onClick={onClose} variant="ghost" size="icon-xs" className="rounded-full text-muted-foreground hover:text-foreground">
           <X className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </div>
-      <div className="flex flex-wrap gap-1.5">
+      {prompt && <p className="mb-3 text-xs text-muted-foreground">A quick nudge, then you can get back to listening.</p>}
+      <div className="flex flex-wrap gap-2">
         {STEER_CHIPS.map((c) => {
           const on = active.includes(c);
           return (
-            <button
+            <Button
               key={c}
               onClick={() => onToggle(c)}
+              variant="outline"
+              size="xs"
               className={cn(
-                "rounded-full border px-3 py-1 text-xs transition",
+                "rounded-full border px-3 text-xs shadow-none transition",
                 on
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "bg-surface text-muted-foreground hover:text-foreground",
+                  ? "border-primary bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
+                  : "border-border bg-surface text-muted-foreground hover:border-foreground hover:bg-surface hover:text-foreground",
               )}
             >
               {c}
-            </button>
+            </Button>
           );
         })}
       </div>
