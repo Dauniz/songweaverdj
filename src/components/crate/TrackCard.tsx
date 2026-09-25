@@ -84,6 +84,10 @@ export function TrackCard({
             {index + 1}
           </span>
         </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-semibold">{track.name}</div>
+          <div className="truncate text-sm text-muted-foreground">{track.artists}</div>
+        </div>
         <div className="flex shrink-0 flex-col gap-1">
           <button
             aria-label="Play preview"
