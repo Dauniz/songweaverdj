@@ -8,10 +8,12 @@ import {
   disconnectSpotify,
   getSpotifyAuthUrl,
   getSpotifyStatus,
+  getSyncProgress,
   syncSpotifyLibrary,
 } from "@/lib/spotify.functions";
 import { buildDemoRows } from "@/lib/demo-library";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 
 function period(p: string | null) {
   if (!p) return "Undated";
@@ -28,8 +30,27 @@ export function LibraryPanel() {
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const syncFn = useServerFn(syncSpotifyLibrary);
   const disconnectFn = useServerFn(disconnectSpotify);
+  const progressFn = useServerFn(getSyncProgress);
   const [busy, setBusy] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [summary, setSummary] = useState<{
+    imported: number;
+    playlists: number;
+    liked: number;
+    recent: number;
+  } | null>(null);
+
+  const { data: progress } = useQuery({
+    queryKey: ["sync-progress"],
+    queryFn: () => progressFn(),
+    enabled: syncing,
+    refetchInterval: syncing ? 700 : false,
+  });
+  const pct =
+    progress && progress.total
+      ? Math.min(100, Math.round((progress.done / progress.total) * 100))
+      : null;
 
   const { data: status } = useQuery({ queryKey: ["spotify-status"], queryFn: () => statusFn() });
   const { data: tracks = [], isLoading } = useQuery({
