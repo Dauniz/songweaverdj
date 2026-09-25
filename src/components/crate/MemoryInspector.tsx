@@ -104,7 +104,7 @@ export function MemoryInspector() {
           </p>
         )}
         {nodes.map((n) => {
-          const s = STATUS[n.status] ?? STATUS.local!;
+          const s = STATUS[n.status] ?? STATUS['local']!;
           return (
             <div key={n.id} className="rounded-lg border bg-surface p-3">
               <div className="flex items-center justify-between gap-2">

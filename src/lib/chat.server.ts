@@ -168,7 +168,7 @@ ${libLines.join("\n") || "(empty)"}`;
               return t ? { ...t, reason: p.reason, period_label: fmtPeriod(t.source_period) } : null;
             })
             .filter(Boolean) as Array<Record<string, unknown>>;
-          const ids = cards.map((c) => c.id as string);
+          const ids = cards.map((c) => c["id"] as string);
           const { data: full } = await supabase
             .from("library_tracks")
             .select("id, spotify_id, image_url, preview_url, spotify_url")
@@ -176,7 +176,7 @@ ${libLines.join("\n") || "(empty)"}`;
           const byId = new Map((full ?? []).map((f) => [f.id, f]));
           return {
             vibe_title,
-            tracks: cards.map((c) => ({ ...c, ...(byId.get(c.id as string) ?? {}) })),
+            tracks: cards.map((c) => ({ ...c, ...(byId.get(c["id"] as string) ?? {}) })),
           };
         },
       }),
