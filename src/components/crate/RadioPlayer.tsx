@@ -168,25 +168,6 @@ export function RadioPlayer() {
     };
   }, [active]);
 
-  function _unusedTogglePause() {
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (audio.paused) {
-      audio.play().catch(() => null);
-      setPaused(false);
-    } else {
-      audio.pause();
-      setPaused(true);
-    }
-  }
-
-  function skip() {
-    const audio = audioRef.current;
-    // early skip = before 30% of the preview; otherwise it counts as listened
-    const early = audio && audio.duration ? audio.currentTime / audio.duration < 0.3 : true;
-    next(early ? "skipped" : "ended");
-  }
-
   async function sendSteer() {
     const t = steerText.trim();
     if (!t || steering) return;
@@ -196,6 +177,8 @@ export function RadioPlayer() {
     setSteering(false);
   }
 
+  if (!active || !current) return null;
+
   return (
     <div className="border-t bg-sidebar/95 backdrop-blur">
       <audio
@@ -203,6 +186,11 @@ export function RadioPlayer() {
         onEnded={() => next("ended")}
         className="hidden"
       />
+      <div
+        ref={embedHost}
+        className={cn("px-4 pt-2", !useEmbed && "h-0 overflow-hidden p-0")}
+      />
+
       <div className="flex items-center gap-3 px-4 py-2.5">
         <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-primary/60 to-magenta/60">
           {current.image_url ? (
