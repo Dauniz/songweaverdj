@@ -132,8 +132,11 @@ const FULL = [
 /** Try to read a month/year out of playlist names like "Oct 2024", "october '23", "2024-10". */
 export function guessPeriod(name: string): string | null {
   const n = name.toLowerCase();
-  const iso = n.match(/(20\d{2})[-/. ](\d{1,2})/);
-  if (iso) return `${iso[1]}-${iso[2]!.padStart(2, "0")}-01`;
+  const iso = n.match(/\b(20\d{2})[-/. ](\d{1,2})\b/);
+  if (iso) {
+    const m = Number(iso[2]);
+    if (m >= 1 && m <= 12) return `${iso[1]}-${String(m).padStart(2, "0")}-01`;
+  }
   let month = -1;
   FULL.forEach((m, i) => {
     if (month < 0 && n.includes(m)) month = i;
