@@ -100,6 +100,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   );
   const [upNext, setUpNext] = useState<RadioTrack | null>(null);
   const lastSteerAsk = useRef(0);
+  const lastSkipAsk = useRef(0);
 
   const avoidArtists = () =>
     [...artistSkips.current.entries()].filter(([, n]) => n >= 2).map(([a]) => a);
@@ -223,7 +224,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         artistSkips.current.set(cur.artists, (artistSkips.current.get(cur.artists) ?? 0) + 1);
       }
       const nextState = advance(s, outcome);
-      if (nextState.consecutiveSkips >= 2 && Date.now() - lastSteerAsk.current > 60_000) {
+      if (nextState.consecutiveSkips >= 2 && Date.now() - lastSkipAsk.current > 60_000) {
+        lastSkipAsk.current = Date.now();
         lastSteerAsk.current = Date.now();
         setAskSteer(true);
       }
