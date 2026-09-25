@@ -176,26 +176,36 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
     }
 
     // All saved tracks (paginated)
+    setP({ stage: "Importing Liked Songs…", done: 0, total: null });
     for (let offset = 0; ; offset += 50) {
       const saved = await spotifyGet<{
         items: { added_at: string; track: Parameters<typeof toRow>[0] }[];
         next: string | null;
+        total?: number;
       }>(token, `/me/tracks?limit=50&offset=${offset}`);
       for (const it of saved.items ?? []) {
         const r = toRow(it.track, "saved", "Liked Songs", `${it.added_at.slice(0, 7)}-01`);
-        if (r) rows.push(r);
+        if (r) {
+          rows.push(r);
+          likedCount += 1;
+        }
       }
+      setP({ done: offset + (saved.items?.length ?? 0), total: saved.total ?? null });
       if (!saved.next) break;
     }
 
     // Recently played
+    setP({ stage: "Importing recently played…", done: 0, total: null });
     try {
       const recent = await spotifyGet<{
         items: { played_at: string; track: Parameters<typeof toRow>[0] }[];
       }>(token, "/me/player/recently-played?limit=50");
       for (const it of recent.items ?? []) {
         const r = toRow(it.track, "recent", "Recently played", `${it.played_at.slice(0, 7)}-01`);
-        if (r) rows.push(r);
+        if (r) {
+          rows.push(r);
+          recentCount += 1;
+        }
       }
     } catch (e) {
       console.error("recent fetch failed", e);
