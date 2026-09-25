@@ -24,6 +24,8 @@ export const Route = createFileRoute("/_authenticated/studio")({
         property: "og:description",
         content: "Chat your vibe and rediscover tracks from your past playlists.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Studio,

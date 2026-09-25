@@ -59,9 +59,10 @@ async function spotifyAccess(userId: string) {
   return refreshed.access_token;
 }
 
-function playbackFailure(status: number) {
+function playbackFailure(status: number, detail = "") {
   if (status === 401) return { status: "reconnect_required" as const, message: "Spotify needs permission to control playback." };
-  if (status === 403) return { status: "premium_required" as const, message: "Spotify live playback requires a Premium account." };
+  if (status === 403 && /premium/i.test(detail)) return { status: "premium_required" as const, message: "Spotify live playback requires a Premium account." };
+  if (status === 403) return { status: "reconnect_required" as const, message: "Reconnect Spotify to grant playback permission." };
   if (status === 404) return { status: "no_device" as const, message: "Spotify needs to be open on one of your devices." };
   return { status: "unavailable" as const, message: "Spotify playback is temporarily unavailable." };
 }
@@ -76,7 +77,7 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
     if (!token) return { status: "reconnect_required" as const, message: "Connect Spotify to start listening." };
     const headers = { Authorization: `Bearer ${token}` };
     const devicesResponse = await fetch("https://api.spotify.com/v1/me/player/devices", { headers });
-    if (!devicesResponse.ok) return playbackFailure(devicesResponse.status);
+    if (!devicesResponse.ok) return playbackFailure(devicesResponse.status, await devicesResponse.text());
     const body = (await devicesResponse.json()) as {
       devices?: { id: string | null; is_active: boolean; is_restricted: boolean; name: string }[];
     };
@@ -91,7 +92,7 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
         body: JSON.stringify({ uris: [`spotify:track:${data.spotifyId}`] }),
       },
     );
-    if (!response.ok) return playbackFailure(response.status);
+    if (!response.ok) return playbackFailure(response.status, await response.text());
     return { status: "playing" as const, deviceName: device.name };
   });
 

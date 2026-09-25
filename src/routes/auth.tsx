@@ -19,6 +19,8 @@ export const Route = createFileRoute("/auth")({
         property: "og:description",
         content: "Sign in to Crate, your music rediscovery companion.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: AuthPage,
