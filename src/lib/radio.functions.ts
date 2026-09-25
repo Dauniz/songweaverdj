@@ -61,14 +61,35 @@ export const logListeningEvent = createServerFn({ method: "POST" })
 
     const learned: string[] = [];
 
-    if (data.event === "replay" || data.event === "explicit_fav") {
+    if (data.event === "explicit_fav") {
       await saveSignalMemory(
         supabase,
         userId,
         "favorite",
-        `Loves "${data.trackName}" by ${data.artists} — replayed it when it resurfaced.`,
+        `Loves "${data.trackName}" by ${data.artists} — resurface occasionally, don't overplay.`,
       );
       learned.push("favorite");
+    }
+    if (data.event === "replay") {
+      // A replay in one sitting is a mood, not a verdict. Only remember it as a
+      // gentle favorite once it's been replayed in 2+ different sessions.
+      const { data: replays } = await supabase
+        .from("listening_events")
+        .select("session_id")
+        .eq("event", "replay")
+        .eq("track_name", data.trackName)
+        .eq("artists", data.artists)
+        .limit(50);
+      const sessions = new Set((replays ?? []).map((r: { session_id: string | null }) => r.session_id));
+      if (sessions.size >= 2) {
+        await saveSignalMemory(
+          supabase,
+          userId,
+          "favorite",
+          `Keeps coming back to "${data.trackName}" by ${data.artists} — a quiet favorite. Resurface now and then, never on heavy rotation.`,
+        );
+        learned.push("favorite");
+      }
     }
     if (data.event === "explicit_skip") {
       await saveSignalMemory(
@@ -151,6 +172,7 @@ export const refillRadioQueue = createServerFn({ method: "POST" })
         mode: z.enum(["era", "vibe"]).nullable(),
         steering: z.string().max(300).optional(),
         excludeIds: z.array(z.string()).max(500).default([]),
+        avoidArtists: z.array(z.string().max(300)).max(30).default([]),
         recentFeedback: z
           .array(z.object({ event: z.string(), track: z.string() }))
           .max(20)
@@ -216,7 +238,8 @@ Rules:
 - Only pick tracks from the library list below, by their codes. Never invent tracks.
 - Pick 8 tracks that continue the session naturally.
 - Never pick a track that memory says was skipped.
-- Recent listening feedback this session:
+- Favorites/replayed tracks are a hint about taste, NOT a rotation list. Include at most one known favorite per batch, and prefer tracks similar to them over the favorites themselves.
+${data.avoidArtists.length ? `- For this session, do NOT pick anything by: ${data.avoidArtists.join(", ")} (the user keeps skipping them).\n` : ""}- Recent listening feedback this session:
 ${feedbackLines}
 
 Walrus Memory about this user:

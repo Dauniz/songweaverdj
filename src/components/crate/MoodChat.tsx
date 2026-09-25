@@ -89,6 +89,22 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
 
   const busy = status === "submitted" || status === "streaming";
 
+  // Auto-start the radio as soon as a fresh answer with picks lands.
+  const autoStarted = useRef(new Set(initialMessages.map((m) => m.id)));
+  useEffect(() => {
+    if (status !== "ready") return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant" || autoStarted.current.has(last.id)) return;
+    autoStarted.current.add(last.id);
+    for (const part of last.parts) {
+      if (part.type === "tool-recommend_tracks" && part.state === "output-available") {
+        const out = part.output as { vibe_title: string; tracks: CardTrack[] };
+        if (out.tracks.length) startRadio(out.tracks, lastUserText.current || out.vibe_title);
+        break;
+      }
+    }
+  }, [status, messages, startRadio]);
+
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
@@ -155,7 +171,14 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
                             </div>
                             <div className="grid gap-2 sm:grid-cols-2">
                               {out.tracks.map((t, j) => (
-                                <TrackCard key={t.id} track={t} index={j} />
+                                <TrackCard
+                                  key={t.id}
+                                  track={t}
+                                  index={j}
+                                  onPlay={() =>
+                                    startRadio(out.tracks, lastUserText.current || out.vibe_title, j)
+                                  }
+                                />
                               ))}
                             </div>
                             {out.tracks.length > 0 && (

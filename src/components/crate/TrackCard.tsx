@@ -28,7 +28,15 @@ function sourceLabel(t: CardTrack) {
   return `From your ${t.source_name} playlist`;
 }
 
-export function TrackCard({ track, index }: { track: CardTrack; index: number }) {
+export function TrackCard({
+  track,
+  index,
+  onPlay,
+}: {
+  track: CardTrack;
+  index: number;
+  onPlay?: () => void;
+}) {
   const [playing, setPlaying] = useState(false);
   const [acted, setActed] = useState<null | "fav" | "skip">(null);
   const remember = useServerFn(addMemory);
@@ -92,7 +100,7 @@ export function TrackCard({ track, index }: { track: CardTrack; index: number })
         <div className="flex shrink-0 flex-col gap-1">
           <button
             aria-label="Play preview"
-            onClick={() => setPlaying((p) => !p)}
+            onClick={() => (onPlay ? onPlay() : setPlaying((p) => !p))}
             disabled={!canEmbed && !track.preview_url}
             className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:scale-105 disabled:opacity-30"
           >
