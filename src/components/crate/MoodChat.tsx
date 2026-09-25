@@ -26,6 +26,7 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { TrackCard, type CardTrack } from "./TrackCard";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import logo from "@/assets/crate-logo.jpg";
 
 export const PRESETS = [
