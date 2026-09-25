@@ -26,6 +26,7 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { TrackCard, type CardTrack } from "./TrackCard";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import logo from "@/assets/crate-logo.jpg";
 
 export const PRESETS = [
@@ -232,6 +233,24 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
               />
               Deep cuts
             </label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="About deep cuts"
+                    className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-muted-foreground/40 text-[10px] leading-none text-muted-foreground transition hover:border-primary hover:text-primary"
+                  >
+                    ?
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[240px]">
+                  Skips tracks you have played a lot recently and digs up
+                  overlooked ones instead — album tracks, older saves and songs
+                  you have not heard in years.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <PromptInput onSubmit={(msg) => send(msg.text)}>
             <PromptInputTextarea
