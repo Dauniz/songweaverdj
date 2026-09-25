@@ -153,7 +153,7 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
             <Message
               key={m.id}
               from={m.role}
-              className={cn("chat-message-reveal", m.role === "assistant" && "max-w-full")}
+              className={cn("chat-message-reveal", m.role === "assistant" && "!max-w-full")}
             >
               <MessageContent
                 className={cn(
@@ -235,7 +235,7 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
             </Message>
           ))}
           {status === "submitted" && (
-            <Message from="assistant" className="max-w-full">
+            <Message from="assistant" className="!max-w-full">
               <MessageContent className="bg-transparent">
                 <Shimmer>Listening to your vibe…</Shimmer>
               </MessageContent>
