@@ -65,11 +65,11 @@ export function SpotifyOpenDialog({
           )}
           {reconnect ? (
             <AlertDialogAction onClick={onReconnect}>Reconnect Spotify</AlertDialogAction>
-          ) : (
+          ) : !premium ? (
             <AlertDialogAction onClick={onOpenSpotify}>
               <ExternalLink /> Open Spotify
             </AlertDialogAction>
-          )}
+          ) : null}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

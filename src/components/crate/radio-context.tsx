@@ -15,9 +15,9 @@ export type SpotifyPlaybackIssue = {
   message: string;
 };
 
-/** Real Spotify tracks play through the Spotify embed; others need an audio preview. */
+/** Spotify Connect can play only real Spotify catalog tracks. */
 export function isPlayable(t: CardTrack) {
-  return Boolean(t.preview_url || (t.spotify_id && !t.spotify_id.startsWith("demo-")));
+  return Boolean(t.spotify_id && !t.spotify_id.startsWith("demo-"));
 }
 
 export const STEER_CHIPS = [
