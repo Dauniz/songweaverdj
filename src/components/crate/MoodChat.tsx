@@ -158,7 +158,7 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
                                 <TrackCard key={t.id} track={t} index={j} />
                               ))}
                             </div>
-                            {out.tracks.some((t) => t.preview_url) && (
+                            {out.tracks.length > 0 && (
                               <button
                                 onClick={() => startRadio(out.tracks, lastUserText.current || out.vibe_title)}
                                 className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition hover:scale-[1.02]"

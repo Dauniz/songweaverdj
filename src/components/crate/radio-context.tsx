@@ -105,6 +105,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const startRadio = useCallback(
     (tracks: CardTrack[], seedPrompt: string) => {
       const playable = tracks.filter((t) => t.preview_url);
+      // If none of the picks are playable, start empty — the background refill
+      // will queue playable tracks from the library.
       feedbackRef.current = [];
       playedIdsRef.current = [];
       const state: RadioState = {
