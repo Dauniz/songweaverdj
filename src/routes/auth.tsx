@@ -13,7 +13,10 @@ export const Route = createFileRoute("/auth")({
       { title: "Sign in — Crate" },
       { name: "description", content: "Sign in to Crate, your music rediscovery companion." },
       { property: "og:title", content: "Sign in — Crate" },
-      { property: "og:description", content: "Sign in to Crate, your music rediscovery companion." },
+      {
+        property: "og:description",
+        content: "Sign in to Crate, your music rediscovery companion.",
+      },
     ],
   }),
   component: AuthPage,
@@ -77,8 +80,21 @@ function AuthPage() {
         </Button>
         <div className="my-4 text-center text-xs text-muted-foreground">or</div>
         <form onSubmit={submit} className="space-y-3">
-          <Input type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <Input type="password" required minLength={6} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <Input
+            type="email"
+            required
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Input
+            type="password"
+            required
+            minLength={6}
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
           <Button type="submit" disabled={busy} className="w-full">
             {mode === "in" ? "Sign in" : "Create account"}
           </Button>

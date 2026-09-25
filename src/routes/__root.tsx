@@ -82,7 +82,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Crate — Music rediscovery companion" },
       { name: "description", content: "Resurface buried favorites from your monthly playlists." },
       { property: "og:title", content: "Crate — Music rediscovery companion" },
-      { property: "og:description", content: "Resurface buried favorites from your monthly playlists." },
+      {
+        property: "og:description",
+        content: "Resurface buried favorites from your monthly playlists.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

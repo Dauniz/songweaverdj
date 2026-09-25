@@ -16,19 +16,37 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input";
-import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@/components/ai-elements/tool";
+import {
+  Tool,
+  ToolContent,
+  ToolHeader,
+  ToolInput,
+  ToolOutput,
+} from "@/components/ai-elements/tool";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { TrackCard, type CardTrack } from "./TrackCard";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/crate-logo.jpg";
 
 export const PRESETS = [
-  { label: "Late-night coding", prompt: "Late night coding session, need focus but with some warmth — nothing too busy." },
-  { label: "Nostalgic drive", prompt: "Nostalgic drive at golden hour, windows down, feeling sentimental." },
+  {
+    label: "Late-night coding",
+    prompt: "Late night coding session, need focus but with some warmth — nothing too busy.",
+  },
+  {
+    label: "Nostalgic drive",
+    prompt: "Nostalgic drive at golden hour, windows down, feeling sentimental.",
+  },
   { label: "Rainy focus", prompt: "Rainy afternoon, deep focus, moody and soft." },
-  { label: "Sunday reset", prompt: "Slow Sunday morning reset, coffee, cleaning the apartment, gentle and hopeful." },
+  {
+    label: "Sunday reset",
+    prompt: "Slow Sunday morning reset, coffee, cleaning the apartment, gentle and hopeful.",
+  },
   { label: "Pre-party hype", prompt: "Getting ready to go out, want energy and swagger." },
-  { label: "Heartache hours", prompt: "Bit heartbroken tonight, want songs that sit with the feeling." },
+  {
+    label: "Heartache hours",
+    prompt: "Bit heartbroken tonight, want songs that sit with the feeling.",
+  },
 ];
 
 const ERAS = ["Any era", "2+ years ago", "Last year", "This year"] as const;
@@ -86,11 +104,17 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
         <ConversationContent className="mx-auto w-full max-w-3xl">
           {messages.length === 0 && (
             <div className="flex flex-col items-center py-16 text-center">
-              <img src={logo} alt="Crate" width={80} height={80} className="h-20 w-20 rounded-2xl" />
+              <img
+                src={logo}
+                alt="Crate"
+                width={80}
+                height={80}
+                className="h-20 w-20 rounded-2xl"
+              />
               <h2 className="mt-6 text-3xl font-bold">What does today sound like?</h2>
               <p className="mt-2 max-w-md text-muted-foreground">
-                Describe your mood, where you are, what you're doing. I'll dig up tracks you already love
-                from your past playlists.
+                Describe your mood, where you are, what you're doing. I'll dig up tracks you already
+                love from your past playlists.
               </p>
             </div>
           )}
@@ -105,18 +129,24 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
               >
                 {m.parts.map((part, i) => {
                   if (part.type === "text") {
-                    const shown = m.role === "user" ? part.text.replace(/\n\n\(Filters:[^)]*\)$/, "") : part.text;
+                    const shown =
+                      m.role === "user"
+                        ? part.text.replace(/\n\n\(Filters:[^)]*\)$/, "")
+                        : part.text;
                     return <MessageResponse key={i}>{shown}</MessageResponse>;
                   }
                   if (part.type === "tool-recommend_tracks") {
-                    const out = part.state === "output-available"
-                      ? (part.output as { vibe_title: string; tracks: CardTrack[] })
-                      : null;
+                    const out =
+                      part.state === "output-available"
+                        ? (part.output as { vibe_title: string; tracks: CardTrack[] })
+                        : null;
                     return (
                       <div key={i} className="my-2 w-full">
                         {out ? (
                           <>
-                            <div className="mb-2 font-display text-lg font-bold text-primary">{out.vibe_title}</div>
+                            <div className="mb-2 font-display text-lg font-bold text-primary">
+                              {out.vibe_title}
+                            </div>
                             <div className="grid gap-2 sm:grid-cols-2">
                               {out.tracks.map((t, j) => (
                                 <TrackCard key={t.id} track={t} index={j} />
@@ -134,7 +164,11 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
                   if (part.type === "tool-save_memory") {
                     return (
                       <Tool key={i} defaultOpen={false} className="my-1">
-                        <ToolHeader type={part.type} state={part.state} title="Saved to Walrus Memory" />
+                        <ToolHeader
+                          type={part.type}
+                          state={part.state}
+                          title="Saved to Walrus Memory"
+                        />
                         <ToolContent>
                           <ToolInput input={part.input} />
                           {part.state === "output-available" && (
@@ -181,14 +215,21 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
                 onClick={() => setEra(e)}
                 className={cn(
                   "rounded-full px-2.5 py-1 transition",
-                  era === e ? "bg-magenta text-magenta-foreground" : "text-muted-foreground hover:text-foreground",
+                  era === e
+                    ? "bg-magenta text-magenta-foreground"
+                    : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {e}
               </button>
             ))}
             <label className="ml-auto inline-flex cursor-pointer items-center gap-1.5 text-muted-foreground">
-              <input type="checkbox" checked={deepCuts} onChange={(e) => setDeepCuts(e.target.checked)} className="accent-primary" />
+              <input
+                type="checkbox"
+                checked={deepCuts}
+                onChange={(e) => setDeepCuts(e.target.checked)}
+                className="accent-primary"
+              />
               Deep cuts
             </label>
           </div>

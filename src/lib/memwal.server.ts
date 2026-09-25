@@ -1,12 +1,6 @@
 import { MemWal } from "@mysten-incubation/memwal";
 
-export type MemoryKind =
-  | "taste"
-  | "genre"
-  | "mood_trigger"
-  | "skipped"
-  | "session"
-  | "favorite";
+export type MemoryKind = "taste" | "genre" | "mood_trigger" | "skipped" | "session" | "favorite";
 
 export function memwalConfigured() {
   return Boolean(process.env["MEMWAL_PRIVATE_KEY"] && process.env["MEMWAL_ACCOUNT_ID"]);

@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { exchangeToken, spotifyGet, verifyState } from "@/lib/spotify.server";
 
 const esc = (s: string) =>
-  s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+  s.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
 
 function page(rawMessage: string, ok: boolean) {
   const message = esc(rawMessage);
@@ -31,7 +34,10 @@ export const Route = createFileRoute("/api/public/spotify/callback")({
             redirect_uri: `${st.o}/api/public/spotify/callback`,
           });
           if (!tok.refresh_token) return page("No refresh token returned.", false);
-          const me = await spotifyGet<{ display_name?: string; id: string }>(tok.access_token, "/me");
+          const me = await spotifyGet<{ display_name?: string; id: string }>(
+            tok.access_token,
+            "/me",
+          );
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { error } = await supabaseAdmin.from("spotify_connections").upsert({
             user_id: st.u,

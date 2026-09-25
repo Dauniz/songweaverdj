@@ -59,7 +59,10 @@ export function MemoryInspector() {
     return () => clearInterval(t);
   }, [hasPending, refresh, qc]);
 
-  const counts = nodes.reduce<Record<string, number>>((a, n) => ((a[n.kind] = (a[n.kind] ?? 0) + 1), a), {});
+  const counts = nodes.reduce<Record<string, number>>(
+    (a, n) => ((a[n.kind] = (a[n.kind] ?? 0) + 1), a),
+    {},
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -86,7 +89,8 @@ export function MemoryInspector() {
           </span>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" /> Walrus keys not added — memories saved locally
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" /> Walrus keys not added
+            — memories saved locally
           </span>
         )}
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -104,11 +108,16 @@ export function MemoryInspector() {
           </p>
         )}
         {nodes.map((n) => {
-          const s = STATUS[n.status] ?? STATUS['local']!;
+          const s = STATUS[n.status] ?? STATUS["local"]!;
           return (
             <div key={n.id} className="rounded-lg border bg-surface p-3">
               <div className="flex items-center justify-between gap-2">
-                <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", KIND_STYLE[n.kind])}>
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                    KIND_STYLE[n.kind],
+                  )}
+                >
                   {KIND_LABEL[n.kind] ?? n.kind}
                 </span>
                 <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
@@ -118,7 +127,11 @@ export function MemoryInspector() {
               <p className="mt-2 text-sm">{n.content}</p>
               <div className="mt-2 flex justify-between gap-2 font-mono text-[10px] text-muted-foreground">
                 <span className="truncate">
-                  {n.blob_id && !n.blob_id.startsWith("job:") ? `blob ${n.blob_id.slice(0, 18)}…` : n.blob_id ? "awaiting blob" : "—"}
+                  {n.blob_id && !n.blob_id.startsWith("job:")
+                    ? `blob ${n.blob_id.slice(0, 18)}…`
+                    : n.blob_id
+                      ? "awaiting blob"
+                      : "—"}
                 </span>
                 <span>{new Date(n.created_at).toLocaleDateString()}</span>
               </div>

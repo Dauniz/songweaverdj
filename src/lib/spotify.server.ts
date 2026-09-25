@@ -20,9 +20,9 @@ function stateSecret() {
 }
 
 export function signState(userId: string, returnOrigin: string) {
-  const payload = Buffer.from(JSON.stringify({ u: userId, o: returnOrigin, t: Date.now() })).toString(
-    "base64url",
-  );
+  const payload = Buffer.from(
+    JSON.stringify({ u: userId, o: returnOrigin, t: Date.now() }),
+  ).toString("base64url");
   const sig = createHmac("sha256", stateSecret()).update(payload).digest("base64url");
   return `${payload}.${sig}`;
 }
@@ -113,11 +113,20 @@ export async function spotifyGet<T>(token: string, path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-const MONTHS = [
-  "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
-];
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 const FULL = [
-  "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december",
+  "january",
+  "february",
+  "march",
+  "april",
+  "may",
+  "june",
+  "july",
+  "august",
+  "september",
+  "october",
+  "november",
+  "december",
 ];
 
 /** Try to read a month/year out of playlist names like "Oct 2024", "october '23", "2024-10". */

@@ -101,7 +101,10 @@ const PLAYLISTS: { name: string; period: string; tracks: Demo[] }[] = [
 ];
 
 function slug(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
 export function buildDemoRows(userId: string) {

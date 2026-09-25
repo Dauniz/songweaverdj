@@ -22,7 +22,8 @@ export type CardTrack = {
 };
 
 function sourceLabel(t: CardTrack) {
-  if (t.source_type === "saved") return `From your Liked Songs${t.period_label ? ` · ${t.period_label}` : ""}`;
+  if (t.source_type === "saved")
+    return `From your Liked Songs${t.period_label ? ` · ${t.period_label}` : ""}`;
   if (t.source_type === "recent") return "From your recent listening";
   return `From your ${t.source_name} playlist`;
 }
@@ -47,7 +48,9 @@ export function TrackCard({ track, index }: { track: CardTrack; index: number })
         },
       });
       qc.invalidateQueries({ queryKey: ["memories"] });
-      toast.success(kind === "favorite" ? "Saved to your taste memory" : "Won't suggest that again");
+      toast.success(
+        kind === "favorite" ? "Saved to your taste memory" : "Won't suggest that again",
+      );
     } catch (e) {
       setActed(null);
       toast.error(e instanceof Error ? e.message : "Couldn't save memory");
@@ -64,13 +67,20 @@ export function TrackCard({ track, index }: { track: CardTrack; index: number })
       <div className="flex gap-3">
         <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-primary/60 to-magenta/60">
           {track.image_url ? (
-            <img src={track.image_url} alt={track.album ?? track.name} className="h-full w-full object-cover" loading="lazy" />
+            <img
+              src={track.image_url}
+              alt={track.album ?? track.name}
+              className="h-full w-full object-cover"
+              loading="lazy"
+            />
           ) : (
             <div className="flex h-full w-full items-center justify-center font-display text-xl font-bold text-primary-foreground">
               {track.name.slice(0, 1)}
             </div>
           )}
-          <span className="absolute left-1 top-1 rounded bg-background/80 px-1 text-[10px] font-bold">{index + 1}</span>
+          <span className="absolute left-1 top-1 rounded bg-background/80 px-1 text-[10px] font-bold">
+            {index + 1}
+          </span>
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold">{track.name}</div>
@@ -101,7 +111,9 @@ export function TrackCard({ track, index }: { track: CardTrack; index: number })
           )}
         </div>
       </div>
-      {track.reason && <p className="mt-3 text-sm leading-relaxed text-foreground/85">{track.reason}</p>}
+      {track.reason && (
+        <p className="mt-3 text-sm leading-relaxed text-foreground/85">{track.reason}</p>
+      )}
       {playing &&
         (canEmbed ? (
           <iframe

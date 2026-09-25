@@ -16,7 +16,11 @@ import { Input } from "@/components/ui/input";
 
 function period(p: string | null) {
   if (!p) return "Undated";
-  return new Date(p + "T00:00:00Z").toLocaleString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+  return new Date(p + "T00:00:00Z").toLocaleString("en-US", {
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 }
 
 export function LibraryPanel() {
@@ -59,7 +63,11 @@ export function LibraryPanel() {
     const m = new Map<string, { label: string; period: string | null; items: typeof tracks }>();
     for (const t of tracks) {
       if (f && !`${t.name} ${t.artists}`.toLowerCase().includes(f)) continue;
-      const g = m.get(t.source_name) ?? { label: t.source_name, period: t.source_period, items: [] };
+      const g = m.get(t.source_name) ?? {
+        label: t.source_name,
+        period: t.source_period,
+        items: [],
+      };
       g.items.push(t);
       m.set(t.source_name, g);
     }
@@ -131,13 +139,23 @@ export function LibraryPanel() {
           ) : status.connected ? (
             <>
               <p className="mt-1 text-xs text-muted-foreground">
-                {status.displayName} · {status.lastSyncedAt ? `synced ${new Date(status.lastSyncedAt).toLocaleString()}` : "not synced yet"}
+                {status.displayName} ·{" "}
+                {status.lastSyncedAt
+                  ? `synced ${new Date(status.lastSyncedAt).toLocaleString()}`
+                  : "not synced yet"}
               </p>
               <div className="mt-2 flex gap-2">
                 <Button size="sm" onClick={sync} disabled={busy !== null}>
                   {busy === "sync" && <Loader2 className="h-3 w-3 animate-spin" />} Sync library
                 </Button>
-                <Button size="sm" variant="ghost" onClick={async () => { await disconnectFn(); qc.invalidateQueries({ queryKey: ["spotify-status"] }); }}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={async () => {
+                    await disconnectFn();
+                    qc.invalidateQueries({ queryKey: ["spotify-status"] });
+                  }}
+                >
                   Disconnect
                 </Button>
               </div>
@@ -150,23 +168,34 @@ export function LibraryPanel() {
         </div>
         <div className="flex gap-2">
           {hasDemo ? (
-            <Button size="xs" variant="outline" onClick={clearDemo}>Remove demo tracks</Button>
+            <Button size="xs" variant="outline" onClick={clearDemo}>
+              Remove demo tracks
+            </Button>
           ) : (
             <Button size="xs" variant="outline" onClick={loadDemo} disabled={busy !== null}>
               {busy === "demo" && <Loader2 className="h-3 w-3 animate-spin" />} Load demo library
             </Button>
           )}
-          <span className="ml-auto self-center text-xs text-muted-foreground">{tracks.length} tracks</span>
+          <span className="ml-auto self-center text-xs text-muted-foreground">
+            {tracks.length} tracks
+          </span>
         </div>
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search your crate" className="pl-8" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search your crate"
+            className="pl-8"
+          />
         </div>
       </div>
       <div className="scrollbar-thin flex-1 overflow-y-auto p-2">
         {isLoading && <p className="p-3 text-sm text-muted-foreground">Loading…</p>}
         {!isLoading && groups.length === 0 && (
-          <p className="p-3 text-sm text-muted-foreground">Nothing here yet. Connect Spotify or load the demo library.</p>
+          <p className="p-3 text-sm text-muted-foreground">
+            Nothing here yet. Connect Spotify or load the demo library.
+          </p>
         )}
         {groups.map((g) => (
           <div key={g.label} className="mb-1">
@@ -176,7 +205,9 @@ export function LibraryPanel() {
             >
               <div>
                 <div className="text-sm font-semibold">{g.label}</div>
-                <div className="text-xs text-muted-foreground">{period(g.period)} · {g.items.length} tracks</div>
+                <div className="text-xs text-muted-foreground">
+                  {period(g.period)} · {g.items.length} tracks
+                </div>
               </div>
             </button>
             {(open === g.label || q) && (

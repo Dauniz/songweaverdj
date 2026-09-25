@@ -32,9 +32,9 @@ function Index() {
           Your best songs are buried in <span className="text-magenta">Oct 2024</span>.
         </h1>
         <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-          Tell Crate how today feels — late-night coding, nostalgic drive, rainy focus — and it
-          digs through every monthly playlist you've ever made to bring back the tracks you forgot
-          you loved. It remembers your taste on Walrus, so every session gets sharper.
+          Tell Crate how today feels — late-night coding, nostalgic drive, rainy focus — and it digs
+          through every monthly playlist you've ever made to bring back the tracks you forgot you
+          loved. It remembers your taste on Walrus, so every session gets sharper.
         </p>
         <div className="mt-10">
           <Link

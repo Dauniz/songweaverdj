@@ -14,9 +14,15 @@ export const Route = createFileRoute("/_authenticated/studio")({
   head: () => ({
     meta: [
       { title: "Studio — Crate" },
-      { name: "description", content: "Chat your vibe and rediscover tracks from your past playlists." },
+      {
+        name: "description",
+        content: "Chat your vibe and rediscover tracks from your past playlists.",
+      },
       { property: "og:title", content: "Studio — Crate" },
-      { property: "og:description", content: "Chat your vibe and rediscover tracks from your past playlists." },
+      {
+        property: "og:description",
+        content: "Chat your vibe and rediscover tracks from your past playlists.",
+      },
     ],
   }),
   component: Studio,
@@ -63,22 +69,41 @@ function Studio() {
             </button>
           ))}
         </nav>
-        <button onClick={signOut} aria-label="Sign out" className="ml-auto rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground">
+        <button
+          onClick={signOut}
+          aria-label="Sign out"
+          className="ml-auto rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
           <LogOut className="h-4 w-4" />
         </button>
       </header>
       <div className="flex min-h-0 flex-1">
-        <aside className={cn("w-full border-r bg-sidebar lg:block lg:w-80", mobileTab === "library" ? "block" : "hidden")}>
+        <aside
+          className={cn(
+            "w-full border-r bg-sidebar lg:block lg:w-80",
+            mobileTab === "library" ? "block" : "hidden",
+          )}
+        >
           <LibraryPanel />
         </aside>
-        <main className={cn("min-w-0 flex-1 bg-glow lg:block", mobileTab === "chat" ? "block" : "hidden")}>
+        <main
+          className={cn(
+            "min-w-0 flex-1 bg-glow lg:block",
+            mobileTab === "chat" ? "block" : "hidden",
+          )}
+        >
           {isLoading ? (
             <div className="p-8 text-muted-foreground">Loading your session…</div>
           ) : (
             <MoodChat initialMessages={history ?? []} />
           )}
         </main>
-        <aside className={cn("w-full border-l bg-sidebar lg:block lg:w-80", mobileTab === "memory" ? "block" : "hidden")}>
+        <aside
+          className={cn(
+            "w-full border-l bg-sidebar lg:block lg:w-80",
+            mobileTab === "memory" ? "block" : "hidden",
+          )}
+        >
           <MemoryInspector />
         </aside>
       </div>

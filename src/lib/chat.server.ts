@@ -1,12 +1,6 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createClient } from "@supabase/supabase-js";
-import {
-  convertToModelMessages,
-  stepCountIs,
-  streamText,
-  tool,
-  type UIMessage,
-} from "ai";
+import { convertToModelMessages, stepCountIs, streamText, tool, type UIMessage } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import {
@@ -150,7 +144,9 @@ ${libLines.join("\n") || "(empty)"}`;
       recommend_tracks: tool({
         description: "Show rediscovery cards for tracks from the user's library.",
         inputSchema: z.object({
-          vibe_title: z.string().describe("Short evocative title for this session, e.g. 'Neon rain focus'"),
+          vibe_title: z
+            .string()
+            .describe("Short evocative title for this session, e.g. 'Neon rain focus'"),
           picks: z
             .array(
               z.object({
@@ -165,7 +161,9 @@ ${libLines.join("\n") || "(empty)"}`;
           const cards = picks
             .map((p) => {
               const t = index.get(p.code.trim());
-              return t ? { ...t, reason: p.reason, period_label: fmtPeriod(t.source_period) } : null;
+              return t
+                ? { ...t, reason: p.reason, period_label: fmtPeriod(t.source_period) }
+                : null;
             })
             .filter(Boolean) as Array<Record<string, unknown>>;
           const ids = cards.map((c) => c["id"] as string);
@@ -215,7 +213,8 @@ ${libLines.join("\n") || "(empty)"}`;
     onError: (e) => {
       console.error("chat stream error", e);
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("402")) return "AI credits are used up. Add credits in Settings → Plans & credits.";
+      if (msg.includes("402"))
+        return "AI credits are used up. Add credits in Settings → Plans & credits.";
       if (msg.includes("429")) return "Too many requests right now — try again in a moment.";
       return "Something went wrong generating a reply.";
     },

@@ -69,7 +69,10 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
 
     let token = conn.access_token;
     if (new Date(conn.expires_at).getTime() < Date.now() + 60_000) {
-      const t = await exchangeToken({ grant_type: "refresh_token", refresh_token: conn.refresh_token });
+      const t = await exchangeToken({
+        grant_type: "refresh_token",
+        refresh_token: conn.refresh_token,
+      });
       token = t.access_token;
       await supabaseAdmin
         .from("spotify_connections")
