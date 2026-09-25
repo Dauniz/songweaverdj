@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Disc3, Loader2, Search } from "lucide-react";
+import { Disc3, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -12,7 +12,6 @@ import {
 } from "@/lib/spotify.functions";
 import { buildDemoRows } from "@/lib/demo-library";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 function period(p: string | null) {
   if (!p) return "Undated";
@@ -31,7 +30,6 @@ export function LibraryPanel() {
   const disconnectFn = useServerFn(disconnectSpotify);
   const [busy, setBusy] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState<string | null>(null);
 
   const { data: status } = useQuery({ queryKey: ["spotify-status"], queryFn: () => statusFn() });
   const { data: tracks = [], isLoading } = useQuery({
@@ -180,48 +178,13 @@ export function LibraryPanel() {
             {tracks.length} tracks
           </span>
         </div>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search your crate"
-            className="pl-8"
-          />
-        </div>
       </div>
-      <div className="scrollbar-thin flex-1 overflow-y-auto p-2">
-        {isLoading && <p className="p-3 text-sm text-muted-foreground">Loading…</p>}
-        {!isLoading && groups.length === 0 && (
-          <p className="p-3 text-sm text-muted-foreground">
-            Nothing here yet. Connect Spotify or load the demo library.
-          </p>
-        )}
-        {groups.map((g) => (
-          <div key={g.label} className="mb-1">
-            <button
-              onClick={() => setOpen(open === g.label ? null : g.label)}
-              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left hover:bg-surface"
-            >
-              <div>
-                <div className="text-sm font-semibold">{g.label}</div>
-                <div className="text-xs text-muted-foreground">
-                  {period(g.period)} · {g.items.length} tracks
-                </div>
-              </div>
-            </button>
-            {(open === g.label || q) && (
-              <ul className="mb-2 ml-3 border-l pl-3">
-                {g.items.map((t) => (
-                  <li key={t.id} className="py-1 text-sm">
-                    <span className="font-medium">{t.name}</span>
-                    <span className="text-muted-foreground"> — {t.artists}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
+      <div className="flex-1 p-4 text-xs text-muted-foreground">
+        {isLoading
+          ? "Loading…"
+          : tracks.length
+            ? `Crate knows ${tracks.length} tracks from ${groups.length} sources. Just tell it your vibe.`
+            : "Nothing here yet. Connect Spotify or load the demo library."}
       </div>
     </div>
   );

@@ -74,13 +74,27 @@ export async function handleChat(request: Request) {
     if (error) console.error("save user message failed", error);
   }
 
-  // Library context
-  const { data: lib } = await supabase
-    .from("library_tracks")
-    .select("id, name, artists, album, source_name, source_period, source_type")
-    .order("source_period", { ascending: true, nullsFirst: true })
-    .limit(700);
-  const tracks = lib ?? [];
+  // Library context — load the full library in pages of 1000 (capped for prompt size)
+  const tracks: {
+    id: string;
+    name: string;
+    artists: string;
+    album: string | null;
+    source_name: string;
+    source_period: string | null;
+    source_type: string;
+  }[] = [];
+  for (let from = 0; from < 6000; from += 1000) {
+    const { data: page } = await supabase
+      .from("library_tracks")
+      .select("id, name, artists, album, source_name, source_period, source_type")
+      .order("source_period", { ascending: true, nullsFirst: true })
+      .order("id")
+      .range(from, from + 999);
+    if (!page?.length) break;
+    tracks.push(...page);
+    if (page.length < 1000) break;
+  }
   const index = new Map<string, (typeof tracks)[number]>();
   const libLines = tracks.map((t, i) => {
     const code = `T${i}`;

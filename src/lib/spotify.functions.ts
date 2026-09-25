@@ -87,31 +87,49 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
 
     const rows: IngestRow[] = [];
 
-    // Playlists (up to 40, 100 tracks each)
-    const playlists = await spotifyGet<{
-      items: { id: string; name: string; tracks: { total: number } }[];
-    }>(token, "/me/playlists?limit=40");
-    for (const pl of playlists.items ?? []) {
-      if (!pl) continue;
+    // All playlists (paginated)
+    type Pl = { id: string; name: string };
+    const allPlaylists: Pl[] = [];
+    let plNext: string | null = "/me/playlists?limit=50";
+    while (plNext && allPlaylists.length < 500) {
+      const page: { items: (Pl | null)[]; next: string | null } = await spotifyGet(token, plNext);
+      for (const p of page.items ?? []) if (p) allPlaylists.push(p);
+      plNext = page.next;
+    }
+    const playlists = { items: allPlaylists };
+
+    type PlItems = {
+      items: {
+        added_at: string;
+        track?: Parameters<typeof toRow>[0];
+        item?: Parameters<typeof toRow>[0];
+      }[];
+      next: string | null;
+    };
+    for (const pl of allPlaylists) {
       try {
-        type PlItems = {
-          items: {
-            added_at: string;
-            track?: Parameters<typeof toRow>[0];
-            item?: Parameters<typeof toRow>[0];
-          }[];
-        };
         // Spotify renamed /tracks → /items (2026); try the new endpoint first.
-        let tracks: PlItems;
+        let first: PlItems;
+        let base = "items";
         try {
-          tracks = await spotifyGet<PlItems>(token, `/playlists/${pl.id}/items?limit=100`);
+          first = await spotifyGet<PlItems>(token, `/playlists/${pl.id}/items?limit=100`);
         } catch {
-          tracks = await spotifyGet<PlItems>(token, `/playlists/${pl.id}/tracks?limit=100`);
+          base = "tracks";
+          first = await spotifyGet<PlItems>(token, `/playlists/${pl.id}/tracks?limit=100`);
         }
-        tracks.items = (tracks.items ?? []).map((it) => ({ ...it, track: it.track ?? it.item }));
-        const firstAdded = tracks.items?.[0]?.added_at?.slice(0, 7);
+        const items = [...(first.items ?? [])];
+        let next = first.next;
+        let guard = 0;
+        while (next && guard++ < 50) {
+          const page = await spotifyGet<PlItems>(token, next);
+          items.push(...(page.items ?? []));
+          next = page.next;
+        }
+        void base;
+        const norm = items.map((it) => ({ ...it, track: it.track ?? it.item }));
+        const firstAdded = norm[0]?.added_at?.slice(0, 7);
         const period = guessPeriod(pl.name) ?? (firstAdded ? `${firstAdded}-01` : null);
-        for (const it of tracks.items ?? []) {
+        for (const it of norm) {
           const r = toRow(it.track, "playlist", pl.name, period);
           if (r) rows.push(r);
         }
@@ -120,8 +138,8 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       }
     }
 
-    // Saved tracks (first 200)
-    for (let offset = 0; offset < 200; offset += 50) {
+    // All saved tracks (paginated)
+    for (let offset = 0; offset < 10000; offset += 50) {
       const saved = await spotifyGet<{
         items: { added_at: string; track: Parameters<typeof toRow>[0] }[];
         next: string | null;
