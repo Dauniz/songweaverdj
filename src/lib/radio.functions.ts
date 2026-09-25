@@ -262,11 +262,11 @@ ${libLines.join("\n") || "(empty)"}`;
 
     // Consume the stream server-side and extract the tool call
     const steps = await result.steps;
-    let queued: { mode: "era" | "vibe"; mode_label: string; picks: { code: string }[] } | null =
-      null;
+    type Queued = { mode: "era" | "vibe"; mode_label: string; picks: { code: string }[] };
+    let queued: Queued | null = null;
     for (const step of steps) {
       for (const tc of step.toolCalls) {
-        if (tc.toolName === "queue_tracks") queued = tc.input as typeof queued;
+        if (tc.toolName === "queue_tracks") queued = tc.input as Queued;
       }
     }
     if (!queued) throw new Error("The DJ couldn't queue more tracks right now.");
