@@ -56,9 +56,35 @@ export const disconnectSpotify = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+type SyncProgress = {
+  stage: string;
+  done: number;
+  total: number | null;
+  finished: boolean;
+  error?: string;
+  result?: { imported: number; playlists: number; liked: number; recent: number };
+};
+const syncProgress = new Map<string, SyncProgress>();
+
+export const getSyncProgress = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    return syncProgress.get(context.userId) ?? null;
+  });
+
 export const syncSpotifyLibrary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const setP = (p: Partial<SyncProgress>) =>
+      syncProgress.set(context.userId, {
+        stage: "Starting…",
+        done: 0,
+        total: null,
+        finished: false,
+        ...syncProgress.get(context.userId),
+        ...p,
+      });
+    setP({ finished: false });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: conn } = await supabaseAdmin
       .from("spotify_connections")
@@ -86,8 +112,12 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
     }
 
     const rows: IngestRow[] = [];
+    let likedCount = 0;
+    let recentCount = 0;
 
+    try {
     // Only playlists the user created themselves (skip followed/saved ones by others)
+    setP({ stage: "Fetching your playlists…" });
     const me = await spotifyGet<{ id: string }>(token, "/me");
     type Pl = { id: string; name: string; owner?: { id?: string } };
     const allPlaylists: Pl[] = [];
@@ -107,7 +137,14 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       }[];
       next: string | null;
     };
+    let plDone = 0;
     for (const pl of allPlaylists) {
+      plDone += 1;
+      setP({
+        stage: `Importing playlist ${plDone}/${allPlaylists.length}: ${pl.name}`,
+        done: plDone,
+        total: allPlaylists.length,
+      });
       try {
         // Spotify renamed /tracks → /items (2026); try the new endpoint first.
         let first: PlItems;
@@ -139,26 +176,36 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
     }
 
     // All saved tracks (paginated)
+    setP({ stage: "Importing Liked Songs…", done: 0, total: null });
     for (let offset = 0; ; offset += 50) {
       const saved = await spotifyGet<{
         items: { added_at: string; track: Parameters<typeof toRow>[0] }[];
         next: string | null;
+        total?: number;
       }>(token, `/me/tracks?limit=50&offset=${offset}`);
       for (const it of saved.items ?? []) {
         const r = toRow(it.track, "saved", "Liked Songs", `${it.added_at.slice(0, 7)}-01`);
-        if (r) rows.push(r);
+        if (r) {
+          rows.push(r);
+          likedCount += 1;
+        }
       }
+      setP({ done: offset + (saved.items?.length ?? 0), total: saved.total ?? null });
       if (!saved.next) break;
     }
 
     // Recently played
+    setP({ stage: "Importing recently played…", done: 0, total: null });
     try {
       const recent = await spotifyGet<{
         items: { played_at: string; track: Parameters<typeof toRow>[0] }[];
       }>(token, "/me/player/recently-played?limit=50");
       for (const it of recent.items ?? []) {
         const r = toRow(it.track, "recent", "Recently played", `${it.played_at.slice(0, 7)}-01`);
-        if (r) rows.push(r);
+        if (r) {
+          rows.push(r);
+          recentCount += 1;
+        }
       }
     } catch (e) {
       console.error("recent fetch failed", e);
@@ -173,17 +220,33 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       return true;
     });
 
+    setP({ stage: `Saving ${unique.length} tracks…`, done: 0, total: unique.length });
     for (let i = 0; i < unique.length; i += 500) {
       const { error } = await context.supabase.from("library_tracks").upsert(
         unique.slice(i, i + 500).map((r) => ({ ...r, user_id: context.userId, is_demo: false })),
         { onConflict: "user_id,spotify_id,source_name" },
       );
       if (error) throw new Error(error.message);
+      setP({ done: Math.min(i + 500, unique.length) });
     }
     await supabaseAdmin
       .from("spotify_connections")
       .update({ last_synced_at: new Date().toISOString() })
       .eq("user_id", context.userId);
 
-    return { imported: unique.length, playlists: playlists.items?.length ?? 0 };
+    const result = {
+      imported: unique.length,
+      playlists: playlists.items?.length ?? 0,
+      liked: likedCount,
+      recent: recentCount,
+    };
+    setP({ stage: "Done", finished: true, result });
+    return result;
+    } catch (e) {
+      setP({
+        finished: true,
+        error: e instanceof Error ? e.message : "Sync failed",
+      });
+      throw e;
+    }
   });

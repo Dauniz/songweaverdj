@@ -8,10 +8,12 @@ import {
   disconnectSpotify,
   getSpotifyAuthUrl,
   getSpotifyStatus,
+  getSyncProgress,
   syncSpotifyLibrary,
 } from "@/lib/spotify.functions";
 import { buildDemoRows } from "@/lib/demo-library";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 
 function period(p: string | null) {
   if (!p) return "Undated";
@@ -28,8 +30,27 @@ export function LibraryPanel() {
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const syncFn = useServerFn(syncSpotifyLibrary);
   const disconnectFn = useServerFn(disconnectSpotify);
+  const progressFn = useServerFn(getSyncProgress);
   const [busy, setBusy] = useState<string | null>(null);
   const [q, setQ] = useState("");
+  const [syncing, setSyncing] = useState(false);
+  const [summary, setSummary] = useState<{
+    imported: number;
+    playlists: number;
+    liked: number;
+    recent: number;
+  } | null>(null);
+
+  const { data: progress } = useQuery({
+    queryKey: ["sync-progress"],
+    queryFn: () => progressFn(),
+    enabled: syncing,
+    refetchInterval: syncing ? 700 : false,
+  });
+  const pct =
+    progress && progress.total
+      ? Math.min(100, Math.round((progress.done / progress.total) * 100))
+      : null;
 
   const { data: status } = useQuery({ queryKey: ["spotify-status"], queryFn: () => statusFn() });
   const { data: tracks = [], isLoading } = useQuery({
@@ -86,15 +107,19 @@ export function LibraryPanel() {
 
   async function sync() {
     setBusy("sync");
+    setSyncing(true);
+    setSummary(null);
     try {
       const r = await syncFn();
-      toast.success(`Imported ${r.imported} tracks from ${r.playlists} playlists`);
+      setSummary(r);
+      toast.success(`Sync complete — ${r.imported} tracks loaded`);
       qc.invalidateQueries({ queryKey: ["library"] });
       qc.invalidateQueries({ queryKey: ["spotify-status"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Sync failed");
     } finally {
       setBusy(null);
+      setSyncing(false);
     }
   }
 
@@ -142,6 +167,28 @@ export function LibraryPanel() {
                   ? `synced ${new Date(status.lastSyncedAt).toLocaleString()}`
                   : "not synced yet"}
               </p>
+              {(syncing || summary) && (
+                <div className="mt-3 space-y-2">
+                  {syncing && (
+                    <>
+                      <Progress value={pct ?? undefined} className="h-1.5" />
+                      <p className="text-xs text-muted-foreground">
+                        {progress?.stage ?? "Starting…"}
+                        {progress?.total ? ` (${progress.done}/${progress.total})` : ""}
+                      </p>
+                    </>
+                  )}
+                  {!syncing && summary && (
+                    <div className="rounded-lg border border-primary/30 bg-primary/10 p-2.5 text-xs">
+                      <p className="font-semibold text-primary">✓ Library loaded</p>
+                      <p className="mt-1 text-muted-foreground">
+                        {summary.imported} tracks · {summary.playlists} of your playlists ·{" "}
+                        {summary.liked} liked songs · {summary.recent} recently played
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="mt-2 flex gap-2">
                 <Button size="sm" onClick={sync} disabled={busy !== null}>
                   {busy === "sync" && <Loader2 className="h-3 w-3 animate-spin" />} Sync library
