@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { CirclePlus, Pause, Play, Repeat2, SkipForward, SlidersHorizontal, X } from "lucide-react";
+import { Pause, Play, Repeat2, SkipForward, SlidersHorizontal, X } from "lucide-react";
 import { SteerChips } from "./SteerChips";
 import { useRadio } from "./radio-context";
 import { cn } from "@/lib/utils";
@@ -227,14 +227,6 @@ export function RadioPlayer() {
             <div className="truncate text-sm font-medium text-player-foreground">{current.name}</div>
             <div className="truncate text-xs text-player-muted">{current.artists}</div>
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button aria-label="Save to your library" variant="ghost" size="icon-xs" className="hidden shrink-0 rounded-full text-player-muted hover:bg-transparent hover:text-player-foreground sm:inline-flex">
-                <CirclePlus className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">Save to your library</TooltipContent>
-          </Tooltip>
         </div>
 
         <div className="order-3 col-span-2 mt-1 flex min-w-0 flex-col items-center md:order-none md:col-span-1 md:mt-0">
