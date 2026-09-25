@@ -94,9 +94,21 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
     for (const pl of playlists.items ?? []) {
       if (!pl) continue;
       try {
-        const tracks = await spotifyGet<{
-          items: { added_at: string; track: Parameters<typeof toRow>[0] }[];
-        }>(token, `/playlists/${pl.id}/tracks?limit=100`);
+        type PlItems = {
+          items: {
+            added_at: string;
+            track?: Parameters<typeof toRow>[0];
+            item?: Parameters<typeof toRow>[0];
+          }[];
+        };
+        // Spotify renamed /tracks → /items (2026); try the new endpoint first.
+        let tracks: PlItems;
+        try {
+          tracks = await spotifyGet<PlItems>(token, `/playlists/${pl.id}/items?limit=100`);
+        } catch {
+          tracks = await spotifyGet<PlItems>(token, `/playlists/${pl.id}/tracks?limit=100`);
+        }
+        tracks.items = (tracks.items ?? []).map((it) => ({ ...it, track: it.track ?? it.item }));
         const firstAdded = tracks.items?.[0]?.added_at?.slice(0, 7);
         const period = guessPeriod(pl.name) ?? (firstAdded ? `${firstAdded}-01` : null);
         for (const it of tracks.items ?? []) {
