@@ -25,6 +25,8 @@ import {
 } from "@/components/ai-elements/tool";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { TrackCard, type CardTrack } from "./TrackCard";
+import { useRadio } from "./radio-context";
+import { Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import logo from "@/assets/crate-logo.jpg";
@@ -58,6 +60,8 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
   const [era, setEra] = useState<(typeof ERAS)[number]>("Any era");
   const [deepCuts, setDeepCuts] = useState(true);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { startRadio } = useRadio();
+  const lastUserText = useRef("");
 
   const transport = useMemo(
     () =>
@@ -92,6 +96,7 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
   function send(raw: string) {
     const t = raw.trim();
     if (!t || busy) return;
+    lastUserText.current = t;
     const filters: string[] = [];
     if (era !== "Any era") filters.push(`era: ${era}`);
     if (deepCuts) filters.push("prefer deep cuts I haven't heard in a while");
@@ -153,6 +158,14 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
                                 <TrackCard key={t.id} track={t} index={j} />
                               ))}
                             </div>
+                            {out.tracks.length > 0 && (
+                              <button
+                                onClick={() => startRadio(out.tracks, lastUserText.current || out.vibe_title)}
+                                className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground transition hover:scale-[1.02]"
+                              >
+                                <Radio className="h-3.5 w-3.5" /> Start vibe radio from these picks
+                              </button>
+                            )}
                           </>
                         ) : part.state === "output-error" ? (
                           <p className="text-sm text-destructive">Couldn't load picks.</p>

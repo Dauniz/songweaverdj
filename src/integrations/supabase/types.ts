@@ -86,6 +86,50 @@ export type Database = {
         }
         Relationships: []
       }
+      listening_events: {
+        Row: {
+          artists: string | null
+          created_at: string
+          event: string
+          id: string
+          mode: string | null
+          session_id: string | null
+          track_id: string | null
+          track_name: string | null
+          user_id: string
+        }
+        Insert: {
+          artists?: string | null
+          created_at?: string
+          event: string
+          id?: string
+          mode?: string | null
+          session_id?: string | null
+          track_id?: string | null
+          track_name?: string | null
+          user_id: string
+        }
+        Update: {
+          artists?: string | null
+          created_at?: string
+          event?: string
+          id?: string
+          mode?: string | null
+          session_id?: string | null
+          track_id?: string | null
+          track_name?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "listening_events_track_id_fkey"
+            columns: ["track_id"]
+            isOneToOne: false
+            referencedRelation: "library_tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       memory_nodes: {
         Row: {
           blob_id: string | null
@@ -93,6 +137,7 @@ export type Database = {
           created_at: string
           id: string
           kind: string
+          origin: string
           status: string
           user_id: string
         }
@@ -102,6 +147,7 @@ export type Database = {
           created_at?: string
           id?: string
           kind: string
+          origin?: string
           status?: string
           user_id: string
         }
@@ -111,6 +157,7 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
+          origin?: string
           status?: string
           user_id?: string
         }

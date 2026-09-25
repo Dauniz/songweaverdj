@@ -124,6 +124,13 @@ export function MemoryInspector() {
                   <span className={cn("h-1.5 w-1.5 rounded-full", s.cls)} /> {s.label}
                 </span>
               </div>
+              <div className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                {n.origin === "listening"
+                  ? "Learned from listening"
+                  : n.origin === "button"
+                    ? "You tapped a button"
+                    : "You said this"}
+              </div>
               <p className="mt-2 text-sm">{n.content}</p>
               <div className="mt-2 flex justify-between gap-2 font-mono text-[10px] text-muted-foreground">
                 <span className="truncate">

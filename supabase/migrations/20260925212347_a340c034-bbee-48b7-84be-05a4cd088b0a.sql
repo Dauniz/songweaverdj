@@ -1,0 +1,1 @@
+ALTER TABLE public.memory_nodes ADD COLUMN origin text NOT NULL DEFAULT 'chat';
