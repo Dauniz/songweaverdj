@@ -61,7 +61,7 @@ async function loadPool(supabase: any, userId: string): Promise<Song[]> {
 
 function monthIndex(p: string | null) {
   if (!p) return null;
-  const [y, m] = p.split("-").map(Number);
+  const [y = 0, m = 1] = p.split("-").map(Number);
   return y * 12 + (m - 1);
 }
 
@@ -75,7 +75,9 @@ function shuffle<T>(a: T[]) {
   const b = [...a];
   for (let i = b.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [b[i], b[j]] = [b[j], b[i]];
+    const tmp = b[i]!;
+    b[i] = b[j]!;
+    b[j] = tmp;
   }
   return b;
 }
@@ -183,7 +185,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     if (data.road === "era" && anchor && !data.chips.length) {
       const cands = eraCandidates(anchor, available);
       if (cands.length) {
-        const pick = cands[Math.floor(Math.random() * Math.min(6, cands.length))];
+        const pick = cands[Math.floor(Math.random() * Math.min(6, cands.length))]!;
         const shared = pick.sources.find((x) =>
           anchor.sources.some((a) => a.type === "playlist" && a.name === x.name),
         );
@@ -274,6 +276,6 @@ Call pick_next exactly once with one code from the list.`;
       for (const tc of st.toolCalls)
         if (tc.toolName === "pick_next") picked = tc.input as { code: string; why: string };
 
-    const song = (picked && index.get(picked.code.trim())) || shortlist[0];
+    const song = (picked && index.get(picked.code.trim())) || shortlist[0]!;
     return toTrack(song, picked?.why || "Continuing the path", data.road);
   });
