@@ -21,12 +21,6 @@ export type CardTrack = {
   reason?: string;
 };
 
-function sourceLabel(t: CardTrack) {
-  if (t.source_type === "saved")
-    return `From your Liked Songs${t.period_label ? ` · ${t.period_label}` : ""}`;
-  if (t.source_type === "recent") return "From your recent listening";
-  return `From your ${t.source_name} playlist`;
-}
 
 export function TrackCard({
   track,
@@ -89,13 +83,6 @@ export function TrackCard({
           <span className="absolute left-1 top-1 rounded bg-background/80 px-1 text-[10px] font-bold">
             {index + 1}
           </span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold">{track.name}</div>
-          <div className="truncate text-sm text-muted-foreground">{track.artists}</div>
-          <div className="mt-1 inline-flex items-center rounded-full bg-magenta/15 px-2 py-0.5 text-[11px] font-medium text-magenta">
-            {sourceLabel(track)}
-          </div>
         </div>
         <div className="flex shrink-0 flex-col gap-1">
           <button
