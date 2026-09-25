@@ -56,13 +56,19 @@ export function LibraryPanel() {
   const { data: tracks = [], isLoading } = useQuery({
     queryKey: ["library"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("library_tracks")
-        .select("id, name, artists, source_name, source_period, source_type, is_demo, image_url")
-        .order("source_period", { ascending: false, nullsFirst: false })
-        .limit(2000);
-      if (error) throw error;
-      return data;
+      const all = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase
+          .from("library_tracks")
+          .select("id, name, artists, source_name, source_period, source_type, is_demo, image_url")
+          .order("source_period", { ascending: false, nullsFirst: false })
+          .order("id")
+          .range(from, from + 999);
+        if (error) throw error;
+        all.push(...data);
+        if (data.length < 1000) break;
+      }
+      return all;
     },
   });
 
@@ -182,7 +188,7 @@ export function LibraryPanel() {
                     <div className="rounded-lg border border-primary/30 bg-primary/10 p-2.5 text-xs">
                       <p className="font-semibold text-primary">✓ Library loaded</p>
                       <p className="mt-1 text-muted-foreground">
-                        {summary.imported} tracks · {summary.playlists} of your playlists ·{" "}
+                        {summary.imported} tracks · from {summary.playlists} playlists ·{" "}
                         {summary.liked} liked songs · {summary.recent} recently played
                       </p>
                     </div>
