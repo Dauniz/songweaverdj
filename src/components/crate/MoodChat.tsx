@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -303,7 +303,8 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
                 status={status}
                 onStop={stop}
                 disabled={!busy && !text.trim()}
-                size="icon-lg"
+                size="icon-sm"
+                className="h-10 w-10"
               />
             </PromptInputFooter>
           </PromptInput>
