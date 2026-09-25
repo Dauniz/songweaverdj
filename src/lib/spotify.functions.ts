@@ -87,13 +87,14 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
 
     const rows: IngestRow[] = [];
 
-    // All playlists (paginated)
-    type Pl = { id: string; name: string };
+    // Only playlists the user created themselves (skip followed/saved ones by others)
+    const me = await spotifyGet<{ id: string }>(token, "/me");
+    type Pl = { id: string; name: string; owner?: { id?: string } };
     const allPlaylists: Pl[] = [];
     let plNext: string | null = "/me/playlists?limit=50";
-    while (plNext && allPlaylists.length < 500) {
+    while (plNext) {
       const page: { items: (Pl | null)[]; next: string | null } = await spotifyGet(token, plNext);
-      for (const p of page.items ?? []) if (p) allPlaylists.push(p);
+      for (const p of page.items ?? []) if (p && p.owner?.id === me.id) allPlaylists.push(p);
       plNext = page.next;
     }
     const playlists = { items: allPlaylists };
@@ -119,8 +120,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         }
         const items = [...(first.items ?? [])];
         let next = first.next;
-        let guard = 0;
-        while (next && guard++ < 50) {
+        while (next) {
           const page = await spotifyGet<PlItems>(token, next);
           items.push(...(page.items ?? []));
           next = page.next;
@@ -139,7 +139,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
     }
 
     // All saved tracks (paginated)
-    for (let offset = 0; offset < 10000; offset += 50) {
+    for (let offset = 0; ; offset += 50) {
       const saved = await spotifyGet<{
         items: { added_at: string; track: Parameters<typeof toRow>[0] }[];
         next: string | null;
