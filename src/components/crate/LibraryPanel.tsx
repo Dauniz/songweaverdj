@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Disc3, Loader2, Search } from "lucide-react";
+import { Disc3, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -12,7 +12,6 @@ import {
 } from "@/lib/spotify.functions";
 import { buildDemoRows } from "@/lib/demo-library";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 function period(p: string | null) {
   if (!p) return "Undated";
@@ -31,7 +30,6 @@ export function LibraryPanel() {
   const disconnectFn = useServerFn(disconnectSpotify);
   const [busy, setBusy] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState<string | null>(null);
 
   const { data: status } = useQuery({ queryKey: ["spotify-status"], queryFn: () => statusFn() });
   const { data: tracks = [], isLoading } = useQuery({
