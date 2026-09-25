@@ -84,7 +84,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         ...syncProgress.get(context.userId),
         ...p,
       });
-    setP({ finished: false, error: undefined, result: undefined });
+    setP({ finished: false });
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: conn } = await supabaseAdmin
       .from("spotify_connections")
