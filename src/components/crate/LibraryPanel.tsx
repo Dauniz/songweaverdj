@@ -180,7 +180,6 @@ export function LibraryPanel() {
                       <Progress value={pct ?? undefined} className="h-1.5" />
                       <p className="text-xs text-muted-foreground">
                         {progress?.stage ?? "Starting…"}
-
                       </p>
                     </>
                   )}
