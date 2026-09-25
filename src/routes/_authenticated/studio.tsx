@@ -5,6 +5,8 @@ import type { UIMessage } from "ai";
 import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MoodChat } from "@/components/crate/MoodChat";
+import { RadioProvider } from "@/components/crate/radio-context";
+import { RadioPlayer } from "@/components/crate/RadioPlayer";
 import { LibraryPanel } from "@/components/crate/LibraryPanel";
 import { MemoryInspector } from "@/components/crate/MemoryInspector";
 import { cn } from "@/lib/utils";
@@ -51,6 +53,7 @@ function Studio() {
   }
 
   return (
+    <RadioProvider>
     <div className="flex h-screen flex-col bg-background">
       <header className="flex items-center gap-3 border-b px-4 py-2.5">
         <img src={logo} alt="Crate" width={32} height={32} className="h-8 w-8 rounded-lg" />
@@ -107,6 +110,8 @@ function Studio() {
           <MemoryInspector />
         </aside>
       </div>
+      <RadioPlayer />
     </div>
+    </RadioProvider>
   );
 }

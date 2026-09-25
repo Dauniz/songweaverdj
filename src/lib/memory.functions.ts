@@ -14,6 +14,7 @@ export const addMemory = createServerFn({ method: "POST" })
       .object({
         kind: z.enum(["taste", "genre", "mood_trigger", "skipped", "session", "favorite"]),
         content: z.string().min(1).max(500),
+        origin: z.enum(["chat", "button", "listening"]).default("button"),
       })
       .parse(d),
   )
@@ -23,6 +24,7 @@ export const addMemory = createServerFn({ method: "POST" })
       user_id: context.userId,
       kind: data.kind,
       content: data.content,
+      origin: data.origin,
       blob_id: jobId ? `job:${jobId}` : null,
       status: jobId ? "pending" : error === "not_configured" ? "local" : "failed",
     });
