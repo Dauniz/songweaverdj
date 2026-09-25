@@ -126,23 +126,27 @@ export function TrackCard({ track, index }: { track: CardTrack; index: number })
         ) : track.preview_url ? (
           <audio src={track.preview_url} controls autoPlay className="mt-3 w-full" />
         ) : null)}
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex justify-end gap-1">
         <button
           onClick={() => act("favorite")}
           disabled={acted !== null}
+          aria-label="Still love it"
+          title="Still love it"
           className={cn(
-            "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs transition hover:border-primary hover:text-primary disabled:pointer-events-none",
-            acted === "fav" && "border-primary text-primary",
+            "rounded-full p-1.5 text-muted-foreground transition hover:text-primary disabled:pointer-events-none",
+            acted === "fav" && "text-primary",
           )}
         >
-          <Heart className={cn("h-3 w-3", acted === "fav" && "fill-current")} /> Still love it
+          <Heart className={cn("h-3.5 w-3.5", acted === "fav" && "fill-current")} />
         </button>
         <button
           onClick={() => act("skipped")}
           disabled={acted !== null}
-          className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs text-muted-foreground transition hover:text-foreground disabled:pointer-events-none"
+          aria-label="Don't suggest this again"
+          title="Don't suggest this again"
+          className="rounded-full p-1.5 text-muted-foreground transition hover:text-foreground disabled:pointer-events-none"
         >
-          <SkipForward className="h-3 w-3" /> Skip
+          <SkipForward className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>
