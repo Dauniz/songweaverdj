@@ -220,17 +220,33 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       return true;
     });
 
+    setP({ stage: `Saving ${unique.length} tracks…`, done: 0, total: unique.length });
     for (let i = 0; i < unique.length; i += 500) {
       const { error } = await context.supabase.from("library_tracks").upsert(
         unique.slice(i, i + 500).map((r) => ({ ...r, user_id: context.userId, is_demo: false })),
         { onConflict: "user_id,spotify_id,source_name" },
       );
       if (error) throw new Error(error.message);
+      setP({ done: Math.min(i + 500, unique.length) });
     }
     await supabaseAdmin
       .from("spotify_connections")
       .update({ last_synced_at: new Date().toISOString() })
       .eq("user_id", context.userId);
 
-    return { imported: unique.length, playlists: playlists.items?.length ?? 0 };
+    const result = {
+      imported: unique.length,
+      playlists: playlists.items?.length ?? 0,
+      liked: likedCount,
+      recent: recentCount,
+    };
+    setP({ stage: "Done", finished: true, result });
+    return result;
+    } catch (e) {
+      setP({
+        finished: true,
+        error: e instanceof Error ? e.message : "Sync failed",
+      });
+      throw e;
+    }
   });
