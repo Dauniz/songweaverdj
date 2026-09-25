@@ -112,8 +112,12 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
     }
 
     const rows: IngestRow[] = [];
+    let likedCount = 0;
+    let recentCount = 0;
 
+    try {
     // Only playlists the user created themselves (skip followed/saved ones by others)
+    setP({ stage: "Fetching your playlists…" });
     const me = await spotifyGet<{ id: string }>(token, "/me");
     type Pl = { id: string; name: string; owner?: { id?: string } };
     const allPlaylists: Pl[] = [];
@@ -133,7 +137,14 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       }[];
       next: string | null;
     };
+    let plDone = 0;
     for (const pl of allPlaylists) {
+      plDone += 1;
+      setP({
+        stage: `Importing playlist ${plDone}/${allPlaylists.length}: ${pl.name}`,
+        done: plDone,
+        total: allPlaylists.length,
+      });
       try {
         // Spotify renamed /tracks → /items (2026); try the new endpoint first.
         let first: PlItems;
