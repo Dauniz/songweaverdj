@@ -131,6 +131,26 @@ export const logListeningEvent = createServerFn({ method: "POST" })
         learned.push("artist-avoid");
       }
     }
+    if (data.event === "steer") {
+      // A chip tapped in 3+ different sessions becomes a gentle taste memory.
+      const { data: steers } = await supabase
+        .from("listening_events")
+        .select("session_id")
+        .eq("event", "steer")
+        .eq("track_name", data.trackName)
+        .limit(100);
+      const sessions = new Set((steers ?? []).map((r: { session_id: string | null }) => r.session_id));
+      if (sessions.size >= 3) {
+        await saveSignalMemory(
+          supabase,
+          userId,
+          "taste",
+          `Often steers the radio toward "${data.trackName}" — lean that way when unsure.`,
+        );
+        learned.push("steer");
+      }
+      return { ok: true, learned };
+    }
     if (data.event === "play_through" && data.mode) {
       // 3 full plays in the same mode -> taste memory about what works
       const { count: plays } = await supabase
