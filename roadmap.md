@@ -5,4 +5,4 @@
 - [x] Spotify credentials saved and authentication connected
 
 - [x] Refine chat density, loading motion, personalized prompts, and compact song controls
-- [ ] Move playback fully to Spotify live, open the Spotify app when needed, and remove Crate's bottom player
+- [x] Move playback fully to Spotify live, open the Spotify app when needed, and remove Crate's bottom player

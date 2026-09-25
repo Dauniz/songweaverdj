@@ -3,14 +3,21 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack } from "@/lib/path.functions";
+import { getSpotifyAuthUrl, getSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
 import type { CardTrack } from "./TrackCard";
+import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
+import { SteerChips } from "./SteerChips";
 
 export type Road = "vibe" | "era" | "mixed";
 export type RadioTrack = CardTrack & { why?: string };
+export type SpotifyPlaybackIssue = {
+  status: "no_device" | "premium_required" | "reconnect_required" | "unavailable";
+  message: string;
+};
 
-/** Real Spotify tracks play through the Spotify embed; others need an audio preview. */
+/** Spotify Connect can play only real Spotify catalog tracks. */
 export function isPlayable(t: CardTrack) {
-  return Boolean(t.preview_url || (t.spotify_id && !t.spotify_id.startsWith("demo-")));
+  return Boolean(t.spotify_id && !t.spotify_id.startsWith("demo-"));
 }
 
 export const STEER_CHIPS = [
@@ -88,7 +95,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [askSteer, setAskSteer] = useState(false);
   const logFn = useServerFn(logListeningEvent);
   const pathFn = useServerFn(nextPathTrack);
+  const playFn = useServerFn(playSpotifyTrack);
+  const playbackFn = useServerFn(getSpotifyPlayback);
+  const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const qc = useQueryClient();
+  const [playbackIssue, setPlaybackIssue] = useState<SpotifyPlaybackIssue | null>(null);
+  const [retrying, setRetrying] = useState(false);
 
   const radioRef = useRef(radio);
   radioRef.current = radio;
@@ -101,6 +113,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [upNext, setUpNext] = useState<RadioTrack | null>(null);
   const lastSteerAsk = useRef(0);
   const lastSkipAsk = useRef(0);
+  const lastPlayback = useRef({ spotifyId: "", ratio: 0, observed: false });
+  const advancing = useRef(false);
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const avoidArtists = () =>
     [...artistSkips.current.entries()].filter(([, n]) => n >= 2).map(([a]) => a);
@@ -205,6 +220,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const stopRadio = useCallback(() => {
     branches.current = null;
     setAskSteer(false);
+    setPlaybackIssue(null);
     setRadio(IDLE);
   }, []);
 
@@ -244,6 +260,102 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     },
     [log, fetchBranch],
   );
+
+  const startSpotifyPlayback = useCallback(
+    async (track = radioRef.current.current) => {
+      if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
+      setRetrying(true);
+      try {
+        const result = await playFn({ data: { spotifyId: track.spotify_id } });
+        if (result.status === "playing") {
+          setPlaybackIssue(null);
+          lastPlayback.current = { spotifyId: track.spotify_id, ratio: 0, observed: false };
+          return true;
+        }
+        setPlaybackIssue({ status: result.status, message: result.message });
+        return false;
+      } catch {
+        setPlaybackIssue({ status: "unavailable", message: "Spotify playback is temporarily unavailable." });
+        return false;
+      } finally {
+        setRetrying(false);
+      }
+    },
+    [playFn],
+  );
+
+  useEffect(() => {
+    const current = radio.current;
+    if (!radio.active || !current?.spotify_id || current.spotify_id.startsWith("demo-")) return;
+    void startSpotifyPlayback(current);
+  }, [radio.active, radio.current?.spotify_id, startSpotifyPlayback]);
+
+  // Spotify owns playback. Observe its active track so skips and completions still steer Crate's path.
+  useEffect(() => {
+    if (!radio.active || playbackIssue) return;
+    const check = async () => {
+      const current = radioRef.current.current;
+      if (!current?.spotify_id || advancing.current) return;
+      try {
+        const state = await playbackFn();
+        const previous = lastPlayback.current;
+        if (state.status === "ready" && state.spotifyId === current.spotify_id) {
+          lastPlayback.current = {
+            spotifyId: current.spotify_id,
+            ratio: state.durationMs ? state.progressMs / state.durationMs : previous.ratio,
+            observed: true,
+          };
+          return;
+        }
+        if (previous.spotifyId === current.spotify_id && previous.observed && (state.status === "idle" || (state.status === "ready" && state.spotifyId !== current.spotify_id))) {
+          advancing.current = true;
+          await next(previous.ratio >= 0.7 ? "played" : "skipped");
+          advancing.current = false;
+        }
+      } catch {
+        // A later poll can recover without interrupting the listening session.
+      }
+    };
+    const timer = setInterval(() => void check(), 4_000);
+    void check();
+    return () => clearInterval(timer);
+  }, [radio.active, radio.sessionId, playbackIssue, playbackFn, next]);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.data?.type !== "spotify-connected" || !event.data.ok) return;
+      void startSpotifyPlayback();
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [startSpotifyPlayback]);
+
+  const openSpotify = useCallback(() => {
+    const track = radioRef.current.current;
+    if (!track?.spotify_id) return;
+    window.open(track.spotify_url ?? `https://open.spotify.com/track/${track.spotify_id}`, "_blank", "noopener,noreferrer");
+    let attempts = 0;
+    const retry = async () => {
+      attempts += 1;
+      if (await startSpotifyPlayback(track)) return;
+      if (attempts < 10) retryTimer.current = setTimeout(() => void retry(), 3_000);
+    };
+    retryTimer.current = setTimeout(() => void retry(), 2_000);
+  }, [startSpotifyPlayback]);
+
+  const reconnectSpotify = useCallback(async () => {
+    try {
+      const { url } = await authUrlFn({ data: { origin: window.location.origin } });
+      const popup = window.open(url, "spotify-auth", "width=520,height=720");
+      if (!popup) window.location.href = url;
+    } catch {
+      setPlaybackIssue({ status: "unavailable", message: "Spotify reconnect could not be started." });
+    }
+  }, [authUrlFn]);
+
+  useEffect(() => () => {
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+  }, []);
 
   // Gentle periodic steering offer (~every 20 min of listening)
   useEffect(() => {
@@ -285,6 +397,23 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      {askSteer && (
+        <SteerChips
+          prompt
+          active={radio.chips}
+          onToggle={toggleChip}
+          onClose={() => setAskSteer(false)}
+        />
+      )}
+      <SpotifyOpenDialog
+        issue={playbackIssue}
+        track={radio.current}
+        retrying={retrying}
+        onDismiss={() => setPlaybackIssue(null)}
+        onOpenSpotify={openSpotify}
+        onReconnect={() => void reconnectSpotify()}
+        onRetry={() => void startSpotifyPlayback()}
+      />
     </RadioContext.Provider>
   );
 }

@@ -30,6 +30,98 @@ export const getSpotifyStatus = createServerFn({ method: "GET" })
     };
   });
 
+type SpotifyConnection = {
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+};
+
+async function spotifyAccess(userId: string) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("spotify_connections")
+    .select("access_token, refresh_token, expires_at")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const conn = data as SpotifyConnection | null;
+  if (!conn) return null;
+  if (new Date(conn.expires_at).getTime() >= Date.now() + 60_000) return conn.access_token;
+  const refreshed = await exchangeToken({ grant_type: "refresh_token", refresh_token: conn.refresh_token });
+  await supabaseAdmin
+    .from("spotify_connections")
+    .update({
+      access_token: refreshed.access_token,
+      refresh_token: refreshed.refresh_token ?? conn.refresh_token,
+      expires_at: new Date(Date.now() + refreshed.expires_in * 1000).toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId);
+  return refreshed.access_token;
+}
+
+function playbackFailure(status: number, detail = "") {
+  if (status === 401) return { status: "reconnect_required" as const, message: "Spotify needs permission to control playback." };
+  if (status === 403 && /premium/i.test(detail)) return { status: "premium_required" as const, message: "Spotify live playback requires a Premium account." };
+  if (status === 403) return { status: "reconnect_required" as const, message: "Reconnect Spotify to grant playback permission." };
+  if (status === 404) return { status: "no_device" as const, message: "Spotify needs to be open on one of your devices." };
+  return { status: "unavailable" as const, message: "Spotify playback is temporarily unavailable." };
+}
+
+const playInput = z.object({ spotifyId: z.string().min(1).max(64) });
+
+export const playSpotifyTrack = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => playInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const token = await spotifyAccess(context.userId);
+    if (!token) return { status: "reconnect_required" as const, message: "Connect Spotify to start listening." };
+    const headers = { Authorization: `Bearer ${token}` };
+    const devicesResponse = await fetch("https://api.spotify.com/v1/me/player/devices", { headers });
+    if (!devicesResponse.ok) return playbackFailure(devicesResponse.status, await devicesResponse.text());
+    const body = (await devicesResponse.json()) as {
+      devices?: { id: string | null; is_active: boolean; is_restricted: boolean; name: string }[];
+    };
+    const device = body.devices?.find((item) => item.is_active && !item.is_restricted && item.id)
+      ?? body.devices?.find((item) => !item.is_restricted && item.id);
+    if (!device?.id) return { status: "no_device" as const, message: "Spotify needs to be open on one of your devices." };
+    const response = await fetch(
+      `https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(device.id)}`,
+      {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ uris: [`spotify:track:${data.spotifyId}`] }),
+      },
+    );
+    if (!response.ok) return playbackFailure(response.status, await response.text());
+    return { status: "playing" as const, deviceName: device.name };
+  });
+
+export const getSpotifyPlayback = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const token = await spotifyAccess(context.userId);
+    if (!token) return { status: "reconnect_required" as const };
+    const response = await fetch("https://api.spotify.com/v1/me/player", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (response.status === 204) return { status: "idle" as const };
+    if (!response.ok) return { status: playbackFailure(response.status).status };
+    const body = (await response.json()) as {
+      is_playing?: boolean;
+      progress_ms?: number | null;
+      item?: { id?: string | null; duration_ms?: number } | null;
+      device?: { name?: string };
+    };
+    return {
+      status: "ready" as const,
+      isPlaying: Boolean(body.is_playing),
+      spotifyId: body.item?.id ?? null,
+      progressMs: body.progress_ms ?? 0,
+      durationMs: body.item?.duration_ms ?? 0,
+      deviceName: body.device?.name ?? null,
+    };
+  });
+
 export const getSpotifyAuthUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ origin: z.string().url() }).parse(d))

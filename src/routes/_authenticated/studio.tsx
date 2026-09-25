@@ -6,7 +6,6 @@ import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MoodChat } from "@/components/crate/MoodChat";
 import { RadioProvider } from "@/components/crate/radio-context";
-import { RadioPlayer } from "@/components/crate/RadioPlayer";
 import { LibraryPanel } from "@/components/crate/LibraryPanel";
 import { MemoryInspector } from "@/components/crate/MemoryInspector";
 import { cn } from "@/lib/utils";
@@ -25,6 +24,8 @@ export const Route = createFileRoute("/_authenticated/studio")({
         property: "og:description",
         content: "Chat your vibe and rediscover tracks from your past playlists.",
       },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Studio,
@@ -119,7 +120,6 @@ function Studio() {
           <MemoryInspector />
         </aside>
       </div>
-      <RadioPlayer />
     </div>
     </RadioProvider>
   );

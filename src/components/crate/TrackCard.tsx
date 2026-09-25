@@ -32,7 +32,6 @@ export function TrackCard({
   index: number;
   onPlay?: () => void;
 }) {
-  const [playing, setPlaying] = useState(false);
   const [acted, setActed] = useState<null | "fav" | "skip">(null);
   const remember = useServerFn(addMemory);
   const qc = useQueryClient();
@@ -91,9 +90,9 @@ export function TrackCard({
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           <Button
-            aria-label="Play preview"
-            onClick={() => (onPlay ? onPlay() : setPlaying((p) => !p))}
-            disabled={!canEmbed && !track.preview_url}
+            aria-label="Play on Spotify"
+            onClick={onPlay}
+            disabled={!canEmbed || !onPlay}
             size="icon-lg"
             className="rounded-full transition-transform hover:scale-105 disabled:opacity-30"
           >
@@ -130,18 +129,6 @@ export function TrackCard({
           </Button>
         </div>
       </div>
-      {playing &&
-        (canEmbed ? (
-          <iframe
-            title={`${track.name} preview`}
-            src={`https://open.spotify.com/embed/track/${track.spotify_id}?theme=0`}
-            className="mt-3 h-20 w-full rounded-lg"
-            allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
-            loading="lazy"
-          />
-        ) : track.preview_url ? (
-          <audio src={track.preview_url} controls autoPlay className="mt-3 w-full" />
-        ) : null)}
     </div>
   );
 }
