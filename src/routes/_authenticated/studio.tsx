@@ -96,7 +96,16 @@ function Studio() {
           )}
         >
           {isLoading ? (
-            <div className="p-8 text-muted-foreground">Loading your session…</div>
+            <div className="chat-loading mx-auto flex h-full w-full max-w-4xl flex-col gap-4 px-7 pt-8" aria-label="Loading your session">
+              <div className="ml-auto h-10 w-2/5 rounded-lg bg-primary/15" />
+              <div className="h-4 w-3/5 rounded bg-muted" />
+              <div className="grid grid-cols-2 gap-1.5">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="h-24 rounded-lg border bg-surface/70" />
+                ))}
+              </div>
+              <span className="sr-only">Loading your session…</span>
+            </div>
           ) : (
             <MoodChat initialMessages={history ?? []} />
           )}

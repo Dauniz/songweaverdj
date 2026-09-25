@@ -5,6 +5,7 @@ import { Heart, Play, SkipForward, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { addMemory } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 export type CardTrack = {
   id: string;
@@ -62,12 +63,12 @@ export function TrackCard({
   return (
     <div
       className={cn(
-        "group rounded-xl border bg-surface p-3 transition hover:bg-surface-2",
+        "group rounded-lg border bg-surface p-2 transition hover:bg-surface-2",
         acted === "skip" && "opacity-50",
       )}
     >
-      <div className="flex gap-3">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-primary/60 to-magenta/60">
+      <div className="flex items-center gap-2.5">
+        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md bg-linear-to-br from-primary/60 to-magenta/60">
           {track.image_url ? (
             <img
               src={track.image_url}
@@ -84,30 +85,49 @@ export function TrackCard({
             {index + 1}
           </span>
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 self-start pt-1">
           <div className="truncate font-semibold">{track.name}</div>
           <div className="truncate text-sm text-muted-foreground">{track.artists}</div>
         </div>
-        <div className="flex shrink-0 flex-col gap-1">
-          <button
+        <div className="flex shrink-0 items-center gap-0.5">
+          <Button
             aria-label="Play preview"
             onClick={() => (onPlay ? onPlay() : setPlaying((p) => !p))}
             disabled={!canEmbed && !track.preview_url}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:scale-105 disabled:opacity-30"
+            size="icon-lg"
+            className="rounded-full transition-transform hover:scale-105 disabled:opacity-30"
           >
-            <Play className="h-4 w-4 fill-current" />
-          </button>
+            <Play className="h-5 w-5 fill-current" />
+          </Button>
           {track.spotify_url && (
-            <a
-              href={track.spotify_url}
-              target="_blank"
-              rel="noreferrer"
-              aria-label="Open in Spotify"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <ExternalLink className="h-4 w-4" />
-            </a>
+            <Button asChild variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground">
+              <a href={track.spotify_url} target="_blank" rel="noreferrer" aria-label="Open in Spotify">
+                <ExternalLink className="h-4.5 w-4.5" />
+              </a>
+            </Button>
           )}
+          <Button
+            onClick={() => act("favorite")}
+            disabled={acted !== null}
+            aria-label="Still love it"
+            title="Still love it"
+            variant="ghost"
+            size="icon-sm"
+            className={cn("rounded-full text-muted-foreground hover:text-primary", acted === "fav" && "text-primary")}
+          >
+            <Heart className={cn("h-4.5 w-4.5", acted === "fav" && "fill-current")} />
+          </Button>
+          <Button
+            onClick={() => act("skipped")}
+            disabled={acted !== null}
+            aria-label="Don't suggest this again"
+            title="Don't suggest this again"
+            variant="ghost"
+            size="icon-sm"
+            className="rounded-full text-muted-foreground hover:text-foreground"
+          >
+            <SkipForward className="h-4.5 w-4.5" />
+          </Button>
         </div>
       </div>
       {playing &&
@@ -122,29 +142,6 @@ export function TrackCard({
         ) : track.preview_url ? (
           <audio src={track.preview_url} controls autoPlay className="mt-3 w-full" />
         ) : null)}
-      <div className="mt-3 flex justify-end gap-1">
-        <button
-          onClick={() => act("favorite")}
-          disabled={acted !== null}
-          aria-label="Still love it"
-          title="Still love it"
-          className={cn(
-            "rounded-full p-1.5 text-muted-foreground transition hover:text-primary disabled:pointer-events-none",
-            acted === "fav" && "text-primary",
-          )}
-        >
-          <Heart className={cn("h-3.5 w-3.5", acted === "fav" && "fill-current")} />
-        </button>
-        <button
-          onClick={() => act("skipped")}
-          disabled={acted !== null}
-          aria-label="Don't suggest this again"
-          title="Don't suggest this again"
-          className="rounded-full p-1.5 text-muted-foreground transition hover:text-foreground disabled:pointer-events-none"
-        >
-          <SkipForward className="h-3.5 w-3.5" />
-        </button>
-      </div>
     </div>
   );
 }
