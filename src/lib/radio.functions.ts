@@ -80,7 +80,7 @@ export const logListeningEvent = createServerFn({ method: "POST" })
         .eq("track_name", data.trackName)
         .eq("artists", data.artists)
         .limit(50);
-      const sessions = new Set((replays ?? []).map((r: { session_id: string }) => r.session_id));
+      const sessions = new Set((replays ?? []).map((r: { session_id: string | null }) => r.session_id));
       if (sessions.size >= 2) {
         await saveSignalMemory(
           supabase,
