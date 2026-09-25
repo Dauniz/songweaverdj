@@ -87,9 +87,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             recentFeedback: feedbackRef.current,
           },
         });
+        const playable = (r.tracks as CardTrack[]).filter((t) => t.preview_url);
         setRadio((prev) => ({
           ...prev,
-          queue: [...prev.queue, ...(r.tracks as CardTrack[])],
+          queue: [...prev.queue, ...playable],
           mode: r.mode,
           modeLabel: r.modeLabel,
         }));
