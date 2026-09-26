@@ -251,8 +251,8 @@ export function MoodChat() {
       )}
     >
       <div className="mx-auto w-full max-w-3xl">
-        <div className="scrollbar-thin mb-2.5 flex items-center gap-2 overflow-x-auto pb-1">
-          <div className="flex min-w-0 flex-1 gap-2">
+        <div className="mb-2.5 flex items-center gap-2">
+          <div className="scrollbar-thin flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
             {personalizedPrompts.map((prompt) => (
               <Button
                 key={prompt}
