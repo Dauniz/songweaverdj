@@ -334,8 +334,11 @@ export function MoodChat() {
         </PromptInput>
         <TooltipProvider>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
-            <span className="flex items-center gap-1.5">
-              <label htmlFor="deep-cuts" className="cursor-pointer text-muted-foreground">
+            <span className="group flex items-center gap-1.5">
+              <label
+                htmlFor="deep-cuts"
+                className="cursor-pointer text-muted-foreground transition-transform duration-150 group-hover:scale-125"
+              >
                 Deep cuts
               </label>
               <Checkbox
@@ -343,19 +346,25 @@ export function MoodChat() {
                 checked={deepCuts}
                 onCheckedChange={(checked) => toggleDeepCuts(checked === true)}
                 aria-label="Enable Deep cuts"
-                className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 transition-transform duration-150 hover:scale-125 data-[state=checked]:border-primary"
+                className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 transition-transform duration-150 group-hover:scale-125 data-[state=checked]:border-primary"
               />
             </span>
             {LENSES.map((l) => {
               const on = lens === l.id;
               return (
-                <span key={l.id} className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground">{l.name}</span>
+                <span key={l.id} className="group flex items-center gap-1.5">
+                  <label
+                    htmlFor={`lens-${l.id}`}
+                    className="cursor-pointer text-muted-foreground transition-transform duration-150 group-hover:scale-125"
+                  >
+                    {l.name}
+                  </label>
                   <Checkbox
+                    id={`lens-${l.id}`}
                     checked={on}
                     onCheckedChange={(checked) => setLens(checked === true ? l.id : null)}
                     aria-label={`Enable ${l.name}`}
-                    className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 transition-transform duration-150 hover:scale-125 data-[state=checked]:border-primary"
+                    className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 transition-transform duration-150 group-hover:scale-125 data-[state=checked]:border-primary"
                   />
                 </span>
               );
