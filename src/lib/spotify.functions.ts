@@ -156,6 +156,32 @@ export const queueSpotifyTrack = createServerFn({ method: "POST" })
     return { ok: response.ok };
   });
 
+/** Ends a Songweaver session: pauses playback and restarts the current song on its
+ *  own, so the two-song list Crate kept lined up (and its picks) are gone. Spotify's
+ *  API cannot clear the queue directly, so replacing the context is the reset. */
+export const endSpotifySession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const token = await spotifyAccess(context.userId);
+    if (!token) return { ok: false };
+    const headers = { Authorization: `Bearer ${token}` };
+    const state = await fetch("https://api.spotify.com/v1/me/player", { headers });
+    let trackId: string | null = null;
+    if (state.ok) {
+      const body = (await state.json()) as { item?: { id?: string | null } | null };
+      trackId = body.item?.id ?? null;
+    }
+    if (trackId) {
+      await fetch("https://api.spotify.com/v1/me/player/play", {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ uris: [`spotify:track:${trackId}`], position_ms: 0 }),
+      });
+    }
+    await fetch("https://api.spotify.com/v1/me/player/pause", { method: "PUT", headers });
+    return { ok: true };
+  });
+
 export const getSpotifyAuthUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ origin: z.string().url() }).parse(d))
