@@ -1,5 +1,7 @@
-import { Check, CornerDownRight, Route, SkipForward } from "lucide-react";
+import { useState } from "react";
+import { Check, CornerDownRight, NotebookPen, Route, SkipForward } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
+import { addMemory } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
 
 const ROAD: Record<Road, { name: string; rule: string }> = {
@@ -57,6 +59,7 @@ export function PathMaze() {
             </div>
             <div className="truncate text-sm font-semibold">{radio.current.name}</div>
             <div className="truncate text-xs text-muted-foreground">{radio.current.artists}</div>
+            <SongNote key={radio.current.spotifyId} trackName={radio.current.name} artists={radio.current.artists} />
           </div>
 
           <div className="grid grid-cols-2 gap-2 pt-2">
@@ -75,6 +78,63 @@ export function PathMaze() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Optional one-off note about the playing song, saved to Walrus Memory. */
+function SongNote({ trackName, artists }: { trackName: string; artists: string }) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  const save = async () => {
+    const text = note.trim();
+    if (!text || saved) return;
+    await addMemory({
+      data: {
+        kind: "mood_trigger",
+        content: `Note on "${trackName}" by ${artists}: ${text}`,
+        origin: "button",
+      },
+    });
+    setSaved(true);
+    setNote("");
+    setTimeout(() => {
+      setSaved(false);
+      setOpen(false);
+    }, 1600);
+  };
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <NotebookPen className="h-3 w-3" /> Add a note about this song
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-1.5">
+      <input
+        autoFocus
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") void save();
+          if (e.key === "Escape") setOpen(false);
+        }}
+        placeholder='e.g. "nostalgi, minne från hälsninggården, högstadiet"'
+        maxLength={200}
+        className="w-full rounded-md border bg-background px-2 py-1 text-xs outline-none placeholder:text-muted-foreground/70 focus:border-primary"
+      />
+      <p className="mt-0.5 text-[10px] text-muted-foreground">
+        {saved ? "Saved to Walrus Memory ✓" : "Enter to save · Esc to close — only when you feel like it"}
+      </p>
     </div>
   );
 }
