@@ -1,4 +1,4 @@
-import { ExternalLink, Loader2 } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import type { CardTrack } from "./TrackCard";
 import type { SpotifyPlaybackIssue } from "./radio-context";
 import {
@@ -11,7 +11,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 
 type Props = {
   issue: SpotifyPlaybackIssue | null;
@@ -35,11 +34,7 @@ export function SpotifyOpenDialog({
   const connect = issue?.status === "connect_required";
   const premium = issue?.status === "premium_required";
   const needsAuth = connect;
-  const showTrack = false && Boolean(track) && !needsAuth && !premium;
-  void onRetry;
-  void retrying;
-  void Loader2;
-  void Button;
+  const showTrack = false;
 
   return (
     <AlertDialog open={Boolean(issue)} onOpenChange={(open) => !open && onDismiss()}>
