@@ -171,10 +171,10 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
           open ? "flex-1 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
       >
-        <div className="min-h-0 overflow-hidden">
+        <div className="flex min-h-0 flex-col justify-end overflow-hidden">
           <div
             ref={ref}
-            className="scrollbar-thin h-full space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
+            className="scrollbar-thin max-h-full space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
           >
             {!live && events.length === 0 ? (
               <div className="text-muted-foreground">
