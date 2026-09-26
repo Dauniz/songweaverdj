@@ -72,7 +72,9 @@ type RadioContextValue = {
   spotifyIdle: boolean;
 };
 
-const RadioContext = createContext<RadioContextValue | null>(null);
+// Keep one context instance across hot reloads so provider and consumers never diverge.
+const g = globalThis as { __songweaverRadioCtx?: import("react").Context<RadioContextValue | null> };
+const RadioContext = (g.__songweaverRadioCtx ??= createContext<RadioContextValue | null>(null));
 
 const IDLE: RadioState = {
   active: false,
