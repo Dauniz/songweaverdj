@@ -160,10 +160,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [events, setEvents] = useState<MazeEvent[]>([]);
   const [spotifyIdle, setSpotifyIdle] = useState(false);
   // Resume a live session on this device after a reload / tab switch (fresh within 30 min).
-  const restored = useRef(false);
+  const [restored, setRestored] = useState(false);
   useEffect(() => {
     const saved = readLiveSession();
-    restored.current = true;
+    setRestored(true);
     if (!saved) return;
     played.current = saved.played ?? [];
     artistSkips.current = new Map(saved.artistSkips ?? []);
@@ -176,7 +176,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     setSessionLive(saved.sessionLive);
   }, []);
   useEffect(() => {
-    if (!restored.current) return;
+    if (!restored) return;
     if (!sessionLive && !radio.active) {
       localStorage.removeItem(LIVE_KEY);
       return;
@@ -188,7 +188,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         artistSkips: [...artistSkips.current], savedAt: Date.now(),
       }),
     );
-  }, [radio, sessionLive, events]);
+  }, [restored, radio, sessionLive, events]);
   const note = useCallback((kind: MazeEvent["kind"], text: string) => {
     setEvents((e) => [...e, { at: Date.now(), kind, text }].slice(-30));
   }, []);
