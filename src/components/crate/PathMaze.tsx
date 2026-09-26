@@ -59,7 +59,7 @@ export function PathMaze() {
             </div>
             <div className="truncate text-sm font-semibold">{radio.current.name}</div>
             <div className="truncate text-xs text-muted-foreground">{radio.current.artists}</div>
-            <SongNote key={radio.current.spotifyId} trackName={radio.current.name} artists={radio.current.artists} />
+            <SongNote key={radio.current.spotify_id} trackName={radio.current.name} artists={radio.current.artists} />
           </div>
 
           <div className="grid grid-cols-2 gap-2 pt-2">
