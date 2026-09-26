@@ -231,7 +231,7 @@ export function CrateConsole({
         ref={gridRef}
         style={collapseH !== null ? { height: collapseH } : undefined}
         className={cn(
-          "grid min-h-0 transition-all duration-300 ease-out",
+          "grid min-h-0 transition-all duration-500 ease-in-out",
           expanded && "flex-1",
           expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
