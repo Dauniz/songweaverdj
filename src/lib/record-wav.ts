@@ -3,59 +3,42 @@ export type VoiceRecording = {
   cancel: () => Promise<void>;
 };
 
-function encodeWav(chunks: readonly Float32Array[], sampleRate: number) {
-  const length = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-  const bytes = new ArrayBuffer(44 + length * 2);
-  const view = new DataView(bytes);
-  const tag = (offset: number, value: string) => {
-    for (let index = 0; index < value.length; index += 1) {
-      view.setUint8(offset + index, value.charCodeAt(index));
-    }
-  };
-  tag(0, "RIFF");
-  view.setUint32(4, 36 + length * 2, true);
-  tag(8, "WAVE");
-  tag(12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  tag(36, "data");
-  view.setUint32(40, length * 2, true);
-  let offset = 44;
-  for (const chunk of chunks) {
-    for (const value of chunk) {
-      const sample = Math.max(-1, Math.min(1, value));
-      view.setInt16(offset, sample * (sample < 0 ? 32768 : 32767), true);
-      offset += 2;
-    }
-  }
-  return new Blob([bytes], { type: "audio/wav" });
-}
-
 export async function recordWav(onSilence: () => void): Promise<VoiceRecording> {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  });
   let context: AudioContext | undefined;
   try {
     context = new AudioContext();
     await context.resume();
-    const audioContext = context;
-    const source = audioContext.createMediaStreamSource(stream);
-    const node = audioContext.createScriptProcessor(4096, 1, 1);
-    const chunks: Float32Array[] = [];
+    const source = context.createMediaStreamSource(stream);
+    const analyser = context.createAnalyser();
+    analyser.fftSize = 2048;
+    source.connect(analyser);
+
+    const preferredTypes = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"];
+    const mimeType = preferredTypes.find((type) => MediaRecorder.isTypeSupported(type));
+    const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    const chunks: Blob[] = [];
+    recorder.ondataavailable = (event) => {
+      if (event.data.size) chunks.push(event.data);
+    };
+    recorder.start();
+
+    const samples = new Uint8Array(analyser.fftSize);
     const startedAt = performance.now();
     let lastVoiceAt = startedAt;
     let heardVoice = false;
-    let stopped = false;
     let silenceTriggered = false;
-
-    node.onaudioprocess = (event) => {
-      const samples = new Float32Array(event.inputBuffer.getChannelData(0));
-      chunks.push(samples);
-      const rms = Math.sqrt(samples.reduce((sum, sample) => sum + sample * sample, 0) / samples.length);
+    let stopped = false;
+    const timer = window.setInterval(() => {
+      analyser.getByteTimeDomainData(samples);
+      let sum = 0;
+      for (const sample of samples) {
+        const centered = (sample - 128) / 128;
+        sum += centered * centered;
+      }
+      const rms = Math.sqrt(sum / samples.length);
       const now = performance.now();
       if (rms > 0.018) {
         heardVoice = true;
@@ -65,31 +48,36 @@ export async function recordWav(onSilence: () => void): Promise<VoiceRecording> 
         silenceTriggered = true;
         window.setTimeout(onSilence, 0);
       }
-    };
-    source.connect(node);
-    node.connect(audioContext.destination);
+    }, 120);
 
-    async function close() {
+    async function closeAudio() {
+      window.clearInterval(timer);
       stream.getTracks().forEach((track) => track.stop());
-      node.disconnect();
       source.disconnect();
-      node.onaudioprocess = null;
-      await audioContext.close();
+      await context?.close();
     }
 
     return {
       async stop() {
         if (stopped) throw new Error("Recording already stopped");
         stopped = true;
-        await close();
-        const blob = encodeWav(chunks, audioContext.sampleRate);
-        if (blob.size < 2048) throw new Error("I didn't hear anything. Try again.");
-        return new File([blob], "voice-prompt.wav", { type: "audio/wav" });
+        const complete = new Promise<void>((resolve) => {
+          recorder.addEventListener("stop", () => resolve(), { once: true });
+        });
+        recorder.stop();
+        await complete;
+        await closeAudio();
+        const type = recorder.mimeType || mimeType || "audio/webm";
+        const blob = new Blob(chunks, { type });
+        if (!heardVoice || blob.size < 512) throw new Error("I didn't hear anything. Try again.");
+        const extension = type.includes("mp4") ? "m4a" : "webm";
+        return new File([blob], `voice-prompt.${extension}`, { type });
       },
       async cancel() {
         if (stopped) return;
         stopped = true;
-        await close();
+        if (recorder.state !== "inactive") recorder.stop();
+        await closeAudio();
       },
     };
   } catch (error) {
