@@ -113,7 +113,7 @@ function StudioLayout({
         </main>
         <aside
           className={cn(
-            "w-full border-l bg-sidebar lg:flex-none lg:transition-[width] lg:duration-500 lg:ease-in-out",
+            "w-full min-h-0 overflow-hidden border-l bg-sidebar lg:flex-none lg:transition-[width] lg:duration-500 lg:ease-in-out",
             mobileTab === "memory" ? "block" : "hidden lg:block",
             live
               ? "lg:w-1/3"
