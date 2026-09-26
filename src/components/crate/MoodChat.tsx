@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,11 +26,12 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { TrackCard, type CardTrack } from "./TrackCard";
 import { useRadio } from "./radio-context";
-import { Radio } from "lucide-react";
+import { LoaderCircle, Mic, Radio, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/crate-logo.jpg";
+import { recordWav, type VoiceRecording } from "@/lib/record-wav";
 
 type PromptMemory = { id: string; kind: string; content: string };
 
@@ -50,11 +51,62 @@ function suggestionFromMemory(memory: PromptMemory) {
 
 const TODAY_FALLBACKS = ["Ease me into today", "Play something that fits right now"];
 
+async function transcribeVoice(file: File) {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new Error("Please sign in again.");
+  const form = new FormData();
+  form.append("file", file);
+  const response = await fetch("/api/transcribe", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  if (!response.ok) {
+    const raw = await response.text();
+    try {
+      const parsed = JSON.parse(raw) as { error?: string; message?: string };
+      throw new Error(parsed.error || parsed.message || "Voice transcription failed.");
+    } catch (error) {
+      if (error instanceof Error && error.message !== "Unexpected end of JSON input") throw error;
+      throw new Error(raw || "Voice transcription failed.");
+    }
+  }
+  if (!response.body) throw new Error("No transcript was returned.");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let transcript = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const events = buffer.split("\n\n");
+    buffer = events.pop() ?? "";
+    for (const event of events) {
+      const dataLine = event.split("\n").find((line) => line.startsWith("data:"));
+      if (!dataLine) continue;
+      const payload = dataLine.slice(5).trim();
+      if (!payload || payload === "[DONE]") continue;
+      const parsed = JSON.parse(payload) as { type?: string; delta?: string; text?: string; error?: { message?: string } };
+      if (parsed.type === "transcript.text.delta" && parsed.delta) transcript += parsed.delta;
+      if (parsed.type === "transcript.text.done" && parsed.text) transcript = parsed.text;
+      if (parsed.type === "error") throw new Error(parsed.error?.message || "Voice transcription failed.");
+    }
+    if (done) break;
+  }
+  const result = transcript.trim();
+  if (!result) throw new Error("I didn't hear anything. Try again.");
+  return result;
+}
+
 export function MoodChat() {
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [deepCuts, setDeepCuts] = useState(true);
+  const [voiceState, setVoiceState] = useState<"idle" | "recording" | "transcribing">("idle");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const recordingRef = useRef<VoiceRecording | null>(null);
+  const stoppingRef = useRef(false);
   const { startRadio } = useRadio();
   const lastUserText = useRef("");
   const { data: promptMemories = [] } = useQuery({
@@ -132,6 +184,49 @@ export function MoodChat() {
     sendMessage({ text: filters.length ? `${t}\n\n(Filters: ${filters.join("; ")})` : t });
     setText("");
   }
+
+  const stopAndSendVoice = useCallback(async () => {
+    const recording = recordingRef.current;
+    if (!recording || stoppingRef.current) return;
+    stoppingRef.current = true;
+    recordingRef.current = null;
+    setVoiceState("transcribing");
+    try {
+      const file = await recording.stop();
+      const transcript = await transcribeVoice(file);
+      send(transcript);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Voice transcription failed.");
+    } finally {
+      stoppingRef.current = false;
+      setVoiceState("idle");
+      textareaRef.current?.focus();
+    }
+  }, [busy, deepCuts, sendMessage]);
+
+  const toggleVoice = useCallback(async () => {
+    if (voiceState === "recording") {
+      await stopAndSendVoice();
+      return;
+    }
+    if (voiceState !== "idle" || busy) return;
+    try {
+      setVoiceState("recording");
+      recordingRef.current = await recordWav(() => void stopAndSendVoice());
+    } catch (error) {
+      setVoiceState("idle");
+      const denied = error instanceof DOMException && error.name === "NotAllowedError";
+      toast.error(denied ? "Allow microphone access to use voice prompts." : "The microphone could not start.");
+    }
+  }, [busy, stopAndSendVoice, voiceState]);
+
+  useEffect(
+    () => () => {
+      void recordingRef.current?.cancel();
+      recordingRef.current = null;
+    },
+    [],
+  );
 
   return (
     <div className="chat-enter flex h-full flex-col">
@@ -295,7 +390,43 @@ export function MoodChat() {
               placeholder="Describe the vibe, setting, or a song to start from…"
               className="min-h-28 px-4 py-3 text-lg leading-7 placeholder:text-base"
             />
-            <PromptInputFooter className="flex justify-end px-3 pb-3">
+            <PromptInputFooter className="flex items-center justify-between px-3 pb-3">
+              <div className="flex items-center gap-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant={voiceState === "recording" ? "default" : "ghost"}
+                        size="icon-lg"
+                        onClick={() => void toggleVoice()}
+                        disabled={busy || voiceState === "transcribing"}
+                        aria-label={voiceState === "recording" ? "Stop and send voice prompt" : "Speak your prompt"}
+                        className={cn(
+                          "rounded-full",
+                          voiceState === "recording" && "animate-pulse",
+                        )}
+                      >
+                        {voiceState === "transcribing" ? (
+                          <LoaderCircle className="animate-spin" />
+                        ) : voiceState === "recording" ? (
+                          <Square className="fill-current" />
+                        ) : (
+                          <Mic />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      {voiceState === "recording" ? "Stop and send" : "Speak your prompt"}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                {voiceState !== "idle" && (
+                  <span className="text-sm text-muted-foreground" aria-live="polite">
+                    {voiceState === "recording" ? "Listening… pause to send" : "Turning speech into your prompt…"}
+                  </span>
+                )}
+              </div>
               <PromptInputSubmit
                 status={status}
                 onStop={stop}
