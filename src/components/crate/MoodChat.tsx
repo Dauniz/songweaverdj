@@ -345,22 +345,6 @@ export function MoodChat() {
                 aria-label="Enable Deep cuts"
                 className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
               />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="About Deep cuts"
-                    className="rounded-full text-muted-foreground"
-                  >
-                    <CircleHelp />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="max-w-[240px]">
-                  Finds overlooked songs you haven't heard in a while.
-                </TooltipContent>
-              </Tooltip>
             </span>
             {LENSES.map((l) => {
               const on = lens === l.id;
