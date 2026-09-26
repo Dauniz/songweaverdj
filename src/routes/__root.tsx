@@ -79,9 +79,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Crate — Music rediscovery companion" },
+      { title: "Songweaver — Music rediscovery companion" },
       { name: "description", content: "Resurface buried favorites from your monthly playlists." },
-      { property: "og:title", content: "Crate — Music rediscovery companion" },
+      { property: "og:title", content: "Songweaver — Music rediscovery companion" },
+      { property: "og:site_name", content: "Songweaver" },
       {
         property: "og:description",
         content: "Resurface buried favorites from your monthly playlists.",

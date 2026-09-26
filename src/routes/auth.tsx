@@ -12,12 +12,12 @@ import logo from "@/assets/crate-logo.jpg";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "Sign in — Crate" },
-      { name: "description", content: "Sign in to Crate, your music rediscovery companion." },
-      { property: "og:title", content: "Sign in — Crate" },
+      { title: "Sign in — Songweaver" },
+      { name: "description", content: "Sign in to Songweaver, your music rediscovery companion." },
+      { property: "og:title", content: "Sign in — Songweaver" },
       {
         property: "og:description",
-        content: "Sign in to Crate, your music rediscovery companion.",
+        content: "Sign in to Songweaver, your music rediscovery companion.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -108,8 +108,8 @@ function AuthPage() {
   return (
     <div className="min-h-screen bg-glow flex items-center justify-center px-4">
       <div className="w-full max-w-sm rounded-2xl border bg-card/80 p-8 backdrop-blur">
-        <img src={logo} alt="Crate" width={56} height={56} className="mb-6 h-14 w-14 rounded-xl" />
-        <h1 className="text-3xl font-bold">Welcome to Crate</h1>
+        <img src={logo} alt="Songweaver" width={56} height={56} className="mb-6 h-14 w-14 rounded-xl" />
+        <h1 className="text-3xl font-bold">Welcome to Songweaver</h1>
         <p className="mt-1 text-sm text-muted-foreground">Your forgotten favorites are waiting.</p>
         <Button onClick={spotify} disabled={entry !== null} size="lg" className="mt-6 w-full">
           {entry === "spotify" ? (

@@ -8,3 +8,4 @@
 - [x] Move playback fully to Spotify live, open the Spotify app when needed, and remove Crate's bottom player
 - [x] Reset the center chat on studio entry, preserve Walrus Memory, and refine the composer
 - [x] Add auto-send voice prompts to the studio chat
+- [x] Rename the product to Songweaver while keeping Crate as the AI companion
