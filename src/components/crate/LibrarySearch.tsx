@@ -19,7 +19,11 @@ type Row = {
 function score(row: Row, q: string) {
   const n = row.name.toLowerCase();
   const a = row.artists.toLowerCase();
+  const main = a.split(/,\s*/)[0] ?? "";
   let s = 0;
+  // Songs where the searched artist is the main artist come first.
+  if (main === q) s += 120;
+  else if (main.startsWith(q) || main.split(/\s+/).some((w) => w.startsWith(q))) s += 70;
   if (n === q) s += 100;
   if (a.split(/,\s*/).some((x) => x === q)) s += 90;
   if (n.startsWith(q)) s += 50;
@@ -92,7 +96,7 @@ export function LibrarySearch() {
       {open && (
         <div className="absolute inset-x-0 top-full z-30 mt-2 max-h-96 overflow-y-auto rounded-lg border border-border bg-popover p-1.5 shadow-lg">
           {results.length === 0 ? (
-            <p className="px-3 py-4 text-sm text-muted-foreground">{isFetching ? "Searching…" : "No songs found"}</p>
+            <p className="px-3 py-4 text-sm text-muted-foreground">{isFetching ? "Searching…" : "No results in your library"}</p>
           ) : (
             results.map((r) => (
               <button
