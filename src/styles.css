@@ -142,6 +142,16 @@
   50% { opacity: 0.85; }
 }
 
+@keyframes eq-bounce {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
+
+@utility eq-bar {
+  transform-origin: bottom;
+  animation: eq-bounce 0.9s ease-in-out infinite;
+}
+
 @utility chat-enter {
   animation: chat-rise 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }

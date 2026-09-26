@@ -43,7 +43,16 @@ export function PathMaze() {
           ))}
 
           <div className="rounded-lg border border-primary/40 bg-primary/5 p-2.5">
-            <div className="text-[10px] uppercase tracking-wide text-primary">
+            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-primary">
+              <span className="flex h-3 items-end gap-[2px]" aria-hidden>
+                {[0, 1, 2, 3].map((i) => (
+                  <span
+                    key={i}
+                    className="eq-bar w-[2px] rounded-full bg-primary"
+                    style={{ height: "100%", animationDelay: `${i * 0.15}s`, animationDuration: `${0.7 + i * 0.12}s` }}
+                  />
+                ))}
+              </span>
               You are here · {ROAD[radio.road].name}
             </div>
             <div className="truncate text-sm font-semibold">{radio.current.name}</div>
