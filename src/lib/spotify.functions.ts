@@ -109,7 +109,14 @@ export const getSpotifyPlayback = createServerFn({ method: "GET" })
     const body = (await response.json()) as {
       is_playing?: boolean;
       progress_ms?: number | null;
-      item?: { id?: string | null; duration_ms?: number } | null;
+      item?: {
+        id?: string | null;
+        duration_ms?: number;
+        name?: string;
+        artists?: { name: string }[];
+        album?: { name?: string; images?: { url: string }[] };
+        external_urls?: { spotify?: string };
+      } | null;
       device?: { name?: string };
     };
     return {
@@ -119,7 +126,26 @@ export const getSpotifyPlayback = createServerFn({ method: "GET" })
       progressMs: body.progress_ms ?? 0,
       durationMs: body.item?.duration_ms ?? 0,
       deviceName: body.device?.name ?? null,
+      name: body.item?.name ?? "",
+      artists: (body.item?.artists ?? []).map((a) => a.name).join(", "),
+      album: body.item?.album?.name ?? null,
+      imageUrl: body.item?.album?.images?.[0]?.url ?? null,
+      spotifyUrl: body.item?.external_urls?.spotify ?? null,
     };
+  });
+
+/** Line up Crate's next pick in Spotify's own queue so skips inside the Spotify app land on it. */
+export const queueSpotifyTrack = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => playInput.parse(d))
+  .handler(async ({ data, context }) => {
+    const token = await spotifyAccess(context.userId);
+    if (!token) return { ok: false };
+    const response = await fetch(
+      `https://api.spotify.com/v1/me/player/queue?uri=${encodeURIComponent(`spotify:track:${data.spotifyId}`)}`,
+      { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+    );
+    return { ok: response.ok };
   });
 
 export const getSpotifyAuthUrl = createServerFn({ method: "POST" })
