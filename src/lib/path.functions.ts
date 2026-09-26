@@ -18,14 +18,6 @@ function applyCodeLens<T extends { sources: { name: string; type: string; period
     const hubs = pool.filter((s) => distinctPlaylists(s) >= 2);
     return hubs.length >= 15 ? hubs : pool;
   }
-  if (lens === "archive") {
-    const dated = pool
-      .map((s) => ({ s, m: Math.min(...s.sources.map((x) => monthIndex(x.period) ?? Infinity)) }))
-      .filter((x) => Number.isFinite(x.m))
-      .sort((a, b) => a.m - b.m);
-    const oldest = dated.slice(0, Math.max(20, Math.floor(dated.length * 0.3))).map((x) => x.s);
-    return oldest.length >= 15 ? oldest : pool;
-  }
   return pool;
 }
 
