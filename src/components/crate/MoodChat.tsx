@@ -47,7 +47,7 @@ function suggestionFromMemory(memory: PromptMemory) {
         : memory.kind === "mood_trigger"
           ? `Play for this mood: ${content}`
           : `Lean into this: ${content}`;
-  return prompt.length > 74 ? `${prompt.slice(0, 71).trim()}…` : prompt;
+  return prompt;
 }
 
 const TODAY_FALLBACKS = ["Ease me into today", "Play something that fits right now"];
