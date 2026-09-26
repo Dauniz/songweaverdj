@@ -155,15 +155,12 @@ export function MemoryInspector() {
         {nodes.map((n) => {
           return (
             <div key={n.id} className="rounded-lg border bg-surface p-3">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-muted-foreground">
                   {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
-              </div>
-
-              <div className="mt-2">
                 <span className="inline-flex rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                  Crate skill · {skillForMemory(n.kind, n.origin, n.content)}
+                  {skillForMemory(n.kind, n.origin, n.content)}
                 </span>
               </div>
               <p className="mt-2 text-sm">{n.content}</p>
