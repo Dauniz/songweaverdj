@@ -122,9 +122,18 @@ export function MemoryInspector() {
       <PathMaze />
       <div className="px-4 py-3 text-xs">
         {cfg?.configured ? (
-          <span className="inline-flex items-center gap-1.5 text-primary">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Connected to Walrus relayer
-          </span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex cursor-default items-center gap-1.5 text-primary">
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Connected to Walrus relayer
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-56">
+                Your taste memories are synced through the Walrus relayer, the system that keeps them safe and lets Crate recall them across sessions.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         ) : (
           <span className="inline-flex items-center gap-1.5 text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" /> Walrus keys not added
