@@ -109,7 +109,7 @@ function StudioLayout({
               : "w-full lg:w-[calc(100%-20rem)]",
           )}
         >
-          <MoodChat compact={live} />
+          <MoodChat />
         </main>
         <aside
           className={cn(

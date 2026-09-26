@@ -101,7 +101,7 @@ async function transcribeVoice(file: File) {
   return result;
 }
 
-export function MoodChat({ compact = false }: { compact?: boolean | undefined }) {
+export function MoodChat() {
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [deepCuts, setDeepCuts] = useState(true);
@@ -376,10 +376,10 @@ export function MoodChat({ compact = false }: { compact?: boolean | undefined })
             height={80}
             className="h-20 w-20 rounded-2xl"
           />
-          <h2 className={cn("mt-6 max-w-full font-bold leading-tight", compact ? "text-3xl" : "text-4xl")}>
+          <h2 className="mt-6 max-w-full text-4xl font-bold leading-tight">
             What does today sound like?
           </h2>
-          <p className={cn("mt-3 max-w-lg leading-7 text-muted-foreground", compact ? "text-base" : "text-lg")}>
+          <p className="mt-3 max-w-lg text-lg leading-7 text-muted-foreground">
             Describe your mood, where you are, what you're doing. I'll dig up tracks you already
             love from your past playlists.
           </p>
