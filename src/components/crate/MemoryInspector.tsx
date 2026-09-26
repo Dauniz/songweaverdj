@@ -140,7 +140,8 @@ export function MemoryInspector() {
           {showLog ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           {showLog ? "Hide Walrus log" : "Show Walrus log"}
         </button>
-        {showLog && (
+      </div>
+      {showLog && (
       <div className="scrollbar-thin flex-1 space-y-2 overflow-y-auto px-4 pb-4">
         {nodes.length === 0 && (
           <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
