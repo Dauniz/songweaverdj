@@ -332,67 +332,80 @@ export function MoodChat() {
             />
           </PromptInputFooter>
         </PromptInput>
-        <div className="mt-2 flex items-center gap-1.5 text-xs">
-          <label htmlFor="deep-cuts" className="cursor-pointer text-muted-foreground">
-            Deep cuts
-          </label>
-          <Checkbox
-            id="deep-cuts"
-            checked={deepCuts}
-            onCheckedChange={(checked) => toggleDeepCuts(checked === true)}
-            aria-label="Enable Deep cuts"
-            className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
-          />
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label="About Deep cuts"
-                  className="rounded-full text-muted-foreground"
-                >
-                  <CircleHelp />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-[240px]">
-                Finds overlooked songs you haven't heard in a while.
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
         <TooltipProvider>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs" role="radiogroup" aria-label="Side roads">
-            <span className="mr-0.5 text-muted-foreground">Side road</span>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
+            <span className="flex items-center gap-1.5">
+              <label htmlFor="deep-cuts" className="cursor-pointer text-muted-foreground">
+                Deep cuts
+              </label>
+              <Checkbox
+                id="deep-cuts"
+                checked={deepCuts}
+                onCheckedChange={(checked) => toggleDeepCuts(checked === true)}
+                aria-label="Enable Deep cuts"
+                className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
+              />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="About Deep cuts"
+                    className="rounded-full text-muted-foreground"
+                  >
+                    <CircleHelp />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="max-w-[240px]">
+                  Finds overlooked songs you haven't heard in a while.
+                </TooltipContent>
+              </Tooltip>
+            </span>
             {LENSES.map((l) => {
               const on = lens === l.id;
               return (
-                <Tooltip key={l.id}>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      role="radio"
-                      aria-checked={on}
-                      onClick={() => setLens(on ? null : l.id)}
-                      className={cn(
-                        "rounded-full border px-2.5 py-0.5 transition-colors",
-                        on
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border text-muted-foreground hover:border-foreground hover:text-foreground",
-                      )}
-                    >
-                      {l.name}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[240px]">
-                    {l.info} Works on top of the Vibe or Era road. One at a time.
-                  </TooltipContent>
-                </Tooltip>
+                <span key={l.id} className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    id={`lens-${l.id}`}
+                    role="checkbox"
+                    aria-checked={on}
+                    onClick={() => setLens(on ? null : l.id)}
+                    className="cursor-pointer text-muted-foreground hover:text-foreground"
+                  >
+                    {l.name}
+                  </button>
+                  <Checkbox
+                    checked={on}
+                    onCheckedChange={(checked) => setLens(checked === true ? l.id : null)}
+                    aria-label={`Enable ${l.name}`}
+                    aria-labelledby={`lens-${l.id}`}
+                    className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
+                  />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={`About ${l.name}`}
+                        className="rounded-full text-muted-foreground"
+                      >
+                        <CircleHelp />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-[240px]">
+                      {l.info} Runs on top of the Vibe or Era road. Only one side road at a time;
+                      click it again to turn it off.
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
               );
             })}
           </div>
         </TooltipProvider>
+
       </div>
     </div>
   );
