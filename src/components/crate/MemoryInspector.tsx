@@ -54,6 +54,7 @@ function skillForMemory(kind: string, origin: string, content: string) {
 export function MemoryInspector() {
   const qc = useQueryClient();
   const [showLog, setShowLog] = useState(false);
+  const [consoleOpen, setConsoleOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetText, setResetText] = useState("");
