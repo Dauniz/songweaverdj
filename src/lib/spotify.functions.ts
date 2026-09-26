@@ -68,10 +68,16 @@ function playbackFailure(status: number, detail = "") {
 }
 
 const playInput = z.object({ spotifyId: z.string().min(1).max(64) });
+const startInput = playInput.extend({
+  nextId: z.string().min(1).max(64).optional(),
+  positionMs: z.number().int().min(0).max(3_600_000).optional(),
+});
 
+/** Plays Crate's song as a fresh two-song list: [now, "if you skip"] — this replaces
+ *  whatever album/playlist Spotify was running, so a skip lands on Crate's pick. */
 export const playSpotifyTrack = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => playInput.parse(d))
+  .inputValidator((d) => startInput.parse(d))
   .handler(async ({ data, context }) => {
     const token = await spotifyAccess(context.userId);
     if (!token) return { status: "connect_required" as const, message: "Connect Spotify to start listening." };
@@ -84,14 +90,16 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
     const device = body.devices?.find((item) => item.is_active && !item.is_restricted && item.id)
       ?? body.devices?.find((item) => !item.is_restricted && item.id);
     if (!device?.id) return { status: "no_device" as const, message: "Spotify needs to be open on one of your devices." };
+    const uris = [data.spotifyId, ...(data.nextId ? [data.nextId] : [])].map((id) => `spotify:track:${id}`);
     const response = await fetch(
       `https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(device.id)}`,
       {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ uris: [`spotify:track:${data.spotifyId}`] }),
+        body: JSON.stringify({ uris, ...(data.positionMs ? { position_ms: data.positionMs } : {}) }),
       },
     );
+
     if (!response.ok) return playbackFailure(response.status, await response.text());
     return { status: "playing" as const, deviceName: device.name };
   });
