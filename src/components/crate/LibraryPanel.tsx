@@ -152,7 +152,7 @@ export function LibraryPanel() {
                 )}
               />
             </TooltipTrigger>
-            <TooltipContent side="left">
+            <TooltipContent side="right">
               {status?.connected ? "Spotify connected" : "Spotify not connected"}
             </TooltipContent>
           </Tooltip>
