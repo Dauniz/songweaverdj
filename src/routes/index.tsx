@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { readLiveSession } from "@/components/crate/radio-context";
+import { readLiveSession } from "@/lib/live-session";
 import logo from "@/assets/crate-logo.jpg";
 
 export const Route = createFileRoute("/")({

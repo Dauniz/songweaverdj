@@ -1,3 +1,4 @@
+import { LIVE_KEY, readLiveSession } from "@/lib/live-session";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
@@ -97,27 +98,6 @@ function advance(s: RadioState, outcome: "played" | "skipped"): RadioState {
   const skips = s.consecutiveSkips + 1;
   const road: Road = skips === 1 ? (s.road === "vibe" ? "era" : s.road === "era" ? "vibe" : "vibe") : "mixed";
   return { ...s, history, consecutiveSkips: skips, road };
-}
-
-export const LIVE_KEY = "songweaver-live-session";
-const LIVE_MAX_AGE = 30 * 60 * 1000;
-type SavedSession = {
-  radio: RadioState; sessionLive: boolean; events: MazeEvent[];
-  played: string[]; artistSkips: [string, number][]; savedAt: number;
-};
-export function readLiveSession(): SavedSession | null {
-  try {
-    const raw = localStorage.getItem(LIVE_KEY);
-    if (!raw) return null;
-    const s = JSON.parse(raw) as SavedSession;
-    if (!s.savedAt || Date.now() - s.savedAt > LIVE_MAX_AGE || !(s.sessionLive || s.radio?.active)) {
-      localStorage.removeItem(LIVE_KEY);
-      return null;
-    }
-    return s;
-  } catch {
-    return null;
-  }
 }
 
 export function RadioProvider({ children }: { children: ReactNode }) {
