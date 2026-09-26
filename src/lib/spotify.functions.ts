@@ -364,6 +364,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         total?: number;
       };
       try {
+        if (offset > 0) await pace(300);
         saved = await spotifyGet(token, `/me/tracks?limit=50&offset=${offset}`);
       } catch (e) {
         console.error("liked fetch failed", e);
