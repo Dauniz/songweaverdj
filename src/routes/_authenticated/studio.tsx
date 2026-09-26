@@ -46,6 +46,24 @@ function Studio() {
 
   return (
     <RadioProvider>
+      <StudioLayout mobileTab={mobileTab} onTab={setMobileTab} onSignOut={signOut} />
+    </RadioProvider>
+  );
+}
+
+/** Reads the live radio state so the layout can rebalance while a session runs. */
+function StudioLayout({
+  mobileTab,
+  onTab,
+  onSignOut,
+}: {
+  mobileTab: "chat" | "memory";
+  onTab: (t: "chat" | "memory") => void;
+  onSignOut: () => void;
+}) {
+  const { sessionLive, radio } = useRadio();
+  const live = sessionLive || radio.active;
+  return (
     <div className="flex h-screen flex-col bg-background">
       <header className="flex items-center gap-3 border-b px-4 py-2.5">
         <img src={logo} alt="Songweaver" width={32} height={32} className="h-8 w-8 rounded-lg" />
@@ -54,7 +72,7 @@ function Studio() {
           {(["chat", "memory"] as const).map((t) => (
             <button
               key={t}
-              onClick={() => setMobileTab(t)}
+              onClick={() => onTab(t)}
               className={cn(
                 "rounded-full px-3 py-1 text-xs capitalize",
                 mobileTab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground",
@@ -69,7 +87,7 @@ function Studio() {
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={signOut}
+                onClick={onSignOut}
                 aria-label="Log out"
                 className="ml-2 rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
@@ -84,22 +102,27 @@ function Studio() {
         <LibraryPanel />
         <main
           className={cn(
-            "min-w-0 flex-1 bg-glow lg:block",
-            mobileTab === "chat" ? "block" : "hidden",
+            "min-w-0 overflow-hidden bg-glow lg:flex-none lg:transition-[width] lg:duration-500 lg:ease-in-out",
+            mobileTab === "chat" ? "block" : "hidden lg:block",
+            live
+              ? "w-full lg:w-[29rem]"
+              : "w-full lg:w-[calc(100%-20rem)]",
           )}
         >
           <MoodChat />
         </main>
         <aside
           className={cn(
-            "w-full border-l bg-sidebar lg:block lg:w-80",
-            mobileTab === "memory" ? "block" : "hidden",
+            "w-full border-l bg-sidebar lg:flex-none lg:transition-[width] lg:duration-500 lg:ease-in-out",
+            mobileTab === "memory" ? "block" : "hidden lg:block",
+            live
+              ? "lg:w-[calc(100%-29rem)]"
+              : "lg:w-80",
           )}
         >
           <MemoryInspector />
         </aside>
       </div>
     </div>
-    </RadioProvider>
   );
 }
