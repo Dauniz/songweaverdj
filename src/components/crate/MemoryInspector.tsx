@@ -2,7 +2,18 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight, Database, Info, RefreshCw, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronRight, Database, Info, RefreshCw, Sparkles, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Tooltip,
   TooltipContent,
@@ -10,7 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { getMemoryStatus, refreshMemories } from "@/lib/memory.functions";
+import { getMemoryStatus, refreshMemories, resetMemoryLog } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
 import { PathMaze } from "@/components/crate/PathMaze";
 
@@ -67,6 +78,10 @@ export function MemoryInspector() {
   const qc = useQueryClient();
   const [showLog, setShowLog] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetText, setResetText] = useState("");
+  const [resetting, setResetting] = useState(false);
+  const reset = useServerFn(resetMemoryLog);
   const refresh = useServerFn(refreshMemories);
   const status = useServerFn(getMemoryStatus);
   const { data: cfg } = useQuery({ queryKey: ["memwal-status"], queryFn: () => status() });
@@ -215,7 +230,17 @@ export function MemoryInspector() {
         })}
       </div>
       )}
-      <div className="mt-auto flex justify-end border-t px-4 py-2">
+      <div className="mt-auto flex items-center justify-between border-t px-4 py-2">
+        <button
+          type="button"
+          onClick={() => {
+            setResetText("");
+            setResetOpen(true);
+          }}
+          className="inline-flex items-center gap-1 text-[11px] text-destructive/80 underline-offset-2 hover:text-destructive hover:underline"
+        >
+          <Trash2 className="h-3 w-3" /> Reset Walrus log
+        </button>
         <Link
           to="/crate-info"
           className="inline-flex items-center gap-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
@@ -223,6 +248,47 @@ export function MemoryInspector() {
           <Info className="h-3 w-3" /> How Crate uses Walrus
         </Link>
       </div>
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Walrus log?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This wipes everything Crate has learned about you — every memory,
+              listening lesson and note in the Walrus log. Your imported songs
+              stay untouched. It's like resetting your algorithm: a fresh start.
+              <span className="mt-3 block font-medium text-foreground">
+                Type RESET to confirm.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={resetText}
+            onChange={(e) => setResetText(e.target.value)}
+            placeholder="RESET"
+            autoFocus
+            className="font-mono"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={resetText !== "RESET" || resetting}
+              onClick={async () => {
+                setResetting(true);
+                try {
+                  await reset({ data: { confirm: "RESET" } });
+                  qc.invalidateQueries({ queryKey: ["memories"] });
+                  setResetOpen(false);
+                } finally {
+                  setResetting(false);
+                }
+              }}
+            >
+              {resetting ? "Resetting…" : "Reset everything"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

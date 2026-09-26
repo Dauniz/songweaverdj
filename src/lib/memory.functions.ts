@@ -32,6 +32,22 @@ export const addMemory = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Wipe everything Crate has learned about this user — keeps the imported library. */
+export const resetMemoryLog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ confirm: z.literal("RESET") }).parse(d))
+  .handler(async ({ context }) => {
+    const userId = context.userId;
+    const [mem, ev, chat] = await Promise.all([
+      context.supabase.from("memory_nodes").delete().eq("user_id", userId),
+      context.supabase.from("listening_events").delete().eq("user_id", userId),
+      context.supabase.from("chat_messages").delete().eq("user_id", userId),
+    ]);
+    const err = mem.error ?? ev.error ?? chat.error;
+    if (err) throw new Error(err.message);
+    return { ok: true };
+  });
+
 /** Poll pending Walrus jobs and record their blob ids. */
 export const refreshMemories = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
