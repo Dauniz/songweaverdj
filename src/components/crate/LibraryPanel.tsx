@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Disc3, Loader2 } from "lucide-react";
@@ -15,15 +15,6 @@ import { buildDemoRows } from "@/lib/demo-library";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 
-function period(p: string | null) {
-  if (!p) return "Undated";
-  return new Date(p + "T00:00:00Z").toLocaleString("en-US", {
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
-
 export function LibraryPanel() {
   const qc = useQueryClient();
   const statusFn = useServerFn(getSpotifyStatus);
@@ -32,7 +23,6 @@ export function LibraryPanel() {
   const disconnectFn = useServerFn(disconnectSpotify);
   const progressFn = useServerFn(getSyncProgress);
   const [busy, setBusy] = useState<string | null>(null);
-  const [q, setQ] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [summary, setSummary] = useState<{
     imported: number;
@@ -53,7 +43,7 @@ export function LibraryPanel() {
       : null;
 
   const { data: status } = useQuery({ queryKey: ["spotify-status"], queryFn: () => statusFn() });
-  const { data: tracks = [], isLoading } = useQuery({
+  const { data: tracks = [] } = useQuery({
     queryKey: ["library"],
     queryFn: async () => {
       const all = [];
@@ -82,22 +72,6 @@ export function LibraryPanel() {
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
   }, [qc]);
-
-  const groups = useMemo(() => {
-    const f = q.toLowerCase();
-    const m = new Map<string, { label: string; period: string | null; items: typeof tracks }>();
-    for (const t of tracks) {
-      if (f && !`${t.name} ${t.artists}`.toLowerCase().includes(f)) continue;
-      const g = m.get(t.source_name) ?? {
-        label: t.source_name,
-        period: t.source_period,
-        items: [],
-      };
-      g.items.push(t);
-      m.set(t.source_name, g);
-    }
-    return [...m.values()];
-  }, [tracks, q]);
 
   async function connect() {
     setBusy("connect");
@@ -155,88 +129,75 @@ export function LibraryPanel() {
   const hasDemo = tracks.some((t) => t.is_demo);
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="space-y-3 border-b p-4">
-        <div className="rounded-xl bg-surface p-3">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <Disc3 className="h-4 w-4 text-primary" /> Spotify
-          </div>
-          {!status ? (
-            <p className="mt-1 text-xs text-muted-foreground">Checking…</p>
-          ) : !status.configured ? (
-            <p className="mt-1 text-xs text-muted-foreground">Spotify app keys not added yet.</p>
-          ) : status.connected ? (
-            <>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {status.displayName} ·{" "}
-                {status.lastSyncedAt
-                  ? `synced ${new Date(status.lastSyncedAt).toLocaleString()}`
-                  : "not synced yet"}
-              </p>
-              {(syncing || summary) && (
-                <div className="mt-3 space-y-2">
-                  {syncing && (
-                    <>
-                      <Progress value={pct ?? undefined} className="h-1.5" />
-                      <p className="text-xs text-muted-foreground">
-                        {progress?.stage ?? "Starting…"}
-                      </p>
-                    </>
-                  )}
-                  {!syncing && summary && (
-                    <div className="rounded-lg border border-primary/30 bg-primary/10 p-2.5 text-xs">
-                      <p className="font-semibold text-primary">✓ Library loaded</p>
-                      <p className="mt-1 text-muted-foreground">
-                        {summary.imported} tracks · from {summary.playlists} playlists ·{" "}
-                        {summary.liked} liked songs · {summary.recent} recently played
-                      </p>
-                    </div>
-                  )}
+    <div className="fixed bottom-4 right-4 z-40 w-72 rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <Disc3 className="h-4 w-4 text-primary" /> Spotify
+        <span className="ml-auto text-xs font-normal text-muted-foreground">
+          {tracks.length} tracks
+        </span>
+      </div>
+      {!status ? (
+        <p className="mt-1 text-xs text-muted-foreground">Checking…</p>
+      ) : !status.configured ? (
+        <p className="mt-1 text-xs text-muted-foreground">Spotify app keys not added yet.</p>
+      ) : status.connected ? (
+        <>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {status.displayName} ·{" "}
+            {status.lastSyncedAt
+              ? `synced ${new Date(status.lastSyncedAt).toLocaleString()}`
+              : "not synced yet"}
+          </p>
+          {(syncing || summary) && (
+            <div className="mt-3 space-y-2">
+              {syncing && (
+                <>
+                  <Progress value={pct ?? undefined} className="h-1.5" />
+                  <p className="text-xs text-muted-foreground">{progress?.stage ?? "Starting…"}</p>
+                </>
+              )}
+              {!syncing && summary && (
+                <div className="rounded-lg border border-primary/30 bg-primary/10 p-2.5 text-xs">
+                  <p className="font-semibold text-primary">✓ Library loaded</p>
+                  <p className="mt-1 text-muted-foreground">
+                    {summary.imported} tracks · from {summary.playlists} playlists ·{" "}
+                    {summary.liked} liked songs · {summary.recent} recently played
+                  </p>
                 </div>
               )}
-              <div className="mt-2 flex gap-2">
-                <Button size="sm" onClick={sync} disabled={busy !== null}>
-                  {busy === "sync" && <Loader2 className="h-3 w-3 animate-spin" />} Sync library
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={async () => {
-                    await disconnectFn();
-                    qc.invalidateQueries({ queryKey: ["spotify-status"] });
-                  }}
-                >
-                  Disconnect
-                </Button>
-              </div>
-            </>
-          ) : (
-            <Button size="sm" className="mt-2" onClick={connect} disabled={busy !== null}>
-              Connect Spotify
-            </Button>
+            </div>
           )}
-        </div>
-        <div className="flex gap-2">
-          {hasDemo ? (
-            <Button size="xs" variant="outline" onClick={clearDemo}>
-              Remove demo tracks
+          <div className="mt-2 flex gap-2">
+            <Button size="sm" onClick={sync} disabled={busy !== null}>
+              {busy === "sync" && <Loader2 className="h-3 w-3 animate-spin" />} Sync library
             </Button>
-          ) : (
-            <Button size="xs" variant="outline" onClick={loadDemo} disabled={busy !== null}>
-              {busy === "demo" && <Loader2 className="h-3 w-3 animate-spin" />} Load demo library
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={async () => {
+                await disconnectFn();
+                qc.invalidateQueries({ queryKey: ["spotify-status"] });
+              }}
+            >
+              Disconnect
             </Button>
-          )}
-          <span className="ml-auto self-center text-xs text-muted-foreground">
-            {tracks.length} tracks
-          </span>
-        </div>
-      </div>
-      <div className="flex-1 p-4 text-xs text-muted-foreground">
-        {isLoading
-          ? "Loading…"
-          : tracks.length
-            ? `Crate knows ${tracks.length} tracks from ${groups.length} sources. Just tell it your vibe.`
-            : "Nothing here yet. Connect Spotify or load the demo library."}
+          </div>
+        </>
+      ) : (
+        <Button size="sm" className="mt-2" onClick={connect} disabled={busy !== null}>
+          Connect Spotify
+        </Button>
+      )}
+      <div className="mt-2">
+        {hasDemo ? (
+          <Button size="xs" variant="outline" onClick={clearDemo}>
+            Remove demo tracks
+          </Button>
+        ) : (
+          <Button size="xs" variant="outline" onClick={loadDemo} disabled={busy !== null}>
+            {busy === "demo" && <Loader2 className="h-3 w-3 animate-spin" />} Load demo library
+          </Button>
+        )}
       </div>
     </div>
   );

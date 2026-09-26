@@ -79,14 +79,7 @@ function Studio() {
         </TooltipProvider>
       </header>
       <div className="flex min-h-0 flex-1">
-        <aside
-          className={cn(
-            "w-full border-r bg-sidebar lg:block lg:w-80",
-            mobileTab === "library" ? "block" : "hidden",
-          )}
-        >
-          <LibraryPanel />
-        </aside>
+        <LibraryPanel />
         <main
           className={cn(
             "min-w-0 flex-1 bg-glow lg:block",
