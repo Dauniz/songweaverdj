@@ -1,4 +1,8 @@
 import { LIVE_KEY, readLiveSession } from "@/lib/live-session";
+
+const LAST_KEY = "songweaver-last-session";
+/** End the session when Spotify shows no open device for this long. */
+const NO_DEVICE_GRACE = 20_000;
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
@@ -68,6 +72,8 @@ type RadioContextValue = {
   sessionLive: boolean;
   startSession: () => Promise<void>;
   endSession: () => void;
+  hasLastSession: boolean;
+  resumeLastSession: () => void;
   events: MazeEvent[];
   spotifyIdle: boolean;
 };
@@ -153,7 +159,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const swapping = useRef("");
   const idleSince = useRef(0);
   const [events, setEvents] = useState<MazeEvent[]>([]);
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
   const [spotifyIdle, setSpotifyIdle] = useState(false);
+  // When Spotify stopped reporting any active device (app closed).
+  const noDeviceSince = useRef(0);
+  const [hasLastSession, setHasLastSession] = useState(false);
+  useEffect(() => {
+    setHasLastSession(Boolean(localStorage.getItem(LAST_KEY)));
+  }, []);
   // Resume a live session on this device after a reload / tab switch (fresh within 30 min).
   const [restored, setRestored] = useState(false);
   useEffect(() => {
@@ -337,7 +351,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [startRadio, log, note],
   );
 
-  const stopRadio = useCallback(() => {
+  const stopRadio = useCallback((opts?: { keepSpotify?: boolean }) => {
+    // Remember where in the maze Crate was, so the session can be resumed later.
+    const s = radioRef.current;
+    if (s.active && s.current) {
+      localStorage.setItem(
+        LAST_KEY,
+        JSON.stringify({ radio: s, events: eventsRef.current, played: played.current, artistSkips: [...artistSkips.current], savedAt: Date.now() }),
+      );
+      setHasLastSession(true);
+    }
     branches.current = null;
     setAskSteer(false);
     setPlaybackIssue(null);
@@ -348,7 +371,30 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     setRadio(IDLE);
     localStorage.removeItem(LIVE_KEY);
     // Hand Spotify back clean: pause and drop the songs Crate had lined up.
-    void endSpotifySession().catch(() => undefined);
+    if (!opts?.keepSpotify) void endSpotifySession().catch(() => undefined);
+  }, []);
+
+  const resumeLastSession = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(LAST_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { radio: RadioState; events: MazeEvent[]; played: string[]; artistSkips: [string, number][] };
+      played.current = saved.played ?? [];
+      artistSkips.current = new Map(saved.artistSkips ?? []);
+      branches.current = null;
+      door.current = null;
+      preSkip.current = null;
+      noPlayFor.current = "";
+      idleSince.current = 0;
+      noDeviceSince.current = 0;
+      lastPlayback.current = { spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 };
+      setEvents([...(saved.events ?? []), { at: Date.now(), kind: "reroot" as const, text: `Resumed last session at "${saved.radio.current?.name}"` }].slice(-30));
+      setRadio({ ...saved.radio, active: true, sessionId: crypto.randomUUID() });
+      setSessionLive(true);
+    } catch {
+      localStorage.removeItem(LAST_KEY);
+      setHasLastSession(false);
+    }
   }, []);
 
   const next = useCallback(
@@ -519,6 +565,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const previous = lastPlayback.current;
         const playing = state.status === "ready" && state.isPlaying;
         if (!playing) {
+          // Spotify reports no open device at all → Spotify is closed; end the session.
+          if (state.status === "idle" || state.status === "no_device") {
+            if (!noDeviceSince.current) noDeviceSince.current = Date.now();
+            else if (Date.now() - noDeviceSince.current > NO_DEVICE_GRACE) {
+              noDeviceSince.current = 0;
+              stopRadio({ keepSpotify: true });
+              return;
+            }
+          } else noDeviceSince.current = 0;
           if (idleSince.current && Date.now() - idleSince.current > 12_000) setSpotifyIdle(true);
           if (!idleSince.current) idleSince.current = Date.now();
           else if (Date.now() - idleSince.current > 30 * 60_000) {
@@ -527,6 +582,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           }
         } else {
           idleSince.current = 0;
+          noDeviceSince.current = 0;
           setSpotifyIdle(false);
         }
         if (state.status === "ready" && state.spotifyId === current.spotify_id) {
@@ -579,6 +635,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     void check();
     return () => clearInterval(timer);
   }, [sessionLive, radio.active, radio.sessionId, playbackIssue, playbackFn, next, acceptObserved, stopRadio, handOver]);
+
+  // "Open Spotify" issue left unresolved for a minute → Spotify isn't coming; end the session.
+  useEffect(() => {
+    if (!sessionLive || playbackIssue?.status !== "no_device") return;
+    const t = setTimeout(() => stopRadio({ keepSpotify: true }), 60_000);
+    return () => clearTimeout(t);
+  }, [sessionLive, playbackIssue, stopRadio]);
 
   const startSession = useCallback(async () => {
     setSessionLive(true);
@@ -719,7 +782,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         setLens,
         sessionLive,
         startSession,
-        endSession: stopRadio,
+        endSession: () => stopRadio(),
+        hasLastSession,
+        resumeLastSession,
         events,
         spotifyIdle,
       }}
