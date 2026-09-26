@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronDown, ChevronRight, Database, RefreshCw } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { ChevronDown, ChevronRight, Database, Info, RefreshCw, Sparkles } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -35,9 +36,37 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   failed: { label: "Failed", cls: "bg-destructive" },
 };
 
+const SKILLS: { name: string; how: string }[] = [
+  {
+    name: "User input",
+    how: "What you type or say in the chat becomes a memory — moods, settings, artists you name.",
+  },
+  {
+    name: "Listening",
+    how: "Finishes, replays and skips are counted. Skip an artist twice and they fade for the session; replay a song across sessions and it becomes a quiet favorite.",
+  },
+  {
+    name: "Steer",
+    how: "Chips like Svenskt, Nostalgi or Instrumental — or a song you spontaneously play — redirect the maze. Chips picked in 3+ sessions become taste memories.",
+  },
+  {
+    name: "Feedbacker",
+    how: "A free note on the song playing right now (\"nostalgi, högstadiet\") — the sharpest signal Crate gets.",
+  },
+  {
+    name: "Deep cuts",
+    how: "When enabled, Crate skips everything you've heard lately and digs into playlists a year old or more.",
+  },
+  {
+    name: "The Maze",
+    how: "Finish a song → Crate keeps walking the same road. Skip → it turns. Two skips → a new angle. Every lesson is written to Walrus.",
+  },
+];
+
 export function MemoryInspector() {
   const qc = useQueryClient();
   const [showLog, setShowLog] = useState(false);
+  const [showSkills, setShowSkills] = useState(false);
   const refresh = useServerFn(refreshMemories);
   const status = useServerFn(getMemoryStatus);
   const { data: cfg } = useQuery({ queryKey: ["memwal-status"], queryFn: () => status() });
