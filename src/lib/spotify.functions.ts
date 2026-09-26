@@ -336,6 +336,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         const items = [...(first.items ?? [])];
         let next = first.next;
         while (next) {
+          await pace();
           const page = await spotifyGet<PlItems>(token, next);
           items.push(...(page.items ?? []));
           next = page.next;
