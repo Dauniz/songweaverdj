@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -54,7 +54,6 @@ function skillForMemory(kind: string, origin: string, content: string) {
 export function MemoryInspector() {
   const qc = useQueryClient();
   const [showLog, setShowLog] = useState(false);
-  const logScrollRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetText, setResetText] = useState("");
@@ -237,7 +236,7 @@ export function MemoryInspector() {
       </div>
       )}
       </div>
-      <CrateConsole aboveRef={logScrollRef} />
+      <CrateConsole />
       <div className="flex shrink-0 items-center justify-between border-t px-4 py-2">
         <Link
           to="/crate-info"

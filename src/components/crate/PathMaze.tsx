@@ -139,7 +139,7 @@ const TAG: Record<string, { label: string; cls: string }> = {
  * it's a single bar; expanding slides the bar up while the console unfolds
  * below it, showing Crate's live reasoning as it walks the maze.
  */
-export function CrateConsole({ aboveRef }: { aboveRef?: React.RefObject<HTMLDivElement | null> }) {
+export function CrateConsole() {
   const { events, radio } = useRadio();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -148,17 +148,6 @@ export function CrateConsole({ aboveRef }: { aboveRef?: React.RefObject<HTMLDivE
     const el = ref.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [events.length, open]);
-
-  const toggle = () => {
-    setOpen((v) => {
-      const next = !v;
-      // When unfolding, snap the log area above so the console's top edge
-      // lands right below the "Show Walrus log" section instead of covering it.
-      const above = aboveRef?.current;
-      if (next && above) above.scrollTo({ top: above.scrollHeight, behavior: "smooth" });
-      return next;
-    });
-  };
 
   const live = radio.active;
 
