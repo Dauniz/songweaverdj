@@ -119,8 +119,7 @@ export function MemoryInspector() {
       </div>
       <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
       <PathMaze />
-      </div>
-      <div className="shrink-0 border-t px-4 py-3 text-xs">
+      <div className="px-4 py-3 text-xs">
         {cfg?.configured ? (
           <span className="inline-flex items-center gap-1.5 text-primary">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Connected to Walrus relayer
@@ -225,6 +224,7 @@ export function MemoryInspector() {
         })}
       </div>
       )}
+      </div>
       <CrateConsole />
       <div className="flex shrink-0 items-center justify-between border-t px-4 py-2">
         <Link
