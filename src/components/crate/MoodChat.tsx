@@ -105,6 +105,18 @@ export function MoodChat() {
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [deepCuts, setDeepCuts] = useState(true);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem("songweaver-deep-cuts");
+      if (saved === "0") setDeepCuts(false);
+    } catch { /* ignore */ }
+  }, []);
+  const toggleDeepCuts = (on: boolean) => {
+    setDeepCuts(on);
+    try {
+      window.localStorage.setItem("songweaver-deep-cuts", on ? "1" : "0");
+    } catch { /* ignore */ }
+  };
   const [voiceState, setVoiceState] = useState<"idle" | "recording" | "transcribing">("idle");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recordingRef = useRef<VoiceRecording | null>(null);
