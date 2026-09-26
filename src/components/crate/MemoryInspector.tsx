@@ -241,6 +241,7 @@ export function MemoryInspector() {
           <Trash2 className="h-3 w-3" /> Reset Walrus log
         </button>
       </div>
+      <CrateConsole />
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
