@@ -99,6 +99,27 @@ function advance(s: RadioState, outcome: "played" | "skipped"): RadioState {
   return { ...s, history, consecutiveSkips: skips, road };
 }
 
+export const LIVE_KEY = "songweaver-live-session";
+const LIVE_MAX_AGE = 30 * 60 * 1000;
+type SavedSession = {
+  radio: RadioState; sessionLive: boolean; events: MazeEvent[];
+  played: string[]; artistSkips: [string, number][]; savedAt: number;
+};
+export function readLiveSession(): SavedSession | null {
+  try {
+    const raw = localStorage.getItem(LIVE_KEY);
+    if (!raw) return null;
+    const s = JSON.parse(raw) as SavedSession;
+    if (!s.savedAt || Date.now() - s.savedAt > LIVE_MAX_AGE || !(s.sessionLive || s.radio?.active)) {
+      localStorage.removeItem(LIVE_KEY);
+      return null;
+    }
+    return s;
+  } catch {
+    return null;
+  }
+}
+
 export function RadioProvider({ children }: { children: ReactNode }) {
   const [radio, setRadio] = useState<RadioState>(IDLE);
   const [thinking, setThinking] = useState(false);
@@ -138,6 +159,36 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const idleSince = useRef(0);
   const [events, setEvents] = useState<MazeEvent[]>([]);
   const [spotifyIdle, setSpotifyIdle] = useState(false);
+  // Resume a live session on this device after a reload / tab switch (fresh within 30 min).
+  const [restored, setRestored] = useState(false);
+  useEffect(() => {
+    const saved = readLiveSession();
+    setRestored(true);
+    if (!saved) return;
+    played.current = saved.played ?? [];
+    artistSkips.current = new Map(saved.artistSkips ?? []);
+    if (saved.radio.current?.spotify_id) {
+      noPlayFor.current = saved.radio.current.spotify_id;
+      lastPlayback.current = { ...lastPlayback.current, spotifyId: saved.radio.current.spotify_id, observed: true, at: Date.now() };
+    }
+    setEvents(saved.events ?? []);
+    setRadio(saved.radio);
+    setSessionLive(saved.sessionLive);
+  }, []);
+  useEffect(() => {
+    if (!restored) return;
+    if (!sessionLive && !radio.active) {
+      localStorage.removeItem(LIVE_KEY);
+      return;
+    }
+    localStorage.setItem(
+      LIVE_KEY,
+      JSON.stringify({
+        radio, sessionLive, events, played: played.current,
+        artistSkips: [...artistSkips.current], savedAt: Date.now(),
+      }),
+    );
+  }, [restored, radio, sessionLive, events]);
   const note = useCallback((kind: MazeEvent["kind"], text: string) => {
     setEvents((e) => [...e, { at: Date.now(), kind, text }].slice(-30));
   }, []);
@@ -299,6 +350,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     setSessionLive(false);
     setSpotifyIdle(false);
     setRadio(IDLE);
+    localStorage.removeItem(LIVE_KEY);
     // Hand Spotify back clean: pause and drop the songs Crate had lined up.
     void endSpotifySession().catch(() => undefined);
   }, []);
