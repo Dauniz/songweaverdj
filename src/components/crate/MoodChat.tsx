@@ -124,10 +124,11 @@ export function MoodChat() {
     },
   });
   const personalizedPrompts = useMemo(() => {
-    const remembered = [...new Set(promptMemories.map(suggestionFromMemory))];
-    return [...remembered, ...TODAY_FALLBACKS].filter(
-      (prompt, index, prompts) => prompts.indexOf(prompt) === index,
-    ).slice(0, 2);
+    const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+    const remembered = promptMemories.map(suggestionFromMemory);
+    return [...remembered, ...TODAY_FALLBACKS]
+      .filter((prompt, index, prompts) => prompts.findIndex((p) => norm(p) === norm(prompt)) === index)
+      .slice(0, 2);
   }, [promptMemories]);
 
   const transport = useMemo(
@@ -314,23 +315,6 @@ export function MoodChat() {
             />
           </PromptInputFooter>
         </PromptInput>
-        {personalizedPrompts.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2">
-            {personalizedPrompts.map((prompt) => (
-              <Button
-                key={prompt}
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => send(prompt)}
-                disabled={busy}
-                className="min-h-8 whitespace-normal rounded-full bg-surface px-3.5 py-1.5 text-left text-sm leading-tight text-muted-foreground hover:border-primary hover:text-primary"
-              >
-                {prompt}
-              </Button>
-            ))}
-          </div>
-        )}
         <div className="mt-2 flex items-center gap-1.5 text-xs">
           <label htmlFor="deep-cuts" className="cursor-pointer text-muted-foreground">
             Deep cuts
@@ -361,6 +345,23 @@ export function MoodChat() {
             </Tooltip>
           </TooltipProvider>
         </div>
+        {personalizedPrompts.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-3">
+            {personalizedPrompts.map((prompt) => (
+              <Button
+                key={prompt}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => send(prompt)}
+                disabled={busy}
+                className="min-h-10 whitespace-normal rounded-full bg-surface px-4 py-2 text-left text-sm leading-relaxed text-muted-foreground hover:border-primary hover:text-primary"
+              >
+                {prompt}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
