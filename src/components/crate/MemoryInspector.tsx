@@ -153,6 +153,25 @@ export function MemoryInspector() {
           {showLog ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           {showLog ? "Hide Walrus log" : "Show Walrus log"}
         </button>
+        <button
+          type="button"
+          aria-expanded={showSkills}
+          onClick={() => setShowSkills((v) => !v)}
+          className="mt-2 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          {showSkills ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          <Sparkles className="h-3.5 w-3.5 text-primary" /> Crate's skills
+        </button>
+        {showSkills && (
+          <ul className="mt-2 space-y-2">
+            {SKILLS.map((s) => (
+              <li key={s.name} className="rounded-md border bg-surface p-2">
+                <span className="font-semibold text-foreground">{s.name}</span>
+                <p className="mt-0.5 leading-snug text-muted-foreground">{s.how}</p>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       {showLog && (
       <div className="scrollbar-thin flex-1 space-y-2 overflow-y-auto px-4 pb-4">
