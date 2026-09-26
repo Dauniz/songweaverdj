@@ -26,7 +26,7 @@ export function ContinueWhere({ onPrompt, disabled }: { onPrompt: (p: string) =>
       for (const row of msgs.data ?? []) {
         const m = row.message as Msg;
         if (m?.role !== "user") continue;
-        const t = m.parts?.find((p) => p.type === "text")?.text?.split("\n\n(Filters:")[0].trim();
+        const t = m.parts?.find((p) => p.type === "text")?.text?.split("\n\n(Filters:")[0]?.trim();
         if (t && t.length > 2) {
           vibe = t;
           break;
