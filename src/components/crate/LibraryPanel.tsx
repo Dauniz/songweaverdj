@@ -112,8 +112,18 @@ export function LibraryPanel() {
     } finally {
       setBusy(null);
       setSyncing(false);
+      window.dispatchEvent(new Event("songweaver-sync-done"));
     }
   }
+
+  useEffect(() => {
+    const onSync = () => {
+      setCollapsed(false);
+      void sync();
+    };
+    window.addEventListener("songweaver-sync", onSync);
+    return () => window.removeEventListener("songweaver-sync", onSync);
+  });
 
   async function loadDemo() {
     setBusy("demo");

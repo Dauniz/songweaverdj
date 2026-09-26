@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack } from "@/lib/path.functions";
-import { getSpotifyAuthUrl, getSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
+import { getSpotifyAuthUrl, getSpotifyPlayback, playSpotifyTrack, queueSpotifyTrack } from "@/lib/spotify.functions";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
 import { SteerChips } from "./SteerChips";
@@ -57,6 +57,9 @@ type RadioContextValue = {
   stopRadio: () => void;
   next: (outcome: Outcome) => void;
   toggleChip: (chip: string) => void;
+  sessionLive: boolean;
+  startSession: () => Promise<void>;
+  endSession: () => void;
 };
 
 const RadioContext = createContext<RadioContextValue | null>(null);
@@ -118,6 +121,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const lastPlayback = useRef({ spotifyId: "", ratio: 0, observed: false });
   const advancing = useRef(false);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const queueFn = useServerFn(queueSpotifyTrack);
+  const [sessionLive, setSessionLive] = useState(false);
+  // Track Spotify is already playing (user-chosen in Spotify) — don't restart it.
+  const noPlayFor = useRef("");
+  // Crate's pick queued in Spotify for the current song.
+  const queued = useRef<{ forId: string; track: RadioTrack } | null>(null);
+  const idleSince = useRef(0);
 
   const avoidArtists = () =>
     [...artistSkips.current.entries()].filter(([, n]) => n >= 2).map(([a]) => a);
@@ -219,6 +229,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         road: NOSTALGIA.test(seedPrompt) ? "era" : "vibe",
         sessionId: crypto.randomUUID(),
       });
+      setSessionLive(true);
+      idleSince.current = 0;
     },
     [],
   );
@@ -227,6 +239,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     branches.current = null;
     setAskSteer(false);
     setPlaybackIssue(null);
+    queued.current = null;
+    setSessionLive(false);
     setRadio(IDLE);
   }, []);
 
@@ -293,18 +307,64 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const current = radio.current;
     if (!radio.active || !current?.spotify_id || current.spotify_id.startsWith("demo-")) return;
+    if (noPlayFor.current === current.spotify_id) {
+      noPlayFor.current = "";
+      return; // Spotify is already playing it
+    }
     void startSpotifyPlayback(current);
   }, [radio.active, radio.current?.spotify_id, startSpotifyPlayback]);
 
   // Spotify owns playback. Observe its active track so skips and completions still steer Crate's path.
+  /** Accept a song Spotify is already playing as the new current song. */
+  const acceptObserved = useCallback(
+    (track: RadioTrack, outcome: "played" | "skipped", reroot: boolean) => {
+      const s = radioRef.current;
+      if (!s.current) return;
+      log(s.current, outcome === "played" ? "play_through" : "early_skip", s);
+      if (s.current.spotify_id) played.current.push(s.current.spotify_id);
+      if (outcome === "skipped") {
+        artistSkips.current.set(s.current.artists, (artistSkips.current.get(s.current.artists) ?? 0) + 1);
+      }
+      const nextState = advance(s, outcome);
+      noPlayFor.current = track.spotify_id ?? "";
+      lastPlayback.current = { spotifyId: track.spotify_id ?? "", ratio: 0, observed: true };
+      branches.current = null;
+      setRadio(
+        reroot
+          ? { ...nextState, current: track, seed: track, consecutiveSkips: 0 }
+          : { ...nextState, current: track },
+      );
+    },
+    [log],
+  );
+
+  // Queue Crate's "if you finish" pick in Spotify, once per song.
   useEffect(() => {
-    if (!radio.active || playbackIssue) return;
+    const cur = radio.current;
+    if (!sessionLive || !cur?.spotify_id || !upNext?.spotify_id || !isPlayable(upNext)) return;
+    if (queued.current?.forId === cur.spotify_id) return;
+    queued.current = { forId: cur.spotify_id, track: upNext };
+    void queueFn({ data: { spotifyId: upNext.spotify_id } }).catch(() => null);
+  }, [sessionLive, radio.current, upNext, queueFn]);
+
+  // Spotify owns playback. While a session is live, mirror what Spotify plays —
+  // skips, finishes and songs you pick yourself inside the Spotify app.
+  useEffect(() => {
+    if (!sessionLive || !radio.active || playbackIssue) return;
     const check = async () => {
       const current = radioRef.current.current;
       if (!current?.spotify_id || advancing.current) return;
       try {
         const state = await playbackFn();
         const previous = lastPlayback.current;
+        const playing = state.status === "ready" && state.isPlaying;
+        if (!playing) {
+          if (!idleSince.current) idleSince.current = Date.now();
+          else if (Date.now() - idleSince.current > 30 * 60_000) {
+            stopRadio(); // idle ~30 min: hand Spotify back
+            return;
+          }
+        } else idleSince.current = 0;
         if (state.status === "ready" && state.spotifyId === current.spotify_id) {
           lastPlayback.current = {
             spotifyId: current.spotify_id,
@@ -313,9 +373,33 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           };
           return;
         }
-        if (previous.spotifyId === current.spotify_id && previous.observed && (state.status === "idle" || (state.status === "ready" && state.spotifyId !== current.spotify_id))) {
+        if (previous.spotifyId !== current.spotify_id || !previous.observed) return;
+        const outcome = previous.ratio >= 0.7 ? "played" : "skipped";
+        if (state.status === "ready" && state.spotifyId) {
+          const q = queued.current;
+          if (q && q.forId === current.spotify_id && q.track.spotify_id === state.spotifyId) {
+            acceptObserved(q.track, outcome, false); // landed on Crate's queued pick
+          } else {
+            acceptObserved(
+              {
+                id: `demo-ext-${state.spotifyId}`,
+                spotify_id: state.spotifyId,
+                name: state.name || "Unknown song",
+                artists: state.artists,
+                album: state.album,
+                image_url: state.imageUrl,
+                spotify_url: state.spotifyUrl,
+                source_name: "Spotify",
+              },
+              outcome,
+              true, // you picked it in Spotify — the path starts over from here
+            );
+          }
+          return;
+        }
+        if (state.status === "idle") {
           advancing.current = true;
-          await next(previous.ratio >= 0.7 ? "played" : "skipped");
+          await next(outcome);
           advancing.current = false;
         }
       } catch {
@@ -325,7 +409,33 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const timer = setInterval(() => void check(), 4_000);
     void check();
     return () => clearInterval(timer);
-  }, [radio.active, radio.sessionId, playbackIssue, playbackFn, next]);
+  }, [sessionLive, radio.active, radio.sessionId, playbackIssue, playbackFn, next, acceptObserved, stopRadio]);
+
+  const startSession = useCallback(async () => {
+    setSessionLive(true);
+    idleSince.current = 0;
+    if (radioRef.current.active) return;
+    try {
+      const state = await playbackFn();
+      if (state.status === "ready" && state.spotifyId) {
+        const track: RadioTrack = {
+          id: `demo-ext-${state.spotifyId}`,
+          spotify_id: state.spotifyId,
+          name: state.name || "Unknown song",
+          artists: state.artists,
+          album: state.album,
+          image_url: state.imageUrl,
+          spotify_url: state.spotifyUrl,
+          source_name: "Spotify",
+        };
+        noPlayFor.current = state.spotifyId;
+        lastPlayback.current = { spotifyId: state.spotifyId, ratio: 0, observed: true };
+        startRadio([track], "");
+      }
+    } catch {
+      // No Spotify state yet — the session starts with the first prompt or play.
+    }
+  }, [playbackFn, startRadio]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -417,6 +527,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         stopRadio,
         next,
         toggleChip,
+        sessionLive,
+        startSession,
+        endSession: stopRadio,
       }}
     >
       {children}
