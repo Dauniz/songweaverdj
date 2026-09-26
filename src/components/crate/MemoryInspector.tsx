@@ -166,7 +166,9 @@ export function MemoryInspector() {
               </div>
               <p className="mt-2 text-sm">{n.content}</p>
               <div className="mt-2 flex justify-between gap-2 font-mono text-[10px] text-muted-foreground">
-                {n.blob_id && !n.blob_id.startsWith("job:") ? (
+                {n.blob_id && !n.blob_id.startsWith("job:") ? (() => {
+                  const fullId: string = n.blob_id;
+                  return (
                   <TooltipProvider delayDuration={150}>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -175,7 +177,7 @@ export function MemoryInspector() {
                           aria-label="Copy Walrus blob ID"
                           onClick={async () => {
                             try {
-                              await navigator.clipboard.writeText(n.blob_id);
+                              await navigator.clipboard.writeText(fullId);
                               setCopiedId(n.id);
                               setTimeout(() => setCopiedId((c) => (c === n.id ? null : c)), 1500);
                             } catch {
