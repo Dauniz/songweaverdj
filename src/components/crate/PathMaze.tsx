@@ -135,9 +135,9 @@ const TAG: Record<string, { label: string; cls: string }> = {
 };
 
 /**
- * CrateConsole — pinned to the very bottom of the Walrus column. Collapsed
- * it's a single bar; expanding slides the bar up while the console unfolds
- * below it, showing Crate's live reasoning as it walks the maze.
+ * CrateConsole — the bar is always pinned to the very bottom of the Walrus
+ * column; expanding unfolds the console directly above the bar, showing
+ * Crate's live reasoning as it walks the maze.
  */
 export function CrateConsole() {
   const { events, radio } = useRadio();
@@ -152,7 +152,7 @@ export function CrateConsole() {
   const live = radio.active;
 
   return (
-    <div className="mt-auto flex shrink-0 flex-col border-t">
+    <div className="mt-auto flex shrink-0 flex-col-reverse border-t">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -175,8 +175,9 @@ export function CrateConsole() {
         <div className="min-h-0 overflow-hidden">
           <div
             ref={ref}
-            className="scrollbar-thin max-h-[45vh] space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
+            className="scrollbar-thin max-h-[45vh] space-y-2 overflow-y-auto px-4 pb-4 pt-4 text-xs leading-relaxed"
           >
+
             {!live && events.length === 0 ? (
               <div className="text-muted-foreground">
                 Start a session to follow how Crate makes its decisions.
