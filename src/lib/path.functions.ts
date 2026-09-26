@@ -289,6 +289,7 @@ Played through (the road that works): ${liked.map((h) => `${h.name} — ${h.arti
 Skipped (wrong turns, avoid similar): ${skipped.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(none)"}
 ${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
 ${roadRule}
+${lensRule(data.lens, data.history.length)}
 Favorites in memory are hints about taste, not a rotation list.
 Walrus Memory:
 ${recalled.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
@@ -327,5 +328,5 @@ Call pick_next exactly once with one code from the list.`;
         if (tc.toolName === "pick_next") picked = tc.input as { code: string; why: string };
 
     const song = (picked && index.get(picked.code.trim())) || shortlist[0]!;
-    return toTrack(song, picked?.why || "Continuing the path", data.road);
+    return toTrack(song, withLens(picked?.why || "Continuing the path"), data.road);
   });
