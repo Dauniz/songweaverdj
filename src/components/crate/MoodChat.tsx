@@ -260,23 +260,6 @@ export function MoodChat() {
       )}
     >
       <div className="mx-auto w-full max-w-3xl">
-        <div className="mb-2.5 flex items-center gap-2">
-          <div className="scrollbar-thin flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
-            {personalizedPrompts.map((prompt) => (
-              <Button
-                key={prompt}
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => send(prompt)}
-                disabled={busy}
-                className="h-8 shrink-0 rounded-full bg-surface px-3.5 text-sm text-muted-foreground hover:border-primary hover:text-primary"
-              >
-                {prompt}
-              </Button>
-            ))}
-          </div>
-        </div>
         <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90 shadow-sm">
           <PromptInputTextarea
             ref={textareaRef}
@@ -331,6 +314,23 @@ export function MoodChat() {
             />
           </PromptInputFooter>
         </PromptInput>
+        {personalizedPrompts.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {personalizedPrompts.map((prompt) => (
+              <Button
+                key={prompt}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => send(prompt)}
+                disabled={busy}
+                className="h-8 whitespace-normal rounded-full bg-surface px-3.5 text-sm leading-tight text-muted-foreground hover:border-primary hover:text-primary"
+              >
+                {prompt}
+              </Button>
+            ))}
+          </div>
+        )}
         <div className="mt-2 flex items-center gap-1.5 text-xs">
           <label htmlFor="deep-cuts" className="cursor-pointer text-muted-foreground">
             Deep cuts
