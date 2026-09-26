@@ -32,7 +32,7 @@ export function PathMaze() {
         <Route className="h-4 w-4 text-primary" />
         <h3 className="text-xs font-bold uppercase tracking-wider">The maze</h3>
       </div>
-      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+      <p className="mt-1.5 min-h-[3.75rem] text-xs leading-relaxed text-muted-foreground">
         Every song is a junction. Finish it → Crate keeps walking the same road. Skip it → Crate
         turns. Two skips → a new angle. Lessons are written to Walrus.
       </p>
