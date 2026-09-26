@@ -381,7 +381,7 @@ export function MoodChat() {
   return (
     <div className="chat-enter flex h-full flex-col">
       <Conversation className="flex-1">
-        <ConversationContent className="chat-transcript mx-auto w-full max-w-4xl gap-4 px-5 pb-8 pt-2 text-[1.0625rem] leading-7 lg:px-7">
+        <ConversationContent className="chat-transcript mx-auto w-full max-w-4xl gap-4 px-5 pb-8 pt-48 text-[1.0625rem] leading-7 lg:px-7">
           {messages.map((m) => (
             <Message
               key={m.id}
