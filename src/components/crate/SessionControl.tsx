@@ -34,16 +34,14 @@ export function SessionControl() {
 
   if (sessionLive) {
     return (
-      <div className="ml-auto flex items-center gap-2 rounded-full border bg-card px-3 py-1 text-xs">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-        <span className="font-medium">Session live</span>
-        <button
-          onClick={endSession}
-          className="ml-1 flex items-center gap-1 text-muted-foreground hover:text-foreground"
-        >
-          <Square className="h-3 w-3" /> End session
-        </button>
-      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        className="ml-auto h-8 rounded-full px-4"
+        onClick={endSession}
+      >
+        <Square className="h-3.5 w-3.5" /> End session
+      </Button>
     );
   }
 
