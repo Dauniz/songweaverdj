@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Database, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, Database, RefreshCw } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -37,6 +37,7 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 
 export function MemoryInspector() {
   const qc = useQueryClient();
+  const [showLog, setShowLog] = useState(false);
   const refresh = useServerFn(refreshMemories);
   const status = useServerFn(getMemoryStatus);
   const { data: cfg } = useQuery({ queryKey: ["memwal-status"], queryFn: () => status() });
@@ -114,7 +115,17 @@ export function MemoryInspector() {
             </span>
           ))}
         </div>
+        <button
+          type="button"
+          aria-expanded={showLog}
+          onClick={() => setShowLog((v) => !v)}
+          className="mt-3 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+        >
+          {showLog ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+          {showLog ? "Hide Walrus log" : "Show Walrus log"}
+        </button>
       </div>
+      {showLog && (
       <div className="scrollbar-thin flex-1 space-y-2 overflow-y-auto px-4 pb-4">
         {nodes.length === 0 && (
           <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
@@ -126,14 +137,9 @@ export function MemoryInspector() {
           return (
             <div key={n.id} className="rounded-lg border bg-surface p-3">
               <div className="flex items-center justify-between gap-2">
-                {KIND_LABEL[n.kind] ? <span
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                    KIND_STYLE[n.kind],
-                  )}
-                >
-                  {KIND_LABEL[n.kind]}
-                </span> : <span />}
+                <span className="text-[11px] font-medium text-muted-foreground">
+                  {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
                 <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                   <span className={cn("h-1.5 w-1.5 rounded-full", s.cls)} /> {s.label}
                 </span>
