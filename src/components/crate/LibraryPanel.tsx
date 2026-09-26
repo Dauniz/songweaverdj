@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Disc3, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Disc3, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -30,6 +30,11 @@ export function LibraryPanel() {
   const disconnectFn = useServerFn(disconnectSpotify);
   const progressFn = useServerFn(getSyncProgress);
   const [busy, setBusy] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    setCollapsed(localStorage.getItem("spotify-card-collapsed") === "1");
+  }, []);
   const [syncing, setSyncing] = useState(false);
   const [summary, setSummary] = useState<{
     imported: number;
@@ -135,6 +140,45 @@ export function LibraryPanel() {
 
   const hasDemo = tracks.some((t) => t.is_demo);
 
+  function toggleCollapsed() {
+    setCollapsed((c) => {
+      localStorage.setItem("spotify-card-collapsed", c ? "0" : "1");
+      return !c;
+    });
+  }
+
+  if (collapsed) {
+    return (
+      <div className="fixed left-4 top-16 z-40">
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                aria-label="Expand Spotify panel"
+                className="flex h-9 items-center gap-2 rounded-full border bg-card/95 px-3 shadow-lg backdrop-blur transition-colors hover:bg-accent"
+              >
+                <span
+                  className={cn(
+                    "inline-block h-2 w-2 rounded-full",
+                    status?.connected
+                      ? "bg-primary shadow-[0_0_6px_var(--primary)]"
+                      : "bg-muted-foreground/40",
+                  )}
+                />
+                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {status?.connected ? "Spotify connected" : "Spotify not connected"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed left-4 top-16 z-40 w-72 rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur">
       <div className="flex items-center gap-2 text-sm font-semibold">
@@ -160,6 +204,14 @@ export function LibraryPanel() {
         <span className="ml-auto text-xs font-normal text-muted-foreground">
           {tracks.length} tracks
         </span>
+        <button
+          type="button"
+          onClick={toggleCollapsed}
+          aria-label="Minimize Spotify panel"
+          className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronUp className="h-4 w-4" />
+        </button>
       </div>
       {!status ? (
         <p className="mt-1 text-xs text-muted-foreground">Checking…</p>
