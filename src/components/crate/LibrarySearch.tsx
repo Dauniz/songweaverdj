@@ -70,8 +70,8 @@ export function LibrarySearch() {
 
   return (
     <div className="relative">
-      <div className="flex h-11 items-center gap-2 rounded-lg border border-border bg-surface/90 px-4 shadow-sm focus-within:border-primary">
-        <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <div className="flex h-14 items-center gap-2 rounded-md border border-input bg-surface/90 px-4 shadow-sm focus-within:border-primary">
+        <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -81,7 +81,7 @@ export function LibrarySearch() {
           }}
           placeholder="Search your library — songs, artists, albums"
           aria-label="Search your library"
-          className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 bg-transparent text-lg leading-7 text-foreground outline-none placeholder:text-base placeholder:text-muted-foreground"
         />
         {q && (
           <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="text-muted-foreground hover:text-foreground">
