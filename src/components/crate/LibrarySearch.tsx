@@ -31,7 +31,7 @@ function score(row: Row, q: string) {
 }
 
 export function LibrarySearch() {
-  const { startRadio } = useRadio();
+  const { rerootTo } = useRadio();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
 
@@ -62,7 +62,7 @@ export function LibrarySearch() {
 
   function play(row: Row) {
     const track: CardTrack = { ...row };
-    startRadio([track], "");
+    rerootTo(track);
     setQ("");
   }
 
