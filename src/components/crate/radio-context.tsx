@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack } from "@/lib/path.functions";
-import { getSpotifyAuthUrl, getSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
+import { endSpotifySession, getSpotifyAuthUrl, getSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
 import { SteerChips } from "./SteerChips";
@@ -267,6 +267,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     preSkip.current = null;
     setSessionLive(false);
     setRadio(IDLE);
+    // Hand Spotify back clean: pause and drop the songs Crate had lined up.
+    void endSpotifySession().catch(() => undefined);
   }, []);
 
   const next = useCallback(
