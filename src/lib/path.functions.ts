@@ -25,8 +25,6 @@ function lensRule(lens: LensId | null, step: number) {
   switch (lens) {
     case "wormhole":
       return "LENS Wormhole: every candidate lives in several playlists. Prefer one that opens a DIFFERENT playlist/period than the anchor, to jump between chapters of their life.";
-    case "archive":
-      return "LENS Forgotten archive: candidates are the oldest saves in the library. Pick a forgotten gem that still fits the road.";
     case "scene":
       return "LENS Scene: follow the artist web — collaborators, featured artists, same label or same regional scene as the anchor.";
     case "wave": {
