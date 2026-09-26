@@ -331,7 +331,7 @@ export function MoodChat() {
             checked={deepCuts}
             onCheckedChange={(checked) => setDeepCuts(checked === true)}
             aria-label="Enable Deep cuts"
-            className="h-2.5 w-2.5 rounded-[2px] border-muted-foreground/60 data-[state=checked]:border-primary"
+            className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
           />
           <TooltipProvider>
             <Tooltip>
