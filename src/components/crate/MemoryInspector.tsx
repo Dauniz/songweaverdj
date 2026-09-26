@@ -118,7 +118,7 @@ export function MemoryInspector() {
           </Tooltip>
         </TooltipProvider>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className={cn("flex min-h-0 flex-col", consoleOpen ? "shrink" : "flex-1")}>
       <div className="scrollbar-thin min-h-0 shrink overflow-y-auto">
         <PathMaze />
         <div className="px-4 pt-1 pb-3 text-xs">
@@ -239,7 +239,7 @@ export function MemoryInspector() {
       </div>
       )}
       </div>
-      <CrateConsole />
+      <CrateConsole open={consoleOpen} setOpen={setConsoleOpen} />
       <div className="flex shrink-0 items-center justify-between border-t px-4 py-2">
         <Link
           to="/crate-info"
