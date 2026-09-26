@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { AlertTriangle, Check, CornerDownRight, Flag, GitBranch, NotebookPen, Route, SkipForward, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, Check, CornerDownRight, Flag, GitBranch, NotebookPen, Route, SkipForward, Sparkles, Terminal } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
@@ -118,26 +118,56 @@ export function PathMaze() {
             />
           </div>
 
-          {events.length > 0 && (
-            <div className="mt-4 rounded-xl border bg-surface p-3">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                Crate's decisions
-              </div>
-              <ol className="mt-2 max-h-64 space-y-2 overflow-y-auto">
-                {[...events].reverse().map((e, i) => (
-                  <li key={e.at + "-" + i} className="flex gap-2.5 text-xs leading-relaxed">
-                    <EventIcon kind={e.kind} />
-                    <span className="min-w-0 flex-1">{e.text}</span>
-                    <span className="shrink-0 tabular-nums text-muted-foreground">
-                      {new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          )}
+          <CrateConsole events={events} />
         </div>
       )}
+    </div>
+  );
+}
+
+const TAG: Record<string, { label: string; cls: string }> = {
+  start: { label: "START", cls: "text-primary" },
+  think: { label: "THINK", cls: "text-muted-foreground" },
+  door: { label: "DOOR ", cls: "text-primary" },
+  pick: { label: "PICK ", cls: "text-primary" },
+  finish: { label: "DONE ", cls: "text-primary" },
+  skip: { label: "SKIP ", cls: "text-destructive" },
+  reroot: { label: "ROOT ", cls: "text-primary" },
+  steer: { label: "STEER", cls: "text-foreground" },
+};
+
+/** Terminal-style live log of Crate's reasoning while it walks the maze. */
+function CrateConsole({ events }: { events: { at: number; kind: string; text: string }[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [events.length]);
+  return (
+    <div className="mt-4 overflow-hidden rounded-xl border bg-background">
+      <div className="flex items-center gap-2 border-b px-3 py-2">
+        <Terminal className="h-3.5 w-3.5 text-primary" />
+        <span className="text-[11px] font-bold uppercase tracking-wider">Crate console</span>
+        <span className="ml-auto text-[10px] text-muted-foreground">live reasoning</span>
+      </div>
+      <div ref={ref} className="max-h-72 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed">
+        {events.length === 0 && <div className="text-muted-foreground">waiting for Crate…</div>}
+        {events.map((e, i) => {
+          const t = TAG[e.kind] ?? TAG.think!;
+          return (
+            <div key={e.at + "-" + i} className="flex gap-2">
+              <span className="shrink-0 tabular-nums text-muted-foreground/70">
+                {new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+              </span>
+              <span className={cn("shrink-0 whitespace-pre font-bold", t.cls)}>{t.label}</span>
+              <span className={cn("min-w-0 break-words", e.kind === "think" ? "text-muted-foreground" : "text-foreground")}>
+                {e.text}
+              </span>
+            </div>
+          );
+        })}
+        <div className="animate-pulse text-primary">▍</div>
+      </div>
     </div>
   );
 }
