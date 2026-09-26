@@ -18,14 +18,6 @@ function applyCodeLens<T extends { sources: { name: string; type: string; period
     const hubs = pool.filter((s) => distinctPlaylists(s) >= 2);
     return hubs.length >= 15 ? hubs : pool;
   }
-  if (lens === "archive") {
-    const dated = pool
-      .map((s) => ({ s, m: Math.min(...s.sources.map((x) => monthIndex(x.period) ?? Infinity)) }))
-      .filter((x) => Number.isFinite(x.m))
-      .sort((a, b) => a.m - b.m);
-    const oldest = dated.slice(0, Math.max(20, Math.floor(dated.length * 0.3))).map((x) => x.s);
-    return oldest.length >= 15 ? oldest : pool;
-  }
   return pool;
 }
 
@@ -33,8 +25,6 @@ function lensRule(lens: LensId | null, step: number) {
   switch (lens) {
     case "wormhole":
       return "LENS Wormhole: every candidate lives in several playlists. Prefer one that opens a DIFFERENT playlist/period than the anchor, to jump between chapters of their life.";
-    case "archive":
-      return "LENS Forgotten archive: candidates are the oldest saves in the library. Pick a forgotten gem that still fits the road.";
     case "scene":
       return "LENS Scene: follow the artist web — collaborators, featured artists, same label or same regional scene as the anchor.";
     case "wave": {
