@@ -173,9 +173,16 @@ export const endSpotifySession = createServerFn({ method: "POST" })
     const headers = { Authorization: `Bearer ${token}` };
     const state = await fetch("https://api.spotify.com/v1/me/player", { headers });
     let trackId: string | null = null;
-    if (state.ok) {
-      const body = (await state.json()) as { item?: { id?: string | null } | null };
-      trackId = body.item?.id ?? null;
+    if (state.ok && state.status !== 204) {
+      const text = await state.text();
+      if (text) {
+        try {
+          const body = JSON.parse(text) as { item?: { id?: string | null } | null };
+          trackId = body.item?.id ?? null;
+        } catch {
+          trackId = null;
+        }
+      }
     }
     if (trackId) {
       await fetch("https://api.spotify.com/v1/me/player/play", {
@@ -184,7 +191,7 @@ export const endSpotifySession = createServerFn({ method: "POST" })
         body: JSON.stringify({ uris: [`spotify:track:${trackId}`], position_ms: 0 }),
       });
     }
-    await fetch("https://api.spotify.com/v1/me/player/pause", { method: "PUT", headers });
+    await fetch("https://api.spotify.com/v1/me/player/pause", { method: "PUT", headers }).catch(() => undefined);
     return { ok: true };
   });
 
