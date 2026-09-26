@@ -199,13 +199,15 @@ export function CrateConsole({
     setCollapseH(h);
     collapsingRef.current = true;
     setCollapsing(true);
+    onAnimatingChange?.(true);
     setOpen(false);
     requestAnimationFrame(() => requestAnimationFrame(() => setCollapseH(0)));
     window.setTimeout(() => {
       setCollapseH(null);
       collapsingRef.current = false;
       setCollapsing(false);
-    }, 300);
+      onAnimatingChange?.(false);
+    }, 500);
   };
 
   const live = radio.active;
