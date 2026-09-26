@@ -322,7 +322,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         done: plDone,
         total: allPlaylists.length,
       });
-      await new Promise((r) => setTimeout(r, 150));
+      await pace(400);
       try {
         // Spotify renamed /tracks → /items (2026); try the new endpoint first.
         let first: PlItems;
