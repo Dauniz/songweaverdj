@@ -153,7 +153,7 @@ function CrateConsole({ events }: { events: { at: number; kind: string; text: st
       <div ref={ref} className="max-h-72 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed">
         {events.length === 0 && <div className="text-muted-foreground">waiting for Crate…</div>}
         {events.map((e, i) => {
-          const t = TAG[e.kind] ?? TAG.think!;
+          const t = TAG[e.kind] ?? TAG['think']!;
           return (
             <div key={e.at + "-" + i} className="flex gap-2">
               <span className="shrink-0 tabular-nums text-muted-foreground/70">
