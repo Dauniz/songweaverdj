@@ -267,35 +267,6 @@ export function MoodChat() {
               </Button>
             ))}
           </div>
-          <div className="flex shrink-0 items-center gap-2 text-sm">
-            <label htmlFor="deep-cuts" className="cursor-pointer font-medium text-foreground">
-              Deep cuts
-            </label>
-            <Checkbox
-              id="deep-cuts"
-              checked={deepCuts}
-              onCheckedChange={(checked) => setDeepCuts(checked === true)}
-              aria-label="Enable Deep cuts"
-            />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="About Deep cuts"
-                    className="rounded-full text-muted-foreground"
-                  >
-                    <CircleHelp />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[240px]">
-                  Finds overlooked songs you haven't heard in a while.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
         </div>
         <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90 shadow-sm">
           <PromptInputTextarea
@@ -351,6 +322,36 @@ export function MoodChat() {
             />
           </PromptInputFooter>
         </PromptInput>
+        <div className="mt-2.5 flex items-center gap-2 text-sm">
+          <label htmlFor="deep-cuts" className="cursor-pointer font-medium text-foreground">
+            Deep cuts
+          </label>
+          <Checkbox
+            id="deep-cuts"
+            checked={deepCuts}
+            onCheckedChange={(checked) => setDeepCuts(checked === true)}
+            aria-label="Enable Deep cuts"
+            className="h-5 w-5 rounded-[4px] border-muted-foreground data-[state=checked]:border-primary"
+          />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="About Deep cuts"
+                  className="rounded-full text-muted-foreground"
+                >
+                  <CircleHelp />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[240px]">
+                Finds overlooked songs you haven't heard in a while.
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
     </div>
   );
