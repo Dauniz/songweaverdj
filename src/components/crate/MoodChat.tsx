@@ -166,7 +166,16 @@ export function MoodChat() {
     for (const part of last.parts) {
       if (part.type === "tool-recommend_tracks" && part.state === "output-available") {
         const out = part.output as { vibe_title: string; tracks: CardTrack[] };
-        if (out.tracks.length) startRadio(out.tracks, lastUserText.current || out.vibe_title);
+        if (out.tracks.length) {
+          // Start on the song the user actually named, if it's among the picks.
+          const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, "").trim();
+          const asked = norm(lastUserText.current);
+          const idx = out.tracks.findIndex((t) => {
+            const n = norm(t.name.replace(/\s*[([-].*$/, ""));
+            return n.length > 1 && asked.includes(n);
+          });
+          startRadio(out.tracks, lastUserText.current || out.vibe_title, Math.max(0, idx));
+        }
         break;
       }
     }
