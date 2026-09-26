@@ -166,6 +166,7 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
   }, [events.length, open]);
 
   const toggle = () => {
+    if (collapsing) return;
     if (!open) return setOpen(true);
     // Animate closed while the layout still reserves space, then release it.
     const h = gridRef.current?.getBoundingClientRect().height ?? 0;
