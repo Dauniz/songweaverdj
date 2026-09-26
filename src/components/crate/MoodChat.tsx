@@ -267,35 +267,6 @@ export function MoodChat() {
               </Button>
             ))}
           </div>
-          <div className="flex shrink-0 items-center gap-2 text-sm">
-            <label htmlFor="deep-cuts" className="cursor-pointer font-medium text-foreground">
-              Deep cuts
-            </label>
-            <Checkbox
-              id="deep-cuts"
-              checked={deepCuts}
-              onCheckedChange={(checked) => setDeepCuts(checked === true)}
-              aria-label="Enable Deep cuts"
-            />
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="About Deep cuts"
-                    className="rounded-full text-muted-foreground"
-                  >
-                    <CircleHelp />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[240px]">
-                  Finds overlooked songs you haven't heard in a while.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
         </div>
         <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90 shadow-sm">
           <PromptInputTextarea
