@@ -136,7 +136,7 @@ export function LibraryPanel() {
   const hasDemo = tracks.some((t) => t.is_demo);
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 w-72 rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur">
+    <div className="fixed left-4 top-16 z-40 w-72 rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur">
       <div className="flex items-center gap-2 text-sm font-semibold">
         <Disc3 className="h-4 w-4 text-primary" /> Spotify
         <TooltipProvider delayDuration={200}>
