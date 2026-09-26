@@ -40,12 +40,6 @@ const KIND_STYLE: Record<string, string> = {
   favorite: "bg-chart-5/15 text-chart-5",
 };
 
-const STATUS: Record<string, { label: string; cls: string }> = {
-  stored: { label: "On Walrus", cls: "bg-primary" },
-  pending: { label: "Writing…", cls: "bg-chart-4 animate-pulse" },
-  local: { label: "Local only", cls: "bg-muted-foreground" },
-  failed: { label: "Failed", cls: "bg-destructive" },
-};
 
 function skillForMemory(kind: string, origin: string, content: string) {
   if (content.startsWith("Note on")) return "Feedbacker";
@@ -159,17 +153,14 @@ export function MemoryInspector() {
           </p>
         )}
         {nodes.map((n) => {
-          const s = STATUS[n.status] ?? STATUS["local"]!;
           return (
             <div key={n.id} className="rounded-lg border bg-surface p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-medium text-muted-foreground">
                   {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
-                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <span className={cn("h-1.5 w-1.5 rounded-full", s.cls)} /> {s.label}
-                </span>
               </div>
+
               <div className="mt-2">
                 <span className="inline-flex rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
                   Crate skill · {skillForMemory(n.kind, n.origin, n.content)}
