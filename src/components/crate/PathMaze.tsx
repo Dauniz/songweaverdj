@@ -152,7 +152,7 @@ export function CrateConsole() {
   const live = radio.active;
 
   return (
-    <div className="mt-auto flex shrink-0 flex-col border-t">
+    <div className="flex shrink-0 flex-col border-t">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
