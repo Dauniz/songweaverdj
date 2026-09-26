@@ -217,7 +217,7 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
           if (e.key === "Enter") void save();
           if (e.key === "Escape") setOpen(false);
         }}
-        placeholder='e.g. "nostalgi, minne från hälsingegården, högstadiet"'
+        placeholder='What does this song make you feel?'
         maxLength={200}
         className="w-full rounded-md border bg-background px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground/70 focus:border-primary"
       />
