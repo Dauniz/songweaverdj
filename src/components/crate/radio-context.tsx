@@ -157,6 +157,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // "If you skip" door for the upcoming song, computed before the hand-over near the end.
   const preSkip = useRef<{ forId: string; branch: Branch } | null>(null);
   const swapping = useRef("");
+  // When Crate last moved to a new song — rapid skips right after this are followed, not re-rooted.
+  const lastTransition = useRef(0);
   const idleSince = useRef(0);
   const [events, setEvents] = useState<MazeEvent[]>([]);
   const eventsRef = useRef(events);
@@ -445,6 +447,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (result.status === "playing") {
           setPlaybackIssue(null);
           door.current = nextId && skipDoor ? { forId: track.spotify_id, track: skipDoor } : null;
+          if (!positionMs) lastTransition.current = Date.now();
           lastPlayback.current = {
             spotifyId: track.spotify_id,
             ratio: 0,
@@ -481,7 +484,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // Spotify owns playback. Observe its active track so skips and completions still steer Crate's path.
   /** Accept a song Spotify is already playing as the new current song. */
   const acceptObserved = useCallback(
-    (track: RadioTrack, outcome: "played" | "skipped", reroot: boolean) => {
+    (track: RadioTrack, outcome: "played" | "skipped", reroot: boolean, progressMs = 0, durationMs = 0) => {
       const s = radioRef.current;
       if (!s.current) return;
       log(s.current, outcome === "played" ? "play_through" : "early_skip", s);
@@ -491,7 +494,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       const nextState = advance(s, outcome);
       noPlayFor.current = track.spotify_id ?? "";
-      lastPlayback.current = { spotifyId: track.spotify_id ?? "", ratio: 0, observed: true, progressMs: 0, durationMs: 0, at: Date.now() };
+      lastTransition.current = Date.now();
+      lastPlayback.current = { spotifyId: track.spotify_id ?? "", ratio: 0, observed: true, progressMs, durationMs, at: Date.now() };
       door.current = null;
       branches.current = null;
       if (reroot) note("reroot", `You played "${track.name}" in Spotify → new starting point`);
@@ -512,14 +516,36 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const skip = upSkip?.track;
     if (!sessionLive || !cur?.spotify_id || !skip?.spotify_id || !isPlayable(skip)) return;
     if (door.current?.forId === cur.spotify_id) return;
-    const lp = lastPlayback.current;
-    if (lp.spotifyId !== cur.spotify_id) return;
-    const pos = Math.max(0, lp.progressMs + (Date.now() - lp.at));
-    if (lp.durationMs && lp.durationMs - pos < 30_000) return; // hand-over near the end covers it
+    if (lastPlayback.current.spotifyId !== cur.spotify_id) return;
     door.current = { forId: cur.spotify_id, track: skip };
-    noPlayFor.current = "";
-    void startSpotifyPlayback(cur, true, skip, pos);
-  }, [sessionLive, radio.current, upSkip, startSpotifyPlayback]);
+    let cancelled = false;
+    void (async () => {
+      // Read Spotify's real position right now so re-sending the line-up doesn't jump back.
+      let pos: number | null = null;
+      try {
+        const st = await playbackFn();
+        if (st.status === "ready" && st.spotifyId === cur.spotify_id) {
+          if (st.durationMs && st.durationMs - st.progressMs < 30_000) return; // hand-over covers it
+          pos = st.progressMs + 250; // small network allowance
+        }
+      } catch {
+        /* fall back to estimate */
+      }
+      if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) {
+        if (door.current?.forId === cur.spotify_id) door.current = null;
+        return;
+      }
+      if (pos === null) {
+        const lp = lastPlayback.current;
+        pos = Math.max(0, lp.progressMs + (Date.now() - lp.at));
+      }
+      noPlayFor.current = "";
+      void startSpotifyPlayback(cur, true, skip, Math.max(1, Math.round(pos)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionLive, radio.current, upSkip, startSpotifyPlayback, playbackFn]);
 
   /** A few seconds before the song ends: replace the line-up with
    *  ["if you finish" pick, its own "if you skip" door]. */
