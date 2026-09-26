@@ -48,7 +48,9 @@ function suggestionFromMemory(memory: PromptMemory) {
   return prompt.length > 74 ? `${prompt.slice(0, 71).trim()}…` : prompt;
 }
 
-export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) {
+const TODAY_FALLBACKS = ["Ease me into today", "Play something that fits right now"];
+
+export function MoodChat() {
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [deepCuts, setDeepCuts] = useState(true);
@@ -68,10 +70,12 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
       return data as PromptMemory[];
     },
   });
-  const personalizedPrompts = useMemo(
-    () => [...new Set(promptMemories.map(suggestionFromMemory))].slice(0, 3),
-    [promptMemories],
-  );
+  const personalizedPrompts = useMemo(() => {
+    const remembered = [...new Set(promptMemories.map(suggestionFromMemory))];
+    return [...remembered, ...TODAY_FALLBACKS].filter(
+      (prompt, index, prompts) => prompts.indexOf(prompt) === index,
+    ).slice(0, 2);
+  }, [promptMemories]);
 
   const transport = useMemo(
     () =>
@@ -88,7 +92,7 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
 
   const { messages, sendMessage, status, stop } = useChat({
     id: "crate-main",
-    messages: initialMessages,
+    messages: [],
     transport,
     onError: (e) => toast.error(e.message || "Something went wrong"),
     onFinish: () => {
@@ -100,7 +104,7 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
   const busy = status === "submitted" || status === "streaming";
 
   // Auto-start the radio as soon as a fresh answer with picks lands.
-  const autoStarted = useRef(new Set(initialMessages.map((m) => m.id)));
+  const autoStarted = useRef(new Set<string>());
   useEffect(() => {
     if (status !== "ready") return;
     const last = messages[messages.length - 1];
@@ -132,7 +136,7 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
   return (
     <div className="chat-enter flex h-full flex-col">
       <Conversation className="flex-1">
-        <ConversationContent className="chat-transcript mx-auto w-full max-w-4xl gap-4 px-5 pb-8 pt-2 lg:px-7">
+        <ConversationContent className="chat-transcript mx-auto w-full max-w-4xl gap-4 px-5 pb-8 pt-2 text-[1.0625rem] leading-7 lg:px-7">
           {messages.length === 0 && (
             <div className="flex flex-col items-center py-16 text-center">
               <img
@@ -142,8 +146,8 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
                 height={80}
                 className="h-20 w-20 rounded-2xl"
               />
-              <h2 className="mt-6 text-3xl font-bold">What does today sound like?</h2>
-              <p className="mt-2 max-w-md text-muted-foreground">
+              <h2 className="mt-6 text-4xl font-bold">What does today sound like?</h2>
+              <p className="mt-3 max-w-lg text-lg leading-7 text-muted-foreground">
                 Describe your mood, where you are, what you're doing. I'll dig up tracks you already
                 love from your past playlists.
               </p>
@@ -247,68 +251,57 @@ export function MoodChat({ initialMessages }: { initialMessages: UIMessage[] }) 
 
       <div className="composer-reveal border-t bg-background/80 px-5 pb-8 pt-3 backdrop-blur lg:px-7 lg:pb-10">
         <div className="mx-auto w-full max-w-4xl">
-          {personalizedPrompts.length > 0 && (
-            <div className="scrollbar-thin mb-2 flex gap-1.5 overflow-x-auto pb-1">
+          <div className="scrollbar-thin mb-2.5 flex items-center gap-2 overflow-x-auto pb-1">
+            <div className="flex min-w-0 flex-1 gap-2">
               {personalizedPrompts.map((prompt) => (
                 <Button
                   key={prompt}
                   type="button"
                   variant="outline"
-                  size="xs"
+                  size="sm"
                   onClick={() => send(prompt)}
                   disabled={busy}
-                  className="shrink-0 rounded-full bg-surface px-3 text-muted-foreground hover:border-primary hover:text-primary"
+                  className="h-8 shrink-0 rounded-full bg-surface px-3.5 text-sm text-muted-foreground hover:border-primary hover:text-primary"
                 >
                   {prompt}
                 </Button>
               ))}
             </div>
-          )}
-          <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={deepCuts ? "default" : "outline"}
+                    size="sm"
+                    aria-pressed={deepCuts}
+                    onClick={() => setDeepCuts((enabled) => !enabled)}
+                    className="h-8 shrink-0 rounded-full px-3.5 text-sm"
+                  >
+                    Deep cuts
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[260px]">
+                  Skips heavily played recent tracks and digs up overlooked songs instead.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90 shadow-sm">
             <PromptInputTextarea
               ref={textareaRef}
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder="Describe the vibe, setting, or a song to start from…"
-              className="min-h-24 text-base"
+              className="min-h-28 px-4 py-3 text-lg leading-7 placeholder:text-base"
             />
-            <PromptInputFooter className="grid grid-cols-[minmax(0,1fr)_auto] items-center">
-              <div className="flex min-w-0 items-center gap-1.5">
-                <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={deepCuts}
-                onChange={(e) => setDeepCuts(e.target.checked)}
-                className="accent-primary"
-              />
-              Deep cuts
-                </label>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                    type="button"
-                    aria-label="About deep cuts"
-                    variant="outline"
-                    size="icon-xs"
-                    className="h-5 w-5 shrink-0 rounded-full border-muted-foreground/40 p-0 text-[10px] text-muted-foreground hover:border-primary hover:text-primary"
-                  >
-                    ?
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[240px]">
-                      Skips tracks you have played a lot recently and digs up overlooked ones instead
-                      — album tracks, older saves and songs you have not heard in years.
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
+            <PromptInputFooter className="flex justify-end px-3 pb-3">
               <PromptInputSubmit
                 status={status}
                 onStop={stop}
                 disabled={!busy && !text.trim()}
                 size="icon-sm"
-                className="h-10 w-10"
+                className="h-11 w-11"
               />
             </PromptInputFooter>
           </PromptInput>

@@ -6,3 +6,4 @@
 
 - [x] Refine chat density, loading motion, personalized prompts, and compact song controls
 - [x] Move playback fully to Spotify live, open the Spotify app when needed, and remove Crate's bottom player
+- [x] Reset the center chat on studio entry, preserve Walrus Memory, and refine the composer
