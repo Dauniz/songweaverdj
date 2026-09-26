@@ -1,7 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import type { UIMessage } from "ai";
 import { LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MoodChat } from "@/components/crate/MoodChat";
@@ -34,20 +32,6 @@ export const Route = createFileRoute("/_authenticated/studio")({
 function Studio() {
   const navigate = useNavigate();
   const [mobileTab, setMobileTab] = useState<"library" | "chat" | "memory">("chat");
-  const { data: history, isLoading } = useQuery({
-    queryKey: ["chat-history"],
-    staleTime: Infinity,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("chat_messages")
-        .select("message")
-        .order("created_at", { ascending: true })
-        .limit(200);
-      if (error) throw error;
-      return (data ?? []).map((r) => r.message as unknown as UIMessage);
-    },
-  });
-
   async function signOut() {
     await supabase.auth.signOut();
     navigate({ to: "/" });
@@ -96,20 +80,7 @@ function Studio() {
             mobileTab === "chat" ? "block" : "hidden",
           )}
         >
-          {isLoading ? (
-            <div className="chat-loading mx-auto flex h-full w-full max-w-4xl flex-col gap-4 px-7 pt-8" aria-label="Loading your session">
-              <div className="ml-auto h-10 w-2/5 rounded-lg bg-primary/15" />
-              <div className="h-4 w-3/5 rounded bg-muted" />
-              <div className="grid grid-cols-2 gap-1.5">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div key={index} className="h-24 rounded-lg border bg-surface/70" />
-                ))}
-              </div>
-              <span className="sr-only">Loading your session…</span>
-            </div>
-          ) : (
-            <MoodChat initialMessages={history ?? []} />
-          )}
+          <MoodChat />
         </main>
         <aside
           className={cn(
