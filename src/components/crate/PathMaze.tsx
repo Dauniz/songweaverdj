@@ -143,6 +143,8 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
   const { events, radio } = useRadio();
   const ref = useRef<HTMLDivElement>(null);
   const [collapsing, setCollapsing] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [collapseH, setCollapseH] = useState<number | null>(null);
   const expanded = open && !collapsing;
 
   // Keep the log pinned to the newest line — also while it grows during the
@@ -166,8 +168,12 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
   const toggle = () => {
     if (!open) return setOpen(true);
     // Animate closed while the layout still reserves space, then release it.
+    const h = gridRef.current?.getBoundingClientRect().height ?? 0;
+    setCollapseH(h);
     setCollapsing(true);
+    requestAnimationFrame(() => requestAnimationFrame(() => setCollapseH(0)));
     window.setTimeout(() => {
+      setCollapseH(null);
       setOpen(false);
       setCollapsing(false);
     }, 300);
@@ -176,7 +182,7 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
   const live = radio.active;
 
   return (
-    <div className={cn("flex flex-col border-t", open ? "min-h-0 flex-1" : "shrink-0")}>
+    <div className={cn("flex flex-col border-t", expanded ? "min-h-0 flex-1" : "min-h-0 shrink-0")}>
       <button
         type="button"
         onClick={toggle}
@@ -191,9 +197,11 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
         </span>
       </button>
       <div
+        ref={gridRef}
+        style={collapseH !== null ? { height: collapseH } : undefined}
         className={cn(
           "grid min-h-0 transition-all duration-300 ease-out",
-          open && "flex-1",
+          expanded && "flex-1",
           expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
       >
