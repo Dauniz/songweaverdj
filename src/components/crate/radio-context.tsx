@@ -359,7 +359,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     let attempts = 0;
     const retry = async () => {
       attempts += 1;
-      if (await startSpotifyPlayback(track)) return;
+      if (await startSpotifyPlayback(track, true)) return;
       if (attempts < 10) retryTimer.current = setTimeout(() => void retry(), 3_000);
     };
     retryTimer.current = setTimeout(() => void retry(), 2_000);
