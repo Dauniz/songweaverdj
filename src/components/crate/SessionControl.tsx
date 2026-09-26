@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Play, RefreshCw, Square } from "lucide-react";
+import { History, Loader2, Play, RefreshCw, Square } from "lucide-react";
 import { getSpotifyStatus } from "@/lib/spotify.functions";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -17,7 +17,7 @@ function ago(iso: string | null | undefined) {
 }
 
 export function SessionControl() {
-  const { sessionLive, startSession, endSession } = useRadio();
+  const { sessionLive, startSession, endSession, hasLastSession, resumeLastSession } = useRadio();
   const statusFn = useServerFn(getSpotifyStatus);
   const { data: status } = useQuery({ queryKey: ["spotify-status"], queryFn: () => statusFn() });
   const [open, setOpen] = useState(false);
@@ -64,6 +64,18 @@ export function SessionControl() {
         >
           <Play className="h-4 w-4" /> Start session
         </Button>
+        {hasLastSession && (
+          <Button
+            variant="secondary"
+            className="w-full"
+            onClick={() => {
+              setOpen(false);
+              resumeLastSession();
+            }}
+          >
+            <History className="h-4 w-4" /> Resume last session
+          </Button>
+        )}
         <Button
           variant="outline"
           className="w-full"

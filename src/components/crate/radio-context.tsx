@@ -636,6 +636,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(timer);
   }, [sessionLive, radio.active, radio.sessionId, playbackIssue, playbackFn, next, acceptObserved, stopRadio, handOver]);
 
+  // "Open Spotify" issue left unresolved for a minute → Spotify isn't coming; end the session.
+  useEffect(() => {
+    if (!sessionLive || playbackIssue?.status !== "no_device") return;
+    const t = setTimeout(() => stopRadio({ keepSpotify: true }), 60_000);
+    return () => clearTimeout(t);
+  }, [sessionLive, playbackIssue, stopRadio]);
+
   const startSession = useCallback(async () => {
     setSessionLive(true);
     idleSince.current = 0;
