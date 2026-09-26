@@ -194,7 +194,8 @@ export function MemoryInspector() {
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                ) : (
+                  );
+                })() : (
                   <span className="truncate">
                     {n.blob_id ? "awaiting blob" : "—"}
                   </span>
