@@ -239,26 +239,148 @@ export function MoodChat() {
     [],
   );
 
+  const empty = messages.length === 0;
+
+  const composer = (
+    <div
+      className={cn(
+        "composer-reveal w-full bg-background/80 backdrop-blur",
+        empty
+          ? "mt-10 px-5 pb-6 lg:px-7"
+          : "border-t px-5 pb-8 pt-3 lg:px-7 lg:pb-10",
+      )}
+    >
+      <div className="mx-auto w-full max-w-3xl">
+        <div className="mb-2.5 flex items-center gap-2">
+          <div className="scrollbar-thin flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+            {personalizedPrompts.map((prompt) => (
+              <Button
+                key={prompt}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => send(prompt)}
+                disabled={busy}
+                className="h-8 shrink-0 rounded-full bg-surface px-3.5 text-sm text-muted-foreground hover:border-primary hover:text-primary"
+              >
+                {prompt}
+              </Button>
+            ))}
+          </div>
+          <div className="flex shrink-0 items-center gap-2 text-sm">
+            <label htmlFor="deep-cuts" className="cursor-pointer font-medium text-foreground">
+              Deep cuts
+            </label>
+            <Checkbox
+              id="deep-cuts"
+              checked={deepCuts}
+              onCheckedChange={(checked) => setDeepCuts(checked === true)}
+              aria-label="Enable Deep cuts"
+            />
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="About Deep cuts"
+                    className="rounded-full text-muted-foreground"
+                  >
+                    <CircleHelp />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[240px]">
+                  Finds overlooked songs you haven't heard in a while.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+        </div>
+        <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90 shadow-sm">
+          <PromptInputTextarea
+            ref={textareaRef}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Describe the vibe, setting, or a song to start from…"
+            className="min-h-28 px-4 py-3 text-lg leading-7 placeholder:text-base"
+          />
+          <PromptInputFooter className="flex items-center justify-between px-3 pb-3">
+            <div className="flex items-center gap-2">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant={voiceState === "recording" ? "default" : "ghost"}
+                      size="icon-lg"
+                      onClick={() => void toggleVoice()}
+                      disabled={busy || voiceState === "transcribing"}
+                      aria-label={voiceState === "recording" ? "Stop and send voice prompt" : "Speak your prompt"}
+                      className={cn(
+                        "rounded-full",
+                        voiceState === "recording" && "animate-pulse",
+                      )}
+                    >
+                      {voiceState === "transcribing" ? (
+                        <LoaderCircle className="animate-spin" />
+                      ) : voiceState === "recording" ? (
+                        <Square className="fill-current" />
+                      ) : (
+                        <Mic />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {voiceState === "recording" ? "Stop and send" : "Speak your prompt"}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              {voiceState !== "idle" && (
+                <span className="text-sm text-muted-foreground" aria-live="polite">
+                  {voiceState === "recording" ? "Listening… pause to send" : "Turning speech into your prompt…"}
+                </span>
+              )}
+            </div>
+            <PromptInputSubmit
+              status={status}
+              onStop={stop}
+              disabled={!busy && !text.trim()}
+              size="icon-sm"
+              className="h-11 w-11"
+            />
+          </PromptInputFooter>
+        </PromptInput>
+      </div>
+    </div>
+  );
+
+  if (empty) {
+    return (
+      <div className="chat-enter flex h-full flex-col items-center justify-center pb-24">
+        <div className="flex flex-col items-center text-center">
+          <img
+            src={logo}
+            alt="Crate"
+            width={80}
+            height={80}
+            className="h-20 w-20 rounded-2xl"
+          />
+          <h2 className="mt-6 text-4xl font-bold">What does today sound like?</h2>
+          <p className="mt-3 max-w-lg text-lg leading-7 text-muted-foreground">
+            Describe your mood, where you are, what you're doing. I'll dig up tracks you already
+            love from your past playlists.
+          </p>
+        </div>
+        {composer}
+      </div>
+    );
+  }
+
   return (
     <div className="chat-enter flex h-full flex-col">
       <Conversation className="flex-1">
         <ConversationContent className="chat-transcript mx-auto w-full max-w-4xl gap-4 px-5 pb-8 pt-2 text-[1.0625rem] leading-7 lg:px-7">
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center py-16 text-center">
-              <img
-                src={logo}
-                alt="Crate"
-                width={80}
-                height={80}
-                className="h-20 w-20 rounded-2xl"
-              />
-              <h2 className="mt-6 text-4xl font-bold">What does today sound like?</h2>
-              <p className="mt-3 max-w-lg text-lg leading-7 text-muted-foreground">
-                Describe your mood, where you are, what you're doing. I'll dig up tracks you already
-                love from your past playlists.
-              </p>
-            </div>
-          )}
           {messages.map((m) => (
             <Message
               key={m.id}
@@ -355,110 +477,7 @@ export function MoodChat() {
         <ConversationScrollButton />
       </Conversation>
 
-      <div className="composer-reveal border-t bg-background/80 px-5 pb-8 pt-3 backdrop-blur lg:px-7 lg:pb-10">
-        <div className="mx-auto w-full max-w-4xl">
-          <div className="scrollbar-thin mb-2.5 flex items-center gap-2 overflow-x-auto pb-1">
-            <div className="flex min-w-0 flex-1 gap-2">
-              {personalizedPrompts.map((prompt) => (
-                <Button
-                  key={prompt}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => send(prompt)}
-                  disabled={busy}
-                  className="h-8 shrink-0 rounded-full bg-surface px-3.5 text-sm text-muted-foreground hover:border-primary hover:text-primary"
-                >
-                  {prompt}
-                </Button>
-              ))}
-            </div>
-            <div className="flex shrink-0 items-center gap-2 text-sm">
-              <label htmlFor="deep-cuts" className="cursor-pointer font-medium text-foreground">
-                Deep cuts
-              </label>
-              <Checkbox
-                id="deep-cuts"
-                checked={deepCuts}
-                onCheckedChange={(checked) => setDeepCuts(checked === true)}
-                aria-label="Enable Deep cuts"
-              />
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label="About Deep cuts"
-                      className="rounded-full text-muted-foreground"
-                    >
-                      <CircleHelp />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[240px]">
-                    Finds overlooked songs you haven't heard in a while.
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-          </div>
-          <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90 shadow-sm">
-            <PromptInputTextarea
-              ref={textareaRef}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Describe the vibe, setting, or a song to start from…"
-              className="min-h-28 px-4 py-3 text-lg leading-7 placeholder:text-base"
-            />
-            <PromptInputFooter className="flex items-center justify-between px-3 pb-3">
-              <div className="flex items-center gap-2">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant={voiceState === "recording" ? "default" : "ghost"}
-                        size="icon-lg"
-                        onClick={() => void toggleVoice()}
-                        disabled={busy || voiceState === "transcribing"}
-                        aria-label={voiceState === "recording" ? "Stop and send voice prompt" : "Speak your prompt"}
-                        className={cn(
-                          "rounded-full",
-                          voiceState === "recording" && "animate-pulse",
-                        )}
-                      >
-                        {voiceState === "transcribing" ? (
-                          <LoaderCircle className="animate-spin" />
-                        ) : voiceState === "recording" ? (
-                          <Square className="fill-current" />
-                        ) : (
-                          <Mic />
-                        )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="top">
-                      {voiceState === "recording" ? "Stop and send" : "Speak your prompt"}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                {voiceState !== "idle" && (
-                  <span className="text-sm text-muted-foreground" aria-live="polite">
-                    {voiceState === "recording" ? "Listening… pause to send" : "Turning speech into your prompt…"}
-                  </span>
-                )}
-              </div>
-              <PromptInputSubmit
-                status={status}
-                onStop={stop}
-                disabled={!busy && !text.trim()}
-                size="icon-sm"
-                className="h-11 w-11"
-              />
-            </PromptInputFooter>
-          </PromptInput>
-        </div>
-      </div>
+      {composer}
     </div>
   );
 }
