@@ -1,0 +1,146 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { ArrowLeft, Database, Route as RouteIcon, Sparkles } from "lucide-react";
+
+export const Route = createFileRoute("/crate-info")({
+  head: () => ({
+    meta: [
+      { title: "How Crate uses Walrus — Songweaver" },
+      {
+        name: "description",
+        content:
+          "Crate is Songweaver's AI companion. It reads your listening as a maze and writes what it learns to Walrus Memory — here is exactly how.",
+      },
+      { property: "og:title", content: "How Crate uses Walrus — Songweaver" },
+      {
+        property: "og:description",
+        content:
+          "Crate is Songweaver's AI companion. It reads your listening as a maze and writes what it learns to Walrus Memory — here is exactly how.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
+  component: CrateInfoPage,
+});
+
+const SKILLS = [
+  {
+    name: "User input",
+    how: "Everything you type or say in the chat — a mood, a setting, an artist, a memory — is written to Walrus as a taste note. Next session, Crate recalls it before picking a single song.",
+  },
+  {
+    name: "Listening",
+    how: "Crate counts how you listen. A song played to the end strengthens the road you're on. A replay marks a quiet favorite — but only after it happens in more than one session, so one good evening never becomes a loop. Skip the same artist twice and they fade out for the rest of the session.",
+  },
+  {
+    name: "Steer",
+    how: "Small chips like Svenskt, Engelskt, Nostalgi or Instrumental let you nudge the maze without stopping the music. Playing a song spontaneously works the same way — the maze continues from there. A chip you reach for in three or more sessions becomes a permanent taste memory.",
+  },
+  {
+    name: "Feedbacker",
+    how: "The sharpest signal Crate gets: a few free words about the song playing right now. \"Nostalgi, minne från hälsingegården, högstadiet\" ties a feeling to a track forever, and Walrus carries it into every future session.",
+  },
+  {
+    name: "Deep cuts",
+    how: "With Deep cuts on, Crate ignores everything you've heard in the last 60 days and digs into playlists a year old or more — the songs you loved and forgot.",
+  },
+];
+
+function CrateInfoPage() {
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="mx-auto max-w-2xl px-6 py-10">
+        <Link
+          to="/studio"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" /> Back to the Studio
+        </Link>
+
+        <h1 className="mt-8 text-3xl font-bold tracking-tight">
+          How Crate uses Walrus
+        </h1>
+        <p className="mt-3 leading-relaxed text-muted-foreground">
+          Crate is Songweaver's AI companion. It doesn't recommend from the whole
+          of music — only from your own library, the playlists you built over the
+          years. To remember what it learns about you, it writes to{" "}
+          <span className="font-medium text-foreground">Walrus Memory</span>: a
+          durable, verifiable store that survives every session. Nothing about
+          your taste lives only in a chat window.
+        </p>
+
+        <section className="mt-10">
+          <div className="flex items-center gap-2">
+            <RouteIcon className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">The maze</h2>
+          </div>
+          <p className="mt-3 leading-relaxed text-muted-foreground">
+            Every session starts from one song — one you searched for, or the
+            first pick from your prompt. From there, listening is a maze:
+          </p>
+          <ul className="mt-3 space-y-2 text-sm leading-relaxed text-muted-foreground">
+            <li>
+              <span className="font-medium text-foreground">Finish a song</span>{" "}
+              → Crate keeps walking the same road — the same vibe, or the same
+              playlist and months the song came from.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">Skip</span> → Crate
+              turns onto the other road.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">Skip twice</span> →
+              Crate tries a noticeably new angle.
+            </li>
+          </ul>
+          <p className="mt-3 leading-relaxed text-muted-foreground">
+            Both doors are always prepared in advance, so a skip is instant. The
+            Maze box in the Studio shows the path so far, where you are, and the
+            two songs waiting behind each door — with the reason for each pick.
+          </p>
+        </section>
+
+        <section className="mt-10">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">Crate's skills</h2>
+          </div>
+          <div className="mt-4 space-y-3">
+            {SKILLS.map((s) => (
+              <div key={s.name} className="rounded-lg border bg-surface p-4">
+                <h3 className="font-semibold">{s.name}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  {s.how}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <div className="flex items-center gap-2">
+            <Database className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">Why Walrus</h2>
+          </div>
+          <p className="mt-3 leading-relaxed text-muted-foreground">
+            Each lesson — a typed mood, a skip pattern, a Feedbacker note — is
+            written to Walrus as its own memory node. The Walrus panel in the
+            Studio shows every note, when it was taken, why it was taken, and
+            its storage status. Because the memory is durable and external, your
+            taste profile is yours: inspectable, portable, and never trapped
+            inside a conversation.
+          </p>
+        </section>
+
+        <div className="mt-12 border-t pt-6 pb-10">
+          <Link
+            to="/studio"
+            className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to the Studio
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
