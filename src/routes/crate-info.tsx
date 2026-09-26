@@ -38,7 +38,7 @@ const SKILLS = [
   },
   {
     name: "Feedbacker",
-    how: "The sharpest signal Crate gets: a few free words about the song playing right now. \"Nostalgi, minne från hälsingegården, högstadiet\" ties a feeling to a track forever, and Walrus carries it into every future session.",
+    how: "The sharpest signal Crate gets: a few free words about the song playing right now. \"Nostalgi, högstadiet, sommarens första dag\" ties a feeling to a track forever, and Walrus carries it into every future session.",
   },
   {
     name: "Deep cuts",
