@@ -388,7 +388,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       idleSince.current = 0;
       noDeviceSince.current = 0;
       lastPlayback.current = { spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 };
-      setEvents([...(saved.events ?? []), { at: Date.now(), kind: "reroot", text: `Resumed last session at "${saved.radio.current?.name}"` }].slice(-30));
+      setEvents([...(saved.events ?? []), { at: Date.now(), kind: "reroot" as const, text: `Resumed last session at "${saved.radio.current?.name}"` }].slice(-30));
       setRadio({ ...saved.radio, active: true, sessionId: crypto.randomUUID() });
       setSessionLive(true);
     } catch {
