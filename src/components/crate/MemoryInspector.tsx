@@ -124,7 +124,7 @@ export function MemoryInspector() {
           </span>
         )}
       </div>
-      <div className="shrink-0 px-4 pt-1 pb-3 text-xs">
+      <div className={cn("shrink-0 px-4 pt-1 pb-3 text-xs", consoleOpen && "hidden")}>
         <div className="flex flex-wrap gap-1.5">
           {Object.entries(counts).filter(([k]) => KIND_LABEL[k]).map(([k, v]) => (
             <span key={k} className="inline-flex items-center gap-1">
