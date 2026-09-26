@@ -227,7 +227,7 @@ type SyncProgress = {
   total: number | null;
   finished: boolean;
   error?: string;
-  result?: { imported: number; playlists: number; liked: number; recent: number };
+  result?: { imported: number; playlists: number; liked: number };
 };
 const syncProgress = new Map<string, SyncProgress>();
 
@@ -281,7 +281,6 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
 
     const rows: IngestRow[] = [];
     let likedCount = 0;
-    let recentCount = 0;
 
     try {
     // Only playlists the user created themselves (skip followed/saved ones by others)
@@ -382,23 +381,6 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       if (!saved.next) break;
     }
 
-    // Recently played
-    setP({ stage: "Importing recently played…", done: 0, total: null });
-    try {
-      const recent = await spotifyGet<{
-        items: { played_at: string; track: Parameters<typeof toRow>[0] }[];
-      }>(token, "/me/player/recently-played?limit=50");
-      for (const it of recent.items ?? []) {
-        const r = toRow(it.track, "recent", "Recently played", `${it.played_at.slice(0, 7)}-01`);
-        if (r) {
-          rows.push(r);
-          recentCount += 1;
-        }
-      }
-    } catch (e) {
-      console.error("recent fetch failed", e);
-    }
-
     // Dedupe on (spotify_id, source_name)
     const seen = new Set<string>();
     const unique = rows.filter((r) => {
@@ -429,7 +411,6 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       imported: unique.length,
       playlists: playlists.items?.length ?? 0,
       liked: likedCount,
-      recent: recentCount,
       partial: limited,
     };
     setP({ stage: "Done", finished: true, result });

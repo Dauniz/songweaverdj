@@ -40,7 +40,6 @@ export function LibraryPanel() {
     imported: number;
     playlists: number;
     liked: number;
-    recent: number;
   } | null>(null);
 
   const { data: progress } = useQuery({
@@ -250,7 +249,7 @@ export function LibraryPanel() {
                   <p className="font-semibold text-primary">✓ Library loaded</p>
                   <p className="mt-1 text-muted-foreground">
                     {summary.imported} tracks · from {summary.playlists} playlists ·{" "}
-                    {summary.liked} liked songs · {summary.recent} recently played
+                    {summary.liked} liked songs
                   </p>
                 </div>
               )}
