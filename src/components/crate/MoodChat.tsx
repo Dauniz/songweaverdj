@@ -387,18 +387,18 @@ export function MoodChat() {
                 className="max-w-[300px] border border-border bg-background text-foreground shadow-lg"
               >
                 <p>
-                  <span className="font-medium">Deep cuts:</span> Finds overlooked songs you
-                  haven't heard in a while.
-                </p>
-                <p className="mt-1.5">
                   Side roads bend whichever road is active (Vibe, Era or New angle). Only one can be
                   on at a time — tap it again to turn it off.
                 </p>
                 {LENSES.map((l) => (
-                  <p key={l.id} className="mt-1.5">
-                    <span className="font-medium">{l.name}:</span> {l.info}
+                  <p key={l.id} className="mt-3">
+                    <span className="font-bold">{l.name}:</span> {l.info}
                   </p>
                 ))}
+                <p className="mt-3">
+                  <span className="font-medium">Deep cuts:</span> Finds overlooked songs you
+                  haven't heard in a while.
+                </p>
               </TooltipContent>
             </Tooltip>
           </div>
