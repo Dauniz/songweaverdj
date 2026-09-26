@@ -152,7 +152,7 @@ export function CrateConsole() {
   const live = radio.active;
 
   return (
-    <div className="flex shrink-0 flex-col border-t">
+    <div className={cn("flex flex-col border-t", open ? "min-h-0 flex-1" : "shrink-0")}>
       <button
         type="button"
         onClick={toggle}
@@ -168,14 +168,14 @@ export function CrateConsole() {
       </button>
       <div
         className={cn(
-          "grid transition-all duration-300 ease-out",
-          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          "grid min-h-0 transition-all duration-300 ease-out",
+          open ? "flex-1 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
       >
         <div className="min-h-0 overflow-hidden">
           <div
             ref={ref}
-            className="scrollbar-thin max-h-[45vh] space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
+            className="scrollbar-thin h-full space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
           >
             {!live && events.length === 0 ? (
               <div className="text-muted-foreground">
