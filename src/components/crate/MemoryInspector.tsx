@@ -166,7 +166,7 @@ export function MemoryInspector() {
       <div className="scrollbar-thin flex-1 space-y-2 overflow-y-auto px-4 pb-4">
         {nodes.length === 0 && (
           <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
-            No memory nodes yet. Chat about your vibe, or tap “Still love it” / “Skip” on a card.
+            No memory nodes yet. Start a session and get Crate to work.
           </p>
         )}
         {nodes.map((n) => {
