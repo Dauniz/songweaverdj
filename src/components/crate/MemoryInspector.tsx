@@ -118,9 +118,11 @@ export function MemoryInspector() {
           </Tooltip>
         </TooltipProvider>
       </div>
-      <div ref={logScrollRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
-      <PathMaze />
-      <div className="px-4 py-3 text-xs">
+      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="scrollbar-thin min-h-0 shrink overflow-y-auto">
+        <PathMaze />
+      </div>
+      <div className="shrink-0 border-t px-4 py-3 text-xs">
         {cfg?.configured ? (
           <TooltipProvider>
             <Tooltip>
@@ -174,7 +176,7 @@ export function MemoryInspector() {
         </button>
       </div>
       {showLog && (
-      <div className="scrollbar-thin flex-1 space-y-2 overflow-y-auto px-4 pb-4">
+      <div className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto border-t px-4 py-3">
         {nodes.length === 0 && (
           <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
             No memory nodes yet. Start a session and get Crate to work.
