@@ -49,6 +49,7 @@ type Outcome = "played" | "skipped" | "replay";
 type RadioContextValue = {
   radio: RadioState;
   upNext: RadioTrack | null;
+  upSkip: { track: RadioTrack; road: Road } | null;
   thinking: boolean;
   askSteer: boolean;
   dismissSteer: () => void;
@@ -111,6 +112,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     null,
   );
   const [upNext, setUpNext] = useState<RadioTrack | null>(null);
+  const [upSkip, setUpSkip] = useState<{ track: RadioTrack; road: Road } | null>(null);
   const lastSteerAsk = useRef(0);
   const lastSkipAsk = useRef(0);
   const lastPlayback = useRef({ spotifyId: "", ratio: 0, observed: false });
@@ -181,6 +183,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const skippedB = fetchBranch(advance(s, "skipped"));
       branches.current = { key, played: playedB, skipped: skippedB };
       setUpNext(null);
+      setUpSkip(null);
+      skippedB.then((b) => {
+        if (branches.current?.key === key) setUpSkip(b ?? null);
+      });
       playedB.then((b) => {
         if (branches.current?.key === key) setUpNext(b?.track ?? null);
       });
@@ -387,6 +393,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       value={{
         radio,
         upNext,
+        upSkip,
         thinking,
         askSteer,
         dismissSteer: () => setAskSteer(false),

@@ -11,14 +11,12 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getMemoryStatus, refreshMemories } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
+import { PathMaze } from "@/components/crate/PathMaze";
 
 const KIND_LABEL: Record<string, string> = {
   taste: "Taste",
   genre: "Genre",
   mood_trigger: "Mood trigger",
-  skipped: "Skipped",
-  session: "Session",
-  favorite: "Favorite",
 };
 
 const KIND_STYLE: Record<string, string> = {
@@ -97,6 +95,7 @@ export function MemoryInspector() {
           </Tooltip>
         </TooltipProvider>
       </div>
+      <PathMaze />
       <div className="px-4 py-3 text-xs">
         {cfg?.configured ? (
           <span className="inline-flex items-center gap-1.5 text-primary">
@@ -109,7 +108,7 @@ export function MemoryInspector() {
           </span>
         )}
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {Object.entries(counts).map(([k, v]) => (
+          {Object.entries(counts).filter(([k]) => KIND_LABEL[k]).map(([k, v]) => (
             <span key={k} className={cn("rounded-full px-2 py-0.5 font-medium", KIND_STYLE[k])}>
               {KIND_LABEL[k] ?? k} · {v}
             </span>
@@ -127,14 +126,14 @@ export function MemoryInspector() {
           return (
             <div key={n.id} className="rounded-lg border bg-surface p-3">
               <div className="flex items-center justify-between gap-2">
-                <span
+                {KIND_LABEL[n.kind] ? <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[11px] font-semibold",
                     KIND_STYLE[n.kind],
                   )}
                 >
-                  {KIND_LABEL[n.kind] ?? n.kind}
-                </span>
+                  {KIND_LABEL[n.kind]}
+                </span> : <span />}
                 <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                   <span className={cn("h-1.5 w-1.5 rounded-full", s.cls)} /> {s.label}
                 </span>
