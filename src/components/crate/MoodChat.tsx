@@ -396,7 +396,7 @@ export function MoodChat() {
                   </p>
                 ))}
                 <p className="mt-3">
-                  <span className="font-medium">Deep cuts:</span> Finds overlooked songs you
+                  <span className="font-bold">Deep cuts:</span> Finds overlooked songs you
                   haven't heard in a while.
                 </p>
               </TooltipContent>
