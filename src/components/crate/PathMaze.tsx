@@ -135,11 +135,11 @@ const TAG: Record<string, { label: string; cls: string }> = {
 };
 
 /**
- * Decisionmaking — lives at the bottom of the Walrus column. Collapsed it's a
- * single row; expanded it grows to fill the column and shows Crate's live
- * reasoning as it walks the maze.
+ * CrateConsole — pinned to the very bottom of the Walrus column. Collapsed
+ * it's a single bar; expanding slides the bar up while the console unfolds
+ * below it, showing Crate's live reasoning as it walks the maze.
  */
-export function Decisionmaking() {
+export function CrateConsole() {
   const { events, radio } = useRadio();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -152,7 +152,7 @@ export function Decisionmaking() {
   const live = radio.active;
 
   return (
-    <div className={cn("flex min-h-0 flex-col border-t", open ? "flex-1" : "shrink-0")}>
+    <div className="mt-auto flex shrink-0 flex-col border-t">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -160,51 +160,58 @@ export function Decisionmaking() {
         className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-accent/50"
       >
         <MessagesSquare className="h-4 w-4 text-primary" />
-        <span className="text-sm font-bold uppercase tracking-wider">Decisionmaking</span>
+        <span className="text-sm font-bold uppercase tracking-wider">Crate console</span>
         <span className="ml-auto flex items-center gap-2 text-[10px] text-muted-foreground">
           {events.length > 0 && <span>{events.length} steps</span>}
           {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
         </span>
       </button>
-      {open && (
-        <div
-          ref={ref}
-          className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
-        >
-          {!live && events.length === 0 ? (
-            <div className="text-muted-foreground">
-              Start a session to follow how Crate makes its decisions.
-            </div>
-          ) : (
-            <>
-              {events.length === 0 && (
-                <div className="text-muted-foreground">Waiting for Crate…</div>
-              )}
-              {events.map((e, i) => {
-                const t = TAG[e.kind] ?? TAG["think"]!;
-                return (
-                  <div key={e.at + "-" + i} className="flex items-start gap-2">
-                    <span className="mt-0.5 shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
-                      {new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                    </span>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide",
-                        t.cls
-                      )}
-                    >
-                      {t.label}
-                    </span>
-                    <span className={cn("min-w-0 break-words", e.kind === "think" ? "text-muted-foreground" : "text-foreground")}>
-                      {e.text}
-                    </span>
-                  </div>
-                );
-              })}
-            </>
-          )}
+      <div
+        className={cn(
+          "grid transition-all duration-300 ease-out",
+          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div
+            ref={ref}
+            className="scrollbar-thin max-h-[45vh] space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
+          >
+            {!live && events.length === 0 ? (
+              <div className="text-muted-foreground">
+                Start a session to follow how Crate makes its decisions.
+              </div>
+            ) : (
+              <>
+                {events.length === 0 && (
+                  <div className="text-muted-foreground">Waiting for Crate…</div>
+                )}
+                {events.map((e, i) => {
+                  const t = TAG[e.kind] ?? TAG["think"]!;
+                  return (
+                    <div key={e.at + "-" + i} className="flex items-start gap-2">
+                      <span className="mt-0.5 shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
+                        {new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                      </span>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide",
+                          t.cls
+                        )}
+                      >
+                        {t.label}
+                      </span>
+                      <span className={cn("min-w-0 break-words", e.kind === "think" ? "text-muted-foreground" : "text-foreground")}>
+                        {e.text}
+                      </span>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
