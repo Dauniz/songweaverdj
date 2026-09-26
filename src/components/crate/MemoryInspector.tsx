@@ -140,10 +140,10 @@ export function MemoryInspector() {
               </div>
               <div className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
                 {n.origin === "listening"
-                  ? "Noted because of how you listened (skips, replays, finishes)"
+                  ? "Based on how you listened (skips, replays, finishes)"
                   : n.origin === "button"
-                    ? "Noted because you reacted to a song"
-                    : "User input — noted from what you typed or said"}
+                    ? "Based on your reaction to a song"
+                    : "Based on user input"}
               </div>
               <p className="mt-2 text-sm">{n.content}</p>
               <div className="mt-2 flex justify-between gap-2 font-mono text-[10px] text-muted-foreground">
