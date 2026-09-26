@@ -54,6 +54,7 @@ function skillForMemory(kind: string, origin: string, content: string) {
 export function MemoryInspector() {
   const qc = useQueryClient();
   const [showLog, setShowLog] = useState(false);
+  const [consoleOpen, setConsoleOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetText, setResetText] = useState("");
@@ -117,9 +118,43 @@ export function MemoryInspector() {
           </Tooltip>
         </TooltipProvider>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className={cn("flex min-h-0 flex-col", consoleOpen ? "shrink" : "flex-1")}>
       <div className="scrollbar-thin min-h-0 shrink overflow-y-auto">
         <PathMaze />
+        <div className="px-4 pt-1 pb-3 text-xs">
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(counts).filter(([k]) => KIND_LABEL[k]).map(([k, v]) => (
+              <span key={k} className="inline-flex items-center gap-1">
+                <span className={cn("rounded-full px-2 py-0.5 font-medium", KIND_STYLE[k])}>
+                  {KIND_LABEL[k] ?? k} · {v}
+                </span>
+                {k === "mood_trigger" && (
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" aria-label="What is a mood trigger?" className="rounded-full p-0.5 text-muted-foreground hover:text-foreground">
+                          <CircleHelp className="h-3 w-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[240px] text-left">
+                        A count of the feelings you've tied to songs — via Feedbacker notes or your prompts. Crate recalls them when picking songs, so a feeling you once linked to a song shapes future picks and your personalized suggestions.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
+              </span>
+            ))}
+          </div>
+          <button
+            type="button"
+            aria-expanded={showLog}
+            onClick={() => setShowLog((v) => !v)}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            {showLog ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            {showLog ? "Hide Walrus log" : "Show Walrus log"}
+          </button>
+        </div>
       </div>
       <div className="shrink-0 border-t px-4 py-3 text-xs">
         {cfg?.configured ? (
@@ -141,38 +176,6 @@ export function MemoryInspector() {
             — memories saved locally
           </span>
         )}
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {Object.entries(counts).filter(([k]) => KIND_LABEL[k]).map(([k, v]) => (
-            <span key={k} className="inline-flex items-center gap-1">
-              <span className={cn("rounded-full px-2 py-0.5 font-medium", KIND_STYLE[k])}>
-                {KIND_LABEL[k] ?? k} · {v}
-              </span>
-              {k === "mood_trigger" && (
-                <TooltipProvider delayDuration={150}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" aria-label="What is a mood trigger?" className="rounded-full p-0.5 text-muted-foreground hover:text-foreground">
-                        <CircleHelp className="h-3 w-3" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-[240px] text-left">
-                      A count of the feelings you've tied to songs — via Feedbacker notes or your prompts. Crate recalls them when picking songs, so a feeling you once linked to a song shapes future picks and your personalized suggestions.
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </span>
-          ))}
-        </div>
-        <button
-          type="button"
-          aria-expanded={showLog}
-          onClick={() => setShowLog((v) => !v)}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          {showLog ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-          {showLog ? "Hide Walrus log" : "Show Walrus log"}
-        </button>
       </div>
       {showLog && (
       <div className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto border-t px-4 py-3">
@@ -236,7 +239,7 @@ export function MemoryInspector() {
       </div>
       )}
       </div>
-      <CrateConsole />
+      <CrateConsole open={consoleOpen} setOpen={setConsoleOpen} />
       <div className="flex shrink-0 items-center justify-between border-t px-4 py-2">
         <Link
           to="/crate-info"
