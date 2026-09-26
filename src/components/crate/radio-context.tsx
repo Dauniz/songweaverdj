@@ -407,13 +407,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const current = radio.current;
-    if (!radio.active || !current?.spotify_id || current.spotify_id.startsWith("demo-")) return;
+    // Crate only touches Spotify playback while a session is live.
+    if (!sessionLive || !radio.active || !current?.spotify_id || current.spotify_id.startsWith("demo-")) return;
     if (noPlayFor.current === current.spotify_id) {
       noPlayFor.current = "";
       return; // Spotify is already playing it
     }
     void startSpotifyPlayback(current);
-  }, [radio.active, radio.current?.spotify_id, startSpotifyPlayback]);
+  }, [sessionLive, radio.active, radio.current?.spotify_id, startSpotifyPlayback]);
 
   // Spotify owns playback. Observe its active track so skips and completions still steer Crate's path.
   /** Accept a song Spotify is already playing as the new current song. */

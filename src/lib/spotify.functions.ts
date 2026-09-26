@@ -101,6 +101,12 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
     );
 
     if (!response.ok) return playbackFailure(response.status, await response.text());
+    // Repeat/shuffle would loop Crate's short line-up (skip → same song again), so turn them off.
+    const dev = `device_id=${encodeURIComponent(device.id)}`;
+    await Promise.all([
+      fetch(`https://api.spotify.com/v1/me/player/repeat?state=off&${dev}`, { method: "PUT", headers }),
+      fetch(`https://api.spotify.com/v1/me/player/shuffle?state=false&${dev}`, { method: "PUT", headers }),
+    ]).catch(() => undefined);
     return { status: "playing" as const, deviceName: device.name };
   });
 

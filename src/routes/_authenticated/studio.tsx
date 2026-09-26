@@ -105,7 +105,7 @@ function StudioLayout({
             "min-w-0 overflow-hidden bg-glow lg:flex-none lg:transition-[width] lg:duration-500 lg:ease-in-out",
             mobileTab === "chat" ? "block" : "hidden lg:block",
             live
-              ? "w-full lg:w-[29rem]"
+              ? "w-full lg:w-2/3"
               : "w-full lg:w-[calc(100%-20rem)]",
           )}
         >
@@ -116,7 +116,7 @@ function StudioLayout({
             "w-full border-l bg-sidebar lg:flex-none lg:transition-[width] lg:duration-500 lg:ease-in-out",
             mobileTab === "memory" ? "block" : "hidden lg:block",
             live
-              ? "lg:w-[calc(100%-29rem)]"
+              ? "lg:w-1/3"
               : "lg:w-80",
           )}
         >
