@@ -322,8 +322,8 @@ export function MoodChat() {
             />
           </PromptInputFooter>
         </PromptInput>
-        <div className="mt-2.5 flex items-center gap-2 text-sm">
-          <label htmlFor="deep-cuts" className="cursor-pointer font-medium text-foreground">
+        <div className="mt-2 flex items-center gap-1.5 text-xs">
+          <label htmlFor="deep-cuts" className="cursor-pointer text-muted-foreground">
             Deep cuts
           </label>
           <Checkbox
@@ -331,7 +331,7 @@ export function MoodChat() {
             checked={deepCuts}
             onCheckedChange={(checked) => setDeepCuts(checked === true)}
             aria-label="Enable Deep cuts"
-            className="h-5 w-5 rounded-[4px] border-muted-foreground data-[state=checked]:border-primary"
+            className="h-2.5 w-2.5 rounded-[2px] border-muted-foreground/60 data-[state=checked]:border-primary"
           />
           <TooltipProvider>
             <Tooltip>
