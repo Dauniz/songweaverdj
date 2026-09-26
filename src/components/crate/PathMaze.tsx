@@ -154,7 +154,7 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
     <div className={cn("flex flex-col border-t", open ? "min-h-0 flex-1" : "shrink-0")}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(!open)}
         aria-expanded={open}
         className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-accent/50"
       >
