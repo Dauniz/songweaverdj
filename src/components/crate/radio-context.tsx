@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack } from "@/lib/path.functions";
+import { LENS_IDS, type LensId } from "@/lib/lenses";
 import { endSpotifySession, getSpotifyAuthUrl, getSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
@@ -62,6 +63,8 @@ type RadioContextValue = {
   stopRadio: () => void;
   next: (outcome: Outcome) => void;
   toggleChip: (chip: string) => void;
+  lens: LensId | null;
+  setLens: (lens: LensId | null) => void;
   sessionLive: boolean;
   startSession: () => Promise<void>;
   endSession: () => void;
@@ -115,6 +118,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   const radioRef = useRef(radio);
   radioRef.current = radio;
+  // Second-class branch (lens): one at a time, remembered on this device.
+  const [lens, setLensState] = useState<LensId | null>(null);
+  const lensRef = useRef<LensId | null>(null);
+  lensRef.current = lens;
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem("songweaver-lens");
+      if (v && (LENS_IDS as string[]).includes(v)) setLensState(v as LensId);
+    } catch { /* ignore */ }
+  }, []);
   const artistSkips = useRef<Map<string, number>>(new Map());
   const played = useRef<string[]>([]);
   // Two prefetched branches per song: one assuming you finish it, one assuming you skip it.
@@ -223,6 +236,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             history: s.history,
             road: s.road,
             chips: s.chips,
+            lens: lensRef.current,
             avoidArtists: avoidArtists(),
             excludeSpotifyIds: [
               ...played.current.slice(-500),
@@ -243,7 +257,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const prefetch = useCallback(
     (s: RadioState) => {
       if (!s.active || !s.current) return;
-      const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}`;
+      const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}|${lensRef.current ?? ""}`;
       if (branches.current?.key === key) return;
       const playedB = fetchBranch(advance(s, "played"));
       const pre = preSkip.current;
@@ -670,6 +684,21 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [log],
   );
 
+  const setLens = useCallback(
+    (next: LensId | null) => {
+      lensRef.current = next;
+      setLensState(next);
+      try {
+        window.localStorage.setItem("songweaver-lens", next ?? "");
+      } catch { /* ignore */ }
+      const s = radioRef.current;
+      if (next && s.active) log({ name: `lens:${next}`, artists: "" }, "steer", s);
+      branches.current = null; // lens bends both prefetched paths
+      if (s.active) setRadio({ ...s });
+    },
+    [log],
+  );
+
   return (
     <RadioContext.Provider
       value={{
@@ -684,6 +713,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         stopRadio,
         next,
         toggleChip,
+        lens,
+        setLens,
         sessionLive,
         startSession,
         endSession: stopRadio,
