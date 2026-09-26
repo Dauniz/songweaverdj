@@ -1,6 +1,6 @@
-# Welcome to your Lovable project
+# Songweaver
 
-This project was built with [Lovable](https://lovable.dev).
+Songweaver is a personal music rediscovery companion. Crate, its AI, turns moods and settings into paths through your Spotify history while preserving taste continuity with Walrus Memory.
 
 ## Build with Lovable
 
