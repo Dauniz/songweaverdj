@@ -343,7 +343,7 @@ export function MoodChat() {
                 checked={deepCuts}
                 onCheckedChange={(checked) => toggleDeepCuts(checked === true)}
                 aria-label="Enable Deep cuts"
-                className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
+                className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 transition-transform duration-150 hover:scale-125 data-[state=checked]:border-primary"
               />
             </span>
             {LENSES.map((l) => {
