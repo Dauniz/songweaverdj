@@ -287,10 +287,17 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
     type Pl = { id: string; name: string; owner?: { id?: string } };
     const allPlaylists: Pl[] = [];
     let plNext: string | null = "/me/playlists?limit=50";
+    let limited = false;
     while (plNext) {
-      const page: { items: (Pl | null)[]; next: string | null } = await spotifyGet(token, plNext);
-      for (const p of page.items ?? []) if (p && p.owner?.id === me.id) allPlaylists.push(p);
-      plNext = page.next;
+      try {
+        const page: { items: (Pl | null)[]; next: string | null } = await spotifyGet(token, plNext);
+        for (const p of page.items ?? []) if (p && p.owner?.id === me.id) allPlaylists.push(p);
+        plNext = page.next;
+      } catch (e) {
+        console.error("playlist list failed", e);
+        limited = true;
+        break;
+      }
     }
     const playlists = { items: allPlaylists };
 
@@ -305,11 +312,13 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
     let plDone = 0;
     for (const pl of allPlaylists) {
       plDone += 1;
+      if (limited) break;
       setP({
         stage: `Importing playlist ${plDone}/${allPlaylists.length}: ${pl.name}`,
         done: plDone,
         total: allPlaylists.length,
       });
+      await new Promise((r) => setTimeout(r, 150));
       try {
         // Spotify renamed /tracks → /items (2026); try the new endpoint first.
         let first: PlItems;
@@ -337,17 +346,25 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         }
       } catch (e) {
         console.error("playlist fetch failed", pl.name, e);
+        if (e instanceof Error && e.message.includes("limiting")) limited = true;
       }
     }
 
     // All saved tracks (paginated)
     setP({ stage: "Importing Liked Songs…", done: 0, total: null });
-    for (let offset = 0; ; offset += 50) {
-      const saved = await spotifyGet<{
+    for (let offset = 0; !limited; offset += 50) {
+      let saved: {
         items: { added_at: string; track: Parameters<typeof toRow>[0] }[];
         next: string | null;
         total?: number;
-      }>(token, `/me/tracks?limit=50&offset=${offset}`);
+      };
+      try {
+        saved = await spotifyGet(token, `/me/tracks?limit=50&offset=${offset}`);
+      } catch (e) {
+        console.error("liked fetch failed", e);
+        limited = true;
+        break;
+      }
       for (const it of saved.items ?? []) {
         const r = toRow(it.track, "saved", "Liked Songs", `${it.added_at.slice(0, 7)}-01`);
         if (r) {
@@ -385,6 +402,9 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       return true;
     });
 
+    if (unique.length === 0 && limited) {
+      throw new Error("Spotify is limiting requests right now. Wait a few minutes and try syncing again.");
+    }
     setP({ stage: `Saving ${unique.length} tracks…`, done: 0, total: unique.length });
     for (let i = 0; i < unique.length; i += 500) {
       const { error } = await context.supabase.from("library_tracks").upsert(
@@ -404,6 +424,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       playlists: playlists.items?.length ?? 0,
       liked: likedCount,
       recent: recentCount,
+      partial: limited,
     };
     setP({ stage: "Done", finished: true, result });
     return result;

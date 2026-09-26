@@ -104,7 +104,9 @@ export function LibraryPanel() {
     try {
       const r = await syncFn();
       setSummary(r);
-      toast.success(`Sync complete — ${r.imported} tracks loaded`);
+      if (r.partial)
+        toast.warning(`Spotify slowed us down — ${r.imported} tracks saved. Sync again in a few minutes for the rest.`);
+      else toast.success(`Sync complete — ${r.imported} tracks loaded`);
       qc.invalidateQueries({ queryKey: ["library"] });
       qc.invalidateQueries({ queryKey: ["spotify-status"] });
     } catch (e) {
