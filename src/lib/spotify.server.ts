@@ -110,9 +110,19 @@ export function toRow(
 
 export async function spotifyGet<T>(token: string, path: string): Promise<T> {
   const url = path.startsWith("http") ? path : `https://api.spotify.com/v1${path}`;
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-  if (!res.ok) throw new Error(`Spotify API error [${res.status}] ${path}: ${await res.text()}`);
-  return (await res.json()) as T;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 429 && attempt < 4) {
+      const wait = Math.min(Number(res.headers.get("retry-after") ?? 0) * 1000 || 1500 * 2 ** attempt, 15_000);
+      await new Promise((r) => setTimeout(r, wait));
+      continue;
+    }
+    if (res.status === 429) {
+      throw new Error("Spotify is limiting requests right now. Wait a few minutes and try syncing again.");
+    }
+    if (!res.ok) throw new Error(`Spotify API error [${res.status}] ${path}: ${await res.text()}`);
+    return (await res.json()) as T;
+  }
 }
 
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
