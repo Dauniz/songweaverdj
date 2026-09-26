@@ -4,6 +4,51 @@ import { stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { recallMemories } from "./memwal.server";
+import { LENS_IDS, lensName, type LensId } from "./lenses";
+
+const distinctPlaylists = (s: { sources: { name: string; type: string }[] }) =>
+  new Set(s.sources.filter((x) => x.type === "playlist").map((x) => x.name)).size;
+
+/** Code lenses narrow the pool before any road runs; AI lenses add a rule to the DJ prompt. */
+function applyCodeLens<T extends { sources: { name: string; type: string; period: string | null }[] }>(
+  lens: LensId | null,
+  pool: T[],
+): T[] {
+  if (lens === "wormhole") {
+    const hubs = pool.filter((s) => distinctPlaylists(s) >= 2);
+    return hubs.length >= 15 ? hubs : pool;
+  }
+  if (lens === "archive") {
+    const dated = pool
+      .map((s) => ({ s, m: Math.min(...s.sources.map((x) => monthIndex(x.period) ?? Infinity)) }))
+      .filter((x) => Number.isFinite(x.m))
+      .sort((a, b) => a.m - b.m);
+    const oldest = dated.slice(0, Math.max(20, Math.floor(dated.length * 0.3))).map((x) => x.s);
+    return oldest.length >= 15 ? oldest : pool;
+  }
+  return pool;
+}
+
+function lensRule(lens: LensId | null, step: number) {
+  switch (lens) {
+    case "wormhole":
+      return "LENS Wormhole: every candidate lives in several playlists. Prefer one that opens a DIFFERENT playlist/period than the anchor, to jump between chapters of their life.";
+    case "archive":
+      return "LENS Forgotten archive: candidates are the oldest saves in the library. Pick a forgotten gem that still fits the road.";
+    case "scene":
+      return "LENS Scene: follow the artist web — collaborators, featured artists, same label or same regional scene as the anchor.";
+    case "wave": {
+      const phase = step % 5;
+      return phase < 3
+        ? `LENS Wave: building phase (${phase + 1}/3). Pick something a notch MORE energetic than the anchor.`
+        : "LENS Wave: release phase. Pick something calmer to let the energy come down.";
+    }
+    case "texture":
+      return "LENS Texture: match the sonic texture of the anchor — acoustic/organic stays acoustic, synth/electronic stays electronic — regardless of era.";
+    default:
+      return "";
+  }
+}
 
 const MODEL = "openai/gpt-6-astra";
 
@@ -134,6 +179,7 @@ const inputSchema = z.object({
     .default([]),
   road: z.enum(["vibe", "era", "mixed"]),
   chips: z.array(z.string().max(40)).max(10).default([]),
+  lens: z.enum(LENS_IDS).nullable().default(null),
   avoidArtists: z.array(z.string().max(300)).max(30).default([]),
   excludeSpotifyIds: z.array(z.string()).max(600).default([]),
 });
@@ -149,12 +195,16 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const excluded = new Set([data.seed.spotifyId, ...data.excludeSpotifyIds]);
     const avoid = new Set(data.avoidArtists);
     const playableOnly = pool.some((s) => !s.spotify_id.startsWith("demo-") || s.preview_url);
-    const available = pool.filter(
+    const unlensed = pool.filter(
       (s) =>
         !excluded.has(s.spotify_id) &&
         !avoid.has(s.artists) &&
         (!playableOnly || !s.spotify_id.startsWith("demo-") || s.preview_url),
     );
+    const available = applyCodeLens(data.lens, unlensed);
+    const lensLabel = lensName(data.lens);
+    const withLens = (why: string) => (lensLabel ? `${lensLabel} · ${why}` : why);
+    const aiLens = data.lens === "scene" || data.lens === "wave" || data.lens === "texture";
     if (!available.length) return { track: null, road: data.road, why: "Library exhausted" };
 
     // Anchor = last song played through, else the seed
@@ -182,7 +232,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     });
 
     // ERA road without chips: pure code, instant.
-    if (data.road === "era" && anchor && !data.chips.length) {
+    if (data.road === "era" && anchor && !data.chips.length && !aiLens) {
       const cands = eraCandidates(anchor, available);
       if (cands.length) {
         const pick = cands[Math.floor(Math.random() * Math.min(6, cands.length))]!;
@@ -192,7 +242,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
         const why = shared
           ? `Staying in ${shared.name}${shared.period ? ` · ${fmtPeriod(shared.period)}` : ""}`
           : `Same era · ${fmtPeriod(pick.source_period) || "around then"}`;
-        return toTrack(pick, why, "era");
+        return toTrack(pick, withLens(why), "era");
       }
     }
 
@@ -239,6 +289,7 @@ Played through (the road that works): ${liked.map((h) => `${h.name} — ${h.arti
 Skipped (wrong turns, avoid similar): ${skipped.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(none)"}
 ${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
 ${roadRule}
+${lensRule(data.lens, data.history.length)}
 Favorites in memory are hints about taste, not a rotation list.
 Walrus Memory:
 ${recalled.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
@@ -277,5 +328,5 @@ Call pick_next exactly once with one code from the list.`;
         if (tc.toolName === "pick_next") picked = tc.input as { code: string; why: string };
 
     const song = (picked && index.get(picked.code.trim())) || shortlist[0]!;
-    return toTrack(song, picked?.why || "Continuing the path", data.road);
+    return toTrack(song, withLens(picked?.why || "Continuing the path"), data.road);
   });

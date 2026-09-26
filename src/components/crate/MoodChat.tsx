@@ -28,6 +28,7 @@ import { TrackCard, type CardTrack } from "./TrackCard";
 import { useRadio } from "./radio-context";
 import { CircleHelp, LoaderCircle, Mic, Radio, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LENSES } from "@/lib/lenses";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -121,7 +122,7 @@ export function MoodChat() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recordingRef = useRef<VoiceRecording | null>(null);
   const stoppingRef = useRef(false);
-  const { startRadio } = useRadio();
+  const { startRadio, lens, setLens } = useRadio();
   const lastUserText = useRef("");
   const { data: promptMemories = [] } = useQuery({
     queryKey: ["prompt-memories"],
@@ -361,6 +362,37 @@ export function MoodChat() {
             </Tooltip>
           </TooltipProvider>
         </div>
+        <TooltipProvider>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs" role="radiogroup" aria-label="Side roads">
+            <span className="mr-0.5 text-muted-foreground">Side road</span>
+            {LENSES.map((l) => {
+              const on = lens === l.id;
+              return (
+                <Tooltip key={l.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => setLens(on ? null : l.id)}
+                      className={cn(
+                        "rounded-full border px-2.5 py-0.5 transition-colors",
+                        on
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border text-muted-foreground hover:border-foreground hover:text-foreground",
+                      )}
+                    >
+                      {l.name}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-[240px]">
+                    {l.info} Works on top of the Vibe or Era road. One at a time.
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
+        </TooltipProvider>
       </div>
     </div>
   );
