@@ -60,9 +60,9 @@ async function spotifyAccess(userId: string) {
 }
 
 function playbackFailure(status: number, detail = "") {
-  if (status === 401) return { status: "reconnect_required" as const, message: "Spotify needs permission to control playback." };
+  if (status === 401) return { status: "connect_required" as const, message: "Connect Spotify to control playback." };
   if (status === 403 && /premium/i.test(detail)) return { status: "premium_required" as const, message: "Spotify live playback requires a Premium account." };
-  if (status === 403) return { status: "reconnect_required" as const, message: "Reconnect Spotify to grant playback permission." };
+  if (status === 403) return { status: "connect_required" as const, message: "Connect Spotify to grant playback permission." };
   if (status === 404) return { status: "no_device" as const, message: "Spotify needs to be open on one of your devices." };
   return { status: "unavailable" as const, message: "Spotify playback is temporarily unavailable." };
 }
@@ -74,7 +74,7 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
   .inputValidator((d) => playInput.parse(d))
   .handler(async ({ data, context }) => {
     const token = await spotifyAccess(context.userId);
-    if (!token) return { status: "reconnect_required" as const, message: "Connect Spotify to start listening." };
+    if (!token) return { status: "connect_required" as const, message: "Connect Spotify to start listening." };
     const headers = { Authorization: `Bearer ${token}` };
     const devicesResponse = await fetch("https://api.spotify.com/v1/me/player/devices", { headers });
     if (!devicesResponse.ok) return playbackFailure(devicesResponse.status, await devicesResponse.text());
@@ -100,7 +100,7 @@ export const getSpotifyPlayback = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const token = await spotifyAccess(context.userId);
-    if (!token) return { status: "reconnect_required" as const };
+    if (!token) return { status: "connect_required" as const };
     const response = await fetch("https://api.spotify.com/v1/me/player", {
       headers: { Authorization: `Bearer ${token}` },
     });

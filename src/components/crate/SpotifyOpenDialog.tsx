@@ -19,7 +19,7 @@ type Props = {
   retrying: boolean;
   onDismiss: () => void;
   onOpenSpotify: () => void;
-  onReconnect: () => void;
+  onConnect: () => void;
   onRetry: () => void;
 };
 
@@ -29,25 +29,27 @@ export function SpotifyOpenDialog({
   retrying,
   onDismiss,
   onOpenSpotify,
-  onReconnect,
+  onConnect,
   onRetry,
 }: Props) {
-  const reconnect = issue?.status === "reconnect_required";
+  const connect = issue?.status === "connect_required";
   const premium = issue?.status === "premium_required";
+  const needsAuth = connect;
+  const showTrack = Boolean(track?.image_url) && !needsAuth && !premium;
 
   return (
     <AlertDialog open={Boolean(issue)} onOpenChange={(open) => !open && onDismiss()}>
       <AlertDialogContent className="max-w-sm rounded-lg">
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {reconnect ? "Reconnect Spotify" : premium ? "Spotify Premium required" : "Open Spotify"}
+            {connect ? "Connect Spotify" : premium ? "Spotify Premium required" : "Open Spotify"}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {issue?.message}
-            {track && !reconnect && !premium ? ` Then Crate will start “${track.name}” there.` : ""}
+            {showTrack && track ? ` Then Crate will start “${track.name}” there.` : ""}
           </AlertDialogDescription>
         </AlertDialogHeader>
-        {track?.image_url && (
+        {showTrack && track?.image_url && (
           <div className="flex items-center gap-3 rounded-md border bg-surface p-2">
             <img src={track.image_url} alt="" className="h-12 w-12 rounded-sm object-cover" />
             <div className="min-w-0">
@@ -56,21 +58,33 @@ export function SpotifyOpenDialog({
             </div>
           </div>
         )}
-        <AlertDialogFooter>
-          <AlertDialogCancel>Not now</AlertDialogCancel>
-          {!premium && (
-            <Button variant="outline" onClick={onRetry} disabled={retrying}>
-              {retrying && <Loader2 className="animate-spin" />} Try again
-            </Button>
-          )}
-          {reconnect ? (
-            <AlertDialogAction onClick={onReconnect}>Reconnect Spotify</AlertDialogAction>
-          ) : !premium ? (
-            <AlertDialogAction onClick={onOpenSpotify}>
-              <ExternalLink /> Open Spotify
+        {needsAuth ? (
+          <div className="flex flex-col items-center gap-3">
+            <AlertDialogAction
+              onClick={onConnect}
+              className="h-11 w-full rounded-md text-base font-semibold"
+            >
+              Connect
             </AlertDialogAction>
-          ) : null}
-        </AlertDialogFooter>
+            <AlertDialogCancel className="h-auto border-none bg-transparent p-0 text-xs font-normal text-muted-foreground shadow-none underline underline-offset-2 hover:bg-transparent hover:text-foreground">
+              Not now
+            </AlertDialogCancel>
+          </div>
+        ) : (
+          <AlertDialogFooter>
+            <AlertDialogCancel>Not now</AlertDialogCancel>
+            {!premium && (
+              <Button variant="outline" onClick={onRetry} disabled={retrying}>
+                {retrying && <Loader2 className="animate-spin" />} Try again
+              </Button>
+            )}
+            {!premium && (
+              <AlertDialogAction onClick={onOpenSpotify}>
+                <ExternalLink /> Open Spotify
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        )}
       </AlertDialogContent>
     </AlertDialog>
   );

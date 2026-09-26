@@ -11,7 +11,7 @@ import { SteerChips } from "./SteerChips";
 export type Road = "vibe" | "era" | "mixed";
 export type RadioTrack = CardTrack & { why?: string };
 export type SpotifyPlaybackIssue = {
-  status: "no_device" | "premium_required" | "reconnect_required" | "unavailable";
+  status: "no_device" | "premium_required" | "connect_required" | "unavailable";
   message: string;
 };
 
@@ -343,13 +343,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     retryTimer.current = setTimeout(() => void retry(), 2_000);
   }, [startSpotifyPlayback]);
 
-  const reconnectSpotify = useCallback(async () => {
+  const connectSpotify = useCallback(async () => {
     try {
       const { url } = await authUrlFn({ data: { origin: window.location.origin } });
       const popup = window.open(url, "spotify-auth", "width=520,height=720");
       if (!popup) window.location.href = url;
     } catch {
-      setPlaybackIssue({ status: "unavailable", message: "Spotify reconnect could not be started." });
+      setPlaybackIssue({ status: "unavailable", message: "Spotify could not be connected." });
     }
   }, [authUrlFn]);
 
@@ -411,7 +411,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         retrying={retrying}
         onDismiss={() => setPlaybackIssue(null)}
         onOpenSpotify={openSpotify}
-        onReconnect={() => void reconnectSpotify()}
+        onConnect={() => void connectSpotify()}
         onRetry={() => void startSpotifyPlayback()}
       />
     </RadioContext.Provider>
