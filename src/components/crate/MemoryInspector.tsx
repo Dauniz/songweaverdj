@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -54,7 +54,6 @@ function skillForMemory(kind: string, origin: string, content: string) {
 export function MemoryInspector() {
   const qc = useQueryClient();
   const [showLog, setShowLog] = useState(false);
-  const logScrollRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetText, setResetText] = useState("");
@@ -118,9 +117,11 @@ export function MemoryInspector() {
           </Tooltip>
         </TooltipProvider>
       </div>
-      <div ref={logScrollRef} className="scrollbar-thin min-h-0 flex-1 overflow-y-auto">
-      <PathMaze />
-      <div className="px-4 py-3 text-xs">
+      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="scrollbar-thin min-h-0 shrink overflow-y-auto">
+        <PathMaze />
+      </div>
+      <div className="shrink-0 border-t px-4 py-3 text-xs">
         {cfg?.configured ? (
           <TooltipProvider>
             <Tooltip>
@@ -174,7 +175,7 @@ export function MemoryInspector() {
         </button>
       </div>
       {showLog && (
-      <div className="scrollbar-thin flex-1 space-y-2 overflow-y-auto px-4 pb-4">
+      <div className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto border-t px-4 py-3">
         {nodes.length === 0 && (
           <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
             No memory nodes yet. Start a session and get Crate to work.
@@ -235,7 +236,7 @@ export function MemoryInspector() {
       </div>
       )}
       </div>
-      <CrateConsole aboveRef={logScrollRef} />
+      <CrateConsole />
       <div className="flex shrink-0 items-center justify-between border-t px-4 py-2">
         <Link
           to="/crate-info"

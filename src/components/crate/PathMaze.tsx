@@ -139,7 +139,7 @@ const TAG: Record<string, { label: string; cls: string }> = {
  * it's a single bar; expanding slides the bar up while the console unfolds
  * below it, showing Crate's live reasoning as it walks the maze.
  */
-export function CrateConsole({ aboveRef }: { aboveRef?: React.RefObject<HTMLDivElement | null> }) {
+export function CrateConsole() {
   const { events, radio } = useRadio();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -149,24 +149,13 @@ export function CrateConsole({ aboveRef }: { aboveRef?: React.RefObject<HTMLDivE
     if (el) el.scrollTop = el.scrollHeight;
   }, [events.length, open]);
 
-  const toggle = () => {
-    setOpen((v) => {
-      const next = !v;
-      // When unfolding, snap the log area above so the console's top edge
-      // lands right below the "Show Walrus log" section instead of covering it.
-      const above = aboveRef?.current;
-      if (next && above) above.scrollTo({ top: above.scrollHeight, behavior: "smooth" });
-      return next;
-    });
-  };
-
   const live = radio.active;
 
   return (
-    <div className="flex shrink-0 flex-col border-t">
+    <div className={cn("flex flex-col border-t", open ? "min-h-0 flex-1" : "shrink-0")}>
       <button
         type="button"
-        onClick={toggle}
+        onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-accent/50"
       >
@@ -179,14 +168,14 @@ export function CrateConsole({ aboveRef }: { aboveRef?: React.RefObject<HTMLDivE
       </button>
       <div
         className={cn(
-          "grid transition-all duration-300 ease-out",
-          open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          "grid min-h-0 transition-all duration-300 ease-out",
+          open ? "flex-1 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
       >
         <div className="min-h-0 overflow-hidden">
           <div
             ref={ref}
-            className="scrollbar-thin max-h-[45vh] space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
+            className="scrollbar-thin h-full space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
           >
             {!live && events.length === 0 ? (
               <div className="text-muted-foreground">
