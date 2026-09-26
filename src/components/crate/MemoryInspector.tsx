@@ -165,14 +165,14 @@ export function MemoryInspector() {
               </div>
               <p className="mt-2 text-sm">{n.content}</p>
               <div className="mt-2 flex justify-between gap-2 font-mono text-[10px] text-muted-foreground">
-                <span className="truncate">
+                <span className="min-w-0 break-all text-left">
                   {n.blob_id && !n.blob_id.startsWith("job:")
-                    ? `blob ${n.blob_id.slice(0, 18)}…`
+                    ? n.blob_id
                     : n.blob_id
                       ? "awaiting blob"
                       : "—"}
                 </span>
-                <span>{new Date(n.created_at).toLocaleDateString()}</span>
+                <span className="shrink-0">{new Date(n.created_at).toLocaleDateString()}</span>
               </div>
             </div>
           );
