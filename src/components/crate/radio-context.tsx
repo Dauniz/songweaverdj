@@ -565,6 +565,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const previous = lastPlayback.current;
         const playing = state.status === "ready" && state.isPlaying;
         if (!playing) {
+          // Spotify reports no open device at all → Spotify is closed; end the session.
+          if (state.status === "idle" || state.status === "no_device") {
+            if (!noDeviceSince.current) noDeviceSince.current = Date.now();
+            else if (Date.now() - noDeviceSince.current > NO_DEVICE_GRACE) {
+              noDeviceSince.current = 0;
+              stopRadio({ keepSpotify: true });
+              return;
+            }
+          } else noDeviceSince.current = 0;
           if (idleSince.current && Date.now() - idleSince.current > 12_000) setSpotifyIdle(true);
           if (!idleSince.current) idleSince.current = Date.now();
           else if (Date.now() - idleSince.current > 30 * 60_000) {
@@ -573,6 +582,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           }
         } else {
           idleSince.current = 0;
+          noDeviceSince.current = 0;
           setSpotifyIdle(false);
         }
         if (state.status === "ready" && state.spotifyId === current.spotify_id) {
