@@ -339,7 +339,20 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const openSpotify = useCallback(() => {
     const track = radioRef.current.current;
     if (!track?.spotify_id) return;
-    window.open(track.spotify_url ?? `https://open.spotify.com/track/${track.spotify_id}`, "_blank", "noopener,noreferrer");
+    // Try the installed desktop/mobile app first; if the page is still visible
+    // shortly after, the app isn't installed, so fall back to Spotify Web.
+    const webUrl = track.spotify_url ?? `https://open.spotify.com/track/${track.spotify_id}`;
+    let appOpened = false;
+    const onBlur = () => { appOpened = true; };
+    const onVis = () => { if (document.hidden) appOpened = true; };
+    window.addEventListener("blur", onBlur);
+    document.addEventListener("visibilitychange", onVis);
+    window.location.href = `spotify:track:${track.spotify_id}`;
+    setTimeout(() => {
+      window.removeEventListener("blur", onBlur);
+      document.removeEventListener("visibilitychange", onVis);
+      if (!appOpened) window.open(webUrl, "_blank", "noopener,noreferrer");
+    }, 1500);
     let attempts = 0;
     const retry = async () => {
       attempts += 1;

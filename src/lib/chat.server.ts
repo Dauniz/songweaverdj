@@ -120,7 +120,7 @@ export async function handleChat(request: Request) {
 
 How to respond:
 1. One or two short sentences reflecting the vibe back (no lists).
-2. Call recommend_tracks with 5–8 tracks. Favor forgotten gems from older playlists over recent plays; mix eras. Each reason is one vivid sentence tying the song to the vibe and, when useful, to a memory.
+2. Call recommend_tracks with 5–8 tracks. If the user names a specific song (e.g. "start with Small Towns"), that exact song from the library MUST be the FIRST track — never substitute another song by the same artist. Favor forgotten gems from older playlists over recent plays; mix eras. Each reason is one vivid sentence tying the song to the vibe and, when useful, to a memory.
 3. When the user reveals a durable preference (a genre they love, a mood trigger, a track/artist to skip, a session ritual), call save_memory once per distinct fact. Always save one "session" memory summarising today's vibe.
 4. If a track appears in memory as skipped, do not recommend it.
 5. If the library is empty, tell them to connect Spotify or load the demo library in the Library tab.

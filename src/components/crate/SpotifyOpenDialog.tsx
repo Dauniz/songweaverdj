@@ -35,7 +35,11 @@ export function SpotifyOpenDialog({
   const connect = issue?.status === "connect_required";
   const premium = issue?.status === "premium_required";
   const needsAuth = connect;
-  const showTrack = Boolean(track?.image_url) && !needsAuth && !premium;
+  const showTrack = false && Boolean(track) && !needsAuth && !premium;
+  void onRetry;
+  void retrying;
+  void Loader2;
+  void Button;
 
   return (
     <AlertDialog open={Boolean(issue)} onOpenChange={(open) => !open && onDismiss()}>
@@ -70,20 +74,22 @@ export function SpotifyOpenDialog({
               Not now
             </AlertDialogCancel>
           </div>
-        ) : (
+        ) : premium ? (
           <AlertDialogFooter>
             <AlertDialogCancel>Not now</AlertDialogCancel>
-            {!premium && (
-              <Button variant="outline" onClick={onRetry} disabled={retrying}>
-                {retrying && <Loader2 className="animate-spin" />} Try again
-              </Button>
-            )}
-            {!premium && (
-              <AlertDialogAction onClick={onOpenSpotify}>
-                <ExternalLink /> Open Spotify
-              </AlertDialogAction>
-            )}
           </AlertDialogFooter>
+        ) : (
+          <div className="flex flex-col items-center gap-3">
+            <AlertDialogAction
+              onClick={onOpenSpotify}
+              className="h-11 w-full rounded-md text-base font-semibold"
+            >
+              <ExternalLink /> Open Spotify
+            </AlertDialogAction>
+            <AlertDialogCancel className="h-auto border-none bg-transparent p-0 text-xs font-normal text-muted-foreground shadow-none underline underline-offset-2 hover:bg-transparent hover:text-foreground">
+              Not now
+            </AlertDialogCancel>
+          </div>
         )}
       </AlertDialogContent>
     </AlertDialog>
