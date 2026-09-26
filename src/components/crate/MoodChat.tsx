@@ -324,7 +324,7 @@ export function MoodChat() {
                 size="sm"
                 onClick={() => send(prompt)}
                 disabled={busy}
-                className="h-8 whitespace-normal rounded-full bg-surface px-3.5 text-sm leading-tight text-muted-foreground hover:border-primary hover:text-primary"
+                className="min-h-8 whitespace-normal rounded-full bg-surface px-3.5 py-1.5 text-left text-sm leading-tight text-muted-foreground hover:border-primary hover:text-primary"
               >
                 {prompt}
               </Button>
