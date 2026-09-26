@@ -12,6 +12,7 @@ import { MoodChat } from "@/components/crate/MoodChat";
 import { RadioProvider } from "@/components/crate/radio-context";
 import { LibraryPanel } from "@/components/crate/LibraryPanel";
 import { MemoryInspector } from "@/components/crate/MemoryInspector";
+import { SessionControl } from "@/components/crate/SessionControl";
 import { cn } from "@/lib/utils";
 import logo from "@/assets/crate-logo.jpg";
 
@@ -63,13 +64,14 @@ function Studio() {
             </button>
           ))}
         </nav>
+        <SessionControl />
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 onClick={signOut}
                 aria-label="Log out"
-                className="ml-auto rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+                className="ml-2 rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
               >
                 <LogOut className="h-4 w-4" />
               </button>
