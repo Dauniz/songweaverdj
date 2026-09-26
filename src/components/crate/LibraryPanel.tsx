@@ -30,9 +30,11 @@ export function LibraryPanel() {
   const disconnectFn = useServerFn(disconnectSpotify);
   const progressFn = useServerFn(getSyncProgress);
   const [busy, setBusy] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem("spotify-card-collapsed") === "1",
-  );
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    setCollapsed(localStorage.getItem("spotify-card-collapsed") === "1");
+  }, []);
   const [syncing, setSyncing] = useState(false);
   const [summary, setSummary] = useState<{
     imported: number;
