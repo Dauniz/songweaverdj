@@ -54,6 +54,7 @@ function skillForMemory(kind: string, origin: string, content: string) {
 export function MemoryInspector() {
   const qc = useQueryClient();
   const [showLog, setShowLog] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [resetText, setResetText] = useState("");
   const [resetting, setResetting] = useState(false);
@@ -165,13 +166,40 @@ export function MemoryInspector() {
               </div>
               <p className="mt-2 text-sm">{n.content}</p>
               <div className="mt-2 flex justify-between gap-2 font-mono text-[10px] text-muted-foreground">
-                <span className="truncate">
-                  {n.blob_id && !n.blob_id.startsWith("job:")
-                    ? `blob ${n.blob_id.slice(0, 18)}…`
-                    : n.blob_id
-                      ? "awaiting blob"
-                      : "—"}
-                </span>
+                {n.blob_id && !n.blob_id.startsWith("job:") ? (() => {
+                  const fullId: string = n.blob_id;
+                  return (
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Copy Walrus blob ID"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(fullId);
+                              setCopiedId(n.id);
+                              setTimeout(() => setCopiedId((c) => (c === n.id ? null : c)), 1500);
+                            } catch {
+                              // clipboard unavailable — ignore
+                            }
+                          }}
+                          className="min-w-0 cursor-pointer truncate text-left hover:text-foreground"
+                        >
+                          {copiedId === n.id ? "Copied ✓" : `blob ${n.blob_id.slice(0, 18)}…`}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="max-w-xs break-all font-mono text-[10px]">
+                        {n.blob_id}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  );
+                })() : (
+                  <span className="truncate">
+                    {n.blob_id ? "awaiting blob" : "—"}
+                  </span>
+                )}
                 <span>{new Date(n.created_at).toLocaleDateString()}</span>
               </div>
             </div>
