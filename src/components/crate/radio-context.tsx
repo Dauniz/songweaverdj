@@ -386,10 +386,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     if (s.active && s.current) {
       localStorage.setItem(
         LAST_KEY,
-        JSON.stringify({ radio: s, events: eventsRef.current, played: played.current, artistSkips: [...artistSkips.current], savedAt: Date.now() }),
+        JSON.stringify({ radio: s, events: eventsRef.current, played: played.current, artistSkips: [...artistSkips.current], lens: lensRef.current, savedAt: Date.now() }),
       );
       setHasLastSession(true);
     }
+    // A brand new session starts clean: no side road carried over.
+    lensRef.current = null;
+    setLensState(null);
+    localStorage.removeItem("songweaver-lens");
     branches.current = null;
     setAskSteer(false);
     setPlaybackIssue(null);
@@ -407,8 +411,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(LAST_KEY);
       if (!raw) return;
-      const saved = JSON.parse(raw) as { radio: RadioState; events: MazeEvent[]; played: string[]; artistSkips: [string, number][] };
+      const saved = JSON.parse(raw) as { radio: RadioState; events: MazeEvent[]; played: string[]; artistSkips: [string, number][]; lens?: LensId | null };
       played.current = saved.played ?? [];
+      // Bring back the side road the session was on.
+      const savedLens = saved.lens && (LENS_IDS as string[]).includes(saved.lens) ? saved.lens : null;
+      lensRef.current = savedLens;
+      setLensState(savedLens);
+      if (savedLens) localStorage.setItem("songweaver-lens", savedLens);
       artistSkips.current = new Map(saved.artistSkips ?? []);
       branches.current = null;
       door.current = null;
