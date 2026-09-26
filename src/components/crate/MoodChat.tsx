@@ -33,6 +33,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import logo from "@/assets/crate-logo.jpg";
 import { recordWav, type VoiceRecording } from "@/lib/record-wav";
+import { LibrarySearch } from "./LibrarySearch";
+import { ContinueWhere } from "./ContinueWhere";
 
 type PromptMemory = { id: string; kind: string; content: string };
 
@@ -345,22 +347,13 @@ export function MoodChat() {
             </Tooltip>
           </TooltipProvider>
         </div>
-        {personalizedPrompts.length > 0 && (
-          <div className="mt-5 flex flex-wrap gap-4">
-            {personalizedPrompts.map((prompt) => (
-              <Button
-                key={prompt}
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => send(prompt)}
-                disabled={busy}
-                className="min-h-11 whitespace-normal rounded-lg bg-surface px-5 py-3 text-left text-sm leading-relaxed text-muted-foreground hover:border-primary hover:text-primary"
-              >
-                {prompt}
-              </Button>
-            ))}
-          </div>
+        {empty && (
+          <>
+            <div className="mt-6">
+              <LibrarySearch />
+            </div>
+            <ContinueWhere onPrompt={send} disabled={busy} />
+          </>
         )}
       </div>
     </div>
