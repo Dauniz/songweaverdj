@@ -159,7 +159,7 @@ export function MemoryInspector() {
           {showLog ? "Hide Walrus log" : "Show Walrus log"}
         </button>
       </div>
-      {showLog && (
+      {showLog && !consoleOpen && !consoleAnimating && (
       <div className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto border-t px-4 py-3">
         {nodes.length === 0 && (
           <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
