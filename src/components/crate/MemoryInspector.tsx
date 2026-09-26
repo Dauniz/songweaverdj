@@ -23,7 +23,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { getMemoryStatus, refreshMemories, resetMemoryLog } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
-import { PathMaze } from "@/components/crate/PathMaze";
+import { PathMaze, Decisionmaking } from "@/components/crate/PathMaze";
 
 const KIND_LABEL: Record<string, string> = {
   taste: "Taste",
@@ -223,6 +223,7 @@ export function MemoryInspector() {
         })}
       </div>
       )}
+      <Decisionmaking />
       <div className="mt-auto flex items-center justify-between border-t px-4 py-2">
         <Link
           to="/crate-info"
