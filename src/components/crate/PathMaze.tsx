@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Route, SkipForward, Sparkles } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
@@ -149,7 +149,7 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
 
   // Lock the log to its final height so the text stays still and simply
   // gets revealed (or hidden) as the bar moves.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     const g = gridRef.current;
     if (!g) return;
@@ -157,6 +157,7 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
       if (!collapsingRef.current) setPanelH(g.clientHeight);
     };
     measure();
+    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
     const ro = new ResizeObserver(measure);
     ro.observe(g);
     return () => ro.disconnect();
