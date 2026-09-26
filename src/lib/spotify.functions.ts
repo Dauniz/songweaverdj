@@ -74,7 +74,7 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
   .inputValidator((d) => playInput.parse(d))
   .handler(async ({ data, context }) => {
     const token = await spotifyAccess(context.userId);
-    if (!token) return { status: "reconnect_required" as const, message: "Connect Spotify to start listening." };
+    if (!token) return { status: "connect_required" as const, message: "Connect Spotify to start listening." };
     const headers = { Authorization: `Bearer ${token}` };
     const devicesResponse = await fetch("https://api.spotify.com/v1/me/player/devices", { headers });
     if (!devicesResponse.ok) return playbackFailure(devicesResponse.status, await devicesResponse.text());
@@ -100,7 +100,7 @@ export const getSpotifyPlayback = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const token = await spotifyAccess(context.userId);
-    if (!token) return { status: "reconnect_required" as const };
+    if (!token) return { status: "connect_required" as const };
     const response = await fetch("https://api.spotify.com/v1/me/player", {
       headers: { Authorization: `Bearer ${token}` },
     });
