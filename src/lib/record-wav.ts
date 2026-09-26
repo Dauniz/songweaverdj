@@ -69,7 +69,7 @@ export async function recordWav(onSilence: () => void): Promise<VoiceRecording> 
         await closeAudio();
         const type = recorder.mimeType || mimeType || "audio/webm";
         const blob = new Blob(chunks, { type });
-        if (!heardVoice || blob.size < 512) throw new Error("I didn't hear anything. Try again.");
+        if (blob.size < 512) throw new Error("I didn't hear anything. Try again.");
         const extension = type.includes("mp4") ? "m4a" : "webm";
         return new File([blob], `voice-prompt.${extension}`, { type });
       },
