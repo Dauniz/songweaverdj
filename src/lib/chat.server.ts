@@ -95,11 +95,23 @@ export async function handleChat(request: Request) {
     tracks.push(...page);
     if (page.length < 1000) break;
   }
+  // Deep cuts: know what the user has heard lately so Crate can avoid it
+  const deepCuts = /deep cuts/i.test(lastText);
+  const recentKeys = new Set<string>();
+  if (deepCuts) {
+    const since = new Date(Date.now() - 60 * 864e5).toISOString();
+    const { data: ev } = await supabase
+      .from("listening_events")
+      .select("track_name, artists")
+      .gte("created_at", since)
+      .limit(2000);
+    for (const e of ev ?? []) recentKeys.add(`${e.track_name}|${e.artists}`.toLowerCase());
+  }
   const index = new Map<string, (typeof tracks)[number]>();
   const libLines = tracks.map((t, i) => {
     const code = `T${i}`;
     index.set(code, t);
-    return `${code} | ${t.name} — ${t.artists} | ${t.source_name}${t.source_period ? ` (${fmtPeriod(t.source_period)})` : ""}`;
+    return `${code} | ${t.name} — ${t.artists} | ${t.source_name}${t.source_period ? ` (${fmtPeriod(t.source_period)})` : ""}${recentKeys.has(`${t.name}|${t.artists}`.toLowerCase()) ? " | HEARD RECENTLY" : ""}`;
   });
 
   // Walrus memory recall + local mirror (for skip lists etc.)
@@ -123,7 +135,8 @@ How to respond:
 2. Call recommend_tracks with 5–8 tracks. If the user names a specific song (e.g. "start with Small Towns"), that exact song from the library MUST be the FIRST track — never substitute another song by the same artist. Favor forgotten gems from older playlists over recent plays; mix eras. Each reason is one vivid sentence tying the song to the vibe and, when useful, to a memory.
 3. When the user reveals a durable preference (a genre they love, a mood trigger, a track/artist to skip, a session ritual), call save_memory once per distinct fact. Always save one "session" memory summarising today's vibe.
 4. If a track appears in memory as skipped, do not recommend it.
-5. If the library is empty, tell them to connect Spotify or load the demo library in the Library tab.
+${deepCuts ? `5. DEEP CUTS IS ON: at least 5 of the picks must come from playlists dated 12+ months ago (the older the better — nostalgic, long-forgotten songs). Never pick tracks marked HEARD RECENTLY. Avoid the user's most obvious/most-repeated artists. Mention the playlist month in the reason (e.g. "from your March 2021 playlist"). A song the user names explicitly still goes first.
+` : ""}6. If the library is empty, tell them to connect Spotify or load the demo library in the Library tab.
 
 Walrus Memory about this user:
 ${memoryLines.length ? memoryLines.join("\n") : "- (none yet)"}
