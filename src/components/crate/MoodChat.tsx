@@ -333,8 +333,8 @@ export function MoodChat() {
           </PromptInputFooter>
         </PromptInput>
         <TooltipProvider>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
-            <span className="flex w-fit origin-left items-center gap-1.5 transition-transform duration-150 hover:scale-125">
+          <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
+            <span className="flex w-fit origin-left items-center gap-1.5 transition-transform duration-150 hover:scale-110">
               <label
                 htmlFor="deep-cuts"
                 className="cursor-pointer text-muted-foreground"
@@ -352,7 +352,7 @@ export function MoodChat() {
             {LENSES.map((l) => {
               const on = lens === l.id;
               return (
-                <span key={l.id} className="flex w-fit origin-left items-center gap-1.5 transition-transform duration-150 hover:scale-125">
+                <span key={l.id} className="flex w-fit origin-left items-center gap-1.5 transition-transform duration-150 hover:scale-110">
                   <label
                     htmlFor={`lens-${l.id}`}
                     className="cursor-pointer text-muted-foreground"
