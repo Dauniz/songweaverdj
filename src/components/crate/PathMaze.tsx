@@ -118,6 +118,7 @@ export function PathMaze() {
             />
           </div>
 
+          <ConsoleToggle events={events} />
           <CrateConsole events={events} />
         </div>
       )}
