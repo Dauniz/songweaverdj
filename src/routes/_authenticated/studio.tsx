@@ -18,12 +18,12 @@ import logo from "@/assets/crate-logo.jpg";
 export const Route = createFileRoute("/_authenticated/studio")({
   head: () => ({
     meta: [
-      { title: "Studio — Crate" },
+      { title: "Studio — Songweaver" },
       {
         name: "description",
         content: "Chat your vibe and rediscover tracks from your past playlists.",
       },
-      { property: "og:title", content: "Studio — Crate" },
+      { property: "og:title", content: "Studio — Songweaver" },
       {
         property: "og:description",
         content: "Chat your vibe and rediscover tracks from your past playlists.",
@@ -47,8 +47,8 @@ function Studio() {
     <RadioProvider>
     <div className="flex h-screen flex-col bg-background">
       <header className="flex items-center gap-3 border-b px-4 py-2.5">
-        <img src={logo} alt="Crate" width={32} height={32} className="h-8 w-8 rounded-lg" />
-        <span className="font-display text-lg font-bold">Crate</span>
+        <img src={logo} alt="Songweaver" width={32} height={32} className="h-8 w-8 rounded-lg" />
+        <span className="font-display text-lg font-bold">Songweaver</span>
         <nav className="ml-4 flex gap-1 lg:hidden">
           {(["library", "chat", "memory"] as const).map((t) => (
             <button
