@@ -367,7 +367,7 @@ export function MoodChat() {
 
   if (empty) {
     return (
-      <div className="chat-enter flex h-full flex-col items-center justify-center pb-24">
+      <div className="chat-enter flex h-full flex-col items-center justify-center px-6 pb-24">
         <div className="flex flex-col items-center text-center">
           <img
             src={logo}
@@ -376,8 +376,10 @@ export function MoodChat() {
             height={80}
             className="h-20 w-20 rounded-2xl"
           />
-          <h2 className="mt-6 text-4xl font-bold">What does today sound like?</h2>
-          <p className="mt-3 max-w-lg text-lg leading-7 text-muted-foreground">
+          <h2 className="mt-6 max-w-full text-3xl font-bold leading-tight lg:text-4xl">
+            What does today sound like?
+          </h2>
+          <p className="mt-3 max-w-lg text-base leading-7 text-muted-foreground lg:text-lg">
             Describe your mood, where you are, what you're doing. I'll dig up tracks you already
             love from your past playlists.
           </p>
