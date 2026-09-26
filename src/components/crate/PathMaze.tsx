@@ -70,7 +70,7 @@ export function PathMaze() {
   );
 }
 
-function Door({ label, road, title, icon }: { label: string; road: Road; title?: string; icon: React.ReactNode }) {
+function Door({ label, road, title, icon }: { label: string; road: Road; title?: string | undefined; icon: React.ReactNode }) {
   return (
     <div className="rounded-lg border bg-surface p-2">
       <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-muted-foreground">
