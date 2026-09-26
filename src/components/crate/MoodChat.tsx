@@ -212,7 +212,17 @@ export function MoodChat() {
     if (voiceState !== "idle" || busy) return;
     try {
       setVoiceState("recording");
-      recordingRef.current = await recordWav(() => void stopAndSendVoice());
+      const finishAfterSilence = () => {
+        const finishWhenReady = () => {
+          if (recordingRef.current) {
+            void stopAndSendVoice();
+          } else {
+            window.setTimeout(finishWhenReady, 50);
+          }
+        };
+        finishWhenReady();
+      };
+      recordingRef.current = await recordWav(finishAfterSilence);
     } catch (error) {
       setVoiceState("idle");
       const denied = error instanceof DOMException && error.name === "NotAllowedError";
