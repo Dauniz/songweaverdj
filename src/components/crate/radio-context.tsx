@@ -156,6 +156,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const door = useRef<{ forId: string; track: RadioTrack } | null>(null);
   // "If you skip" door for the upcoming song, computed before the hand-over near the end.
   const preSkip = useRef<{ forId: string; branch: Branch } | null>(null);
+  const preSkip2 = useRef<{ forId: string; branch: Branch } | null>(null);
   const swapping = useRef("");
   /** Song ids last sent to Spotify, in order — lets Crate skip re-sending when the next door is already lined up. */
   const lineup = useRef<string[]>([]);
@@ -292,7 +293,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}|${lensRef.current ?? ""}`;
       if (branches.current?.key === key) return;
       const playedB = fetchBranch(advance(s, "played"));
-      const pre = preSkip.current;
+      const pre = preSkip.current?.forId === s.current.spotify_id ? preSkip.current : preSkip2.current;
       const skippedB =
         pre && pre.forId === s.current.spotify_id ? Promise.resolve(pre.branch) : fetchBranch(advance(s, "skipped"));
       branches.current = { key, played: playedB, skipped: skippedB };
@@ -401,6 +402,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     setPlaybackIssue(null);
     door.current = null;
     preSkip.current = null;
+    preSkip2.current = null;
     setSessionLive(false);
     setSpotifyIdle(false);
     setRadio(IDLE);
@@ -424,6 +426,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       branches.current = null;
       door.current = null;
       preSkip.current = null;
+    preSkip2.current = null;
       noPlayFor.current = "";
       idleSince.current = 0;
       noDeviceSince.current = 0;
