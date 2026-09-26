@@ -10,7 +10,7 @@ const ROAD: Record<Road, { name: string; rule: string }> = {
   mixed: { name: "New angle", rule: "fresh direction + your memory" },
 };
 
-function Art({ src, alt, className }: { src?: string | null; alt: string; className?: string }) {
+function Art({ src, alt, className }: { src: string | null | undefined; alt: string; className?: string }) {
   if (src) {
     return <img src={src} alt={alt} className={cn("shrink-0 rounded-md object-cover", className)} />;
   }
