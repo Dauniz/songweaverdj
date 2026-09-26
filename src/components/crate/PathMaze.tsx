@@ -181,7 +181,7 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
   useEffect(() => {
     const el = ref.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [events.length, open]);
+  }, [events.length, open, panelH]);
 
   const toggle = () => {
     if (collapsing) return;
