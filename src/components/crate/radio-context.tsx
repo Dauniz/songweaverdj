@@ -268,7 +268,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   );
 
   const startSpotifyPlayback = useCallback(
-    async (track = radioRef.current.current) => {
+    async (track = radioRef.current.current, quiet = false) => {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
       setRetrying(true);
       try {
@@ -278,10 +278,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           lastPlayback.current = { spotifyId: track.spotify_id, ratio: 0, observed: false };
           return true;
         }
-        setPlaybackIssue({ status: result.status, message: result.message });
+        if (!quiet) setPlaybackIssue({ status: result.status, message: result.message });
         return false;
       } catch {
-        setPlaybackIssue({ status: "unavailable", message: "Spotify playback is temporarily unavailable." });
+        if (!quiet) setPlaybackIssue({ status: "unavailable", message: "Spotify playback is temporarily unavailable." });
         return false;
       } finally {
         setRetrying(false);
@@ -339,6 +339,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const openSpotify = useCallback(() => {
     const track = radioRef.current.current;
     if (!track?.spotify_id) return;
+    // Close the popup and wait quietly for the user to open Spotify — it only
+    // reappears if they press play again.
+    setPlaybackIssue(null);
     // Try the installed desktop/mobile app first; if the page is still visible
     // shortly after, the app isn't installed, so fall back to Spotify Web.
     const webUrl = track.spotify_url ?? `https://open.spotify.com/track/${track.spotify_id}`;
