@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { Disc3, Loader2 } from "lucide-react";
 import { createGuestSession, getSpotifyLoginUrl } from "@/lib/auth-entry.functions";
-import { syncSpotifyLibrary } from "@/lib/spotify.functions";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/crate-logo.jpg";
 
@@ -39,7 +38,6 @@ function AuthPage() {
   const [entry, setEntry] = useState<null | "spotify" | "guest">(null);
   const loginUrl = useServerFn(getSpotifyLoginUrl);
   const guestFn = useServerFn(createGuestSession);
-  const syncFn = useServerFn(syncSpotifyLibrary);
 
   async function finishSpotify(tokenHash: string) {
     setEntry("spotify");
@@ -48,13 +46,6 @@ function AuthPage() {
       setEntry(null);
       toast.error(error.message);
       return;
-    }
-    const t = toast.loading("Pulling in your playlists…");
-    try {
-      const r = await syncFn();
-      toast.success(`Imported ${r.imported} tracks`, { id: t });
-    } catch {
-      toast.error("Signed in, but the playlist sync failed. Try Sync in the Library.", { id: t });
     }
     navigate({ to: "/studio" });
   }
