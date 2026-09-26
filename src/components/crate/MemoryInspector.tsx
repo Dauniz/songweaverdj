@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight, CircleHelp, Database, Info, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleHelp, Database, Info, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -98,25 +98,6 @@ export function MemoryInspector() {
           <Database className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold uppercase tracking-wider">Walrus Memory</h2>
         </div>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                aria-label="Re-check Walrus memories"
-                onClick={async () => {
-                  await refresh().catch(() => null);
-                  qc.invalidateQueries({ queryKey: ["memories"] });
-                }}
-                className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              Re-checks your Walrus memories — nothing is reset
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
       </div>
       <div className={cn("flex min-h-0 flex-col", consoleOpen ? "shrink" : "flex-1")}>
       <div className="scrollbar-thin min-h-0 shrink overflow-y-auto">
