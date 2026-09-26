@@ -60,9 +60,9 @@ async function spotifyAccess(userId: string) {
 }
 
 function playbackFailure(status: number, detail = "") {
-  if (status === 401) return { status: "reconnect_required" as const, message: "Spotify needs permission to control playback." };
+  if (status === 401) return { status: "connect_required" as const, message: "Connect Spotify to control playback." };
   if (status === 403 && /premium/i.test(detail)) return { status: "premium_required" as const, message: "Spotify live playback requires a Premium account." };
-  if (status === 403) return { status: "reconnect_required" as const, message: "Reconnect Spotify to grant playback permission." };
+  if (status === 403) return { status: "connect_required" as const, message: "Connect Spotify to grant playback permission." };
   if (status === 404) return { status: "no_device" as const, message: "Spotify needs to be open on one of your devices." };
   return { status: "unavailable" as const, message: "Spotify playback is temporarily unavailable." };
 }

@@ -33,9 +33,8 @@ export function SpotifyOpenDialog({
   onRetry,
 }: Props) {
   const connect = issue?.status === "connect_required";
-  const reconnect = issue?.status === "reconnect_required";
   const premium = issue?.status === "premium_required";
-  const needsAuth = connect || reconnect;
+  const needsAuth = connect;
   const showTrack = Boolean(track?.image_url) && !needsAuth && !premium;
 
   return (
@@ -43,13 +42,7 @@ export function SpotifyOpenDialog({
       <AlertDialogContent className="max-w-sm rounded-lg">
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {connect
-              ? "Connect Spotify"
-              : reconnect
-                ? "Reconnect Spotify"
-                : premium
-                  ? "Spotify Premium required"
-                  : "Open Spotify"}
+            {connect ? "Connect Spotify" : premium ? "Spotify Premium required" : "Open Spotify"}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {issue?.message}
@@ -71,7 +64,7 @@ export function SpotifyOpenDialog({
               onClick={onConnect}
               className="h-11 w-full rounded-md text-base font-semibold"
             >
-              {connect ? "Connect" : "Reconnect Spotify"}
+              Connect
             </AlertDialogAction>
             <AlertDialogCancel className="h-auto border-none bg-transparent p-0 text-xs font-normal text-muted-foreground shadow-none underline underline-offset-2 hover:bg-transparent hover:text-foreground">
               Not now

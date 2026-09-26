@@ -11,7 +11,7 @@ import { SteerChips } from "./SteerChips";
 export type Road = "vibe" | "era" | "mixed";
 export type RadioTrack = CardTrack & { why?: string };
 export type SpotifyPlaybackIssue = {
-  status: "no_device" | "premium_required" | "connect_required" | "reconnect_required" | "unavailable";
+  status: "no_device" | "premium_required" | "connect_required" | "unavailable";
   message: string;
 };
 
