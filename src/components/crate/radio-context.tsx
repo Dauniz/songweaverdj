@@ -261,7 +261,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!s.seed) return null;
       try {
         const r = await pathFn({
-          signal,
+          ...(signal ? { signal } : {}),
           data: {
             seed: {
               spotifyId: s.seed.spotify_id ?? s.seed.id,
@@ -584,7 +584,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     void (async () => {
       // Wait a beat so rapid steering changes only re-send Spotify's line-up once.
       await new Promise((res) => setTimeout(res, 700));
-      if (cancelled) return;
+      if (cancelled) {
+        if (door.current?.forId === cur.spotify_id && door.current.track.spotify_id === skip.spotify_id) door.current = null;
+        return;
+      }
       // Scout one step further (the skip door's own skip door) so the next skip needs no re-send.
       const s0 = radioRef.current;
       const onSkip = { ...advance(s0, "skipped"), current: skip, road: skipRoad };
