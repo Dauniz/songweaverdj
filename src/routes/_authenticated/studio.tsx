@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { MoodChat } from "@/components/crate/MoodChat";
-import { RadioProvider } from "@/components/crate/radio-context";
+import { RadioProvider, useRadio } from "@/components/crate/radio-context";
 import { LibraryPanel } from "@/components/crate/LibraryPanel";
 import { MemoryInspector } from "@/components/crate/MemoryInspector";
 import { SessionControl } from "@/components/crate/SessionControl";
