@@ -145,6 +145,23 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
   const [collapsing, setCollapsing] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
   const [collapseH, setCollapseH] = useState<number | null>(null);
+  const [panelH, setPanelH] = useState<number | null>(null);
+
+  // Lock the log to its final height so the text stays still and simply
+  // gets revealed (or hidden) as the bar moves.
+  useEffect(() => {
+    if (!open) return;
+    const g = gridRef.current;
+    if (!g) return;
+    const measure = () => {
+      if (!collapsingRef.current) setPanelH(g.clientHeight);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(g);
+    return () => ro.disconnect();
+  }, [open]);
+  const collapsingRef = useRef(false);
   const expanded = open && !collapsing;
 
   // Keep the log pinned to the newest line — also while it grows during the
@@ -171,11 +188,13 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
     // Animate closed while the layout still reserves space, then release it.
     const h = gridRef.current?.getBoundingClientRect().height ?? 0;
     setCollapseH(h);
+    collapsingRef.current = true;
     setCollapsing(true);
     setOpen(false);
     requestAnimationFrame(() => requestAnimationFrame(() => setCollapseH(0)));
     window.setTimeout(() => {
       setCollapseH(null);
+      collapsingRef.current = false;
       setCollapsing(false);
     }, 300);
   };
@@ -206,10 +225,11 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
           expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
       >
-        <div className="flex min-h-0 flex-col justify-end overflow-hidden">
+        <div className="min-h-0 overflow-hidden">
           <div
             ref={ref}
-            className="scrollbar-thin max-h-full space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
+            style={panelH ? { height: panelH } : undefined}
+            className="scrollbar-thin space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
           >
             {!live && events.length === 0 ? (
               <div className="text-muted-foreground">
