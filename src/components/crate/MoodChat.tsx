@@ -262,11 +262,9 @@ export function MoodChat() {
       )}
     >
       <div className="mx-auto w-full max-w-3xl">
-        {empty && (
-          <div className="mb-4">
-            <LibrarySearch />
-          </div>
-        )}
+        <div className={empty ? "mb-4" : "pt-3"}>
+          <LibrarySearch />
+        </div>
         <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90 shadow-sm">
           <PromptInputTextarea
             ref={textareaRef}
