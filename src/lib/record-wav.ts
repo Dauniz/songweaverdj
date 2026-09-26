@@ -63,7 +63,7 @@ export async function recordWav(onSilence: () => void): Promise<VoiceRecording> 
       }
       if (!silenceTriggered && ((heardVoice && now - lastVoiceAt > 1100) || now - startedAt > 30000)) {
         silenceTriggered = true;
-        queueMicrotask(onSilence);
+        window.setTimeout(onSilence, 0);
       }
     };
     source.connect(node);
