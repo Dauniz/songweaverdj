@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Check, CornerDownRight, Flag, GitBranch, NotebookPen, Route, SkipForward, Sparkles, Terminal } from "lucide-react";
+import { AlertTriangle, Check, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Route, SkipForward, Sparkles, X } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
@@ -118,7 +118,7 @@ export function PathMaze() {
             />
           </div>
 
-          <CrateConsole events={events} />
+          <ConsoleToggle events={events} />
         </div>
       )}
     </div>
@@ -128,45 +128,90 @@ export function PathMaze() {
 const TAG: Record<string, { label: string; cls: string }> = {
   start: { label: "START", cls: "text-primary" },
   think: { label: "THINK", cls: "text-muted-foreground" },
-  door: { label: "DOOR ", cls: "text-primary" },
-  pick: { label: "PICK ", cls: "text-primary" },
-  finish: { label: "DONE ", cls: "text-primary" },
+  door: { label: "DOOR", cls: "text-primary" },
+  pick: { label: "PICK", cls: "text-primary" },
+  finish: { label: "DONE", cls: "text-primary" },
   skip: { label: "SKIP ", cls: "text-destructive" },
   reroot: { label: "ROOT ", cls: "text-primary" },
   steer: { label: "STEER", cls: "text-foreground" },
 };
 
-/** Terminal-style live log of Crate's reasoning while it walks the maze. */
-function CrateConsole({ events }: { events: { at: number; kind: string; text: string }[] }) {
+/** Toggle row in the maze panel; opens Crate's reasoning as a floating window. */
+function ConsoleToggle({ events }: { events: { at: number; kind: string; text: string }[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "mt-4 flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors",
+          open ? "border-primary/60 bg-primary/5" : "border-border bg-surface hover:border-primary/60 hover:bg-primary/5"
+        )}
+      >
+        <MessagesSquare className="h-3.5 w-3.5 text-primary" />
+        <span className="text-[11px] font-bold uppercase tracking-wider">Crate console</span>
+        <span className="ml-auto flex items-center gap-2 text-[10px] text-muted-foreground">
+          {events.length > 0 && <span>{events.length} steps</span>}
+          <ChevronUp className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {open && <CrateConsole events={events} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+/** Floating window showing Crate's reasoning while it walks the maze. */
+function CrateConsole({
+  events,
+  onClose,
+}: {
+  events: { at: number; kind: string; text: string }[];
+  onClose: () => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [events.length]);
   return (
-    <div className="mt-4 overflow-hidden rounded-xl border bg-background">
-      <div className="flex items-center gap-2 border-b px-3 py-2">
-        <Terminal className="h-3.5 w-3.5 text-primary" />
-        <span className="text-[11px] font-bold uppercase tracking-wider">Crate console</span>
+    <div className="fixed bottom-24 right-5 z-50 flex max-h-[26rem] w-[22rem] flex-col overflow-hidden rounded-2xl border bg-card shadow-xl">
+      <div className="flex items-center gap-2 border-b px-3.5 py-2.5">
+        <MessagesSquare className="h-4 w-4 text-primary" />
+        <span className="text-xs font-bold uppercase tracking-wider">Crate console</span>
         <span className="ml-auto text-[10px] text-muted-foreground">live reasoning</span>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close Crate console"
+          className="ml-1 flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
       </div>
-      <div ref={ref} className="max-h-72 overflow-y-auto px-3 py-2 font-mono text-[11px] leading-relaxed">
-        {events.length === 0 && <div className="text-muted-foreground">waiting for Crate…</div>}
+      <div ref={ref} className="flex-1 space-y-2 overflow-y-auto px-3.5 py-3 text-xs leading-relaxed">
+        {events.length === 0 && <div className="text-muted-foreground">Waiting for Crate…</div>}
         {events.map((e, i) => {
-          const t = TAG[e.kind] ?? TAG['think']!;
+          const t = TAG[e.kind] ?? TAG["think"]!;
           return (
-            <div key={e.at + "-" + i} className="flex gap-2">
-              <span className="shrink-0 tabular-nums text-muted-foreground/70">
+            <div key={e.at + "-" + i} className="flex items-start gap-2">
+              <span className="mt-0.5 shrink-0 text-[10px] tabular-nums text-muted-foreground/70">
                 {new Date(e.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
               </span>
-              <span className={cn("shrink-0 whitespace-pre font-bold", t.cls)}>{t.label}</span>
+              <span
+                className={cn(
+                  "shrink-0 rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide",
+                  t.cls
+                )}
+              >
+                {t.label}
+              </span>
               <span className={cn("min-w-0 break-words", e.kind === "think" ? "text-muted-foreground" : "text-foreground")}>
                 {e.text}
               </span>
             </div>
           );
         })}
-        <div className="animate-pulse text-primary">▍</div>
       </div>
     </div>
   );
