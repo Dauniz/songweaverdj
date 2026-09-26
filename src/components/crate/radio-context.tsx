@@ -156,6 +156,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const door = useRef<{ forId: string; track: RadioTrack } | null>(null);
   // "If you skip" door for the upcoming song, computed before the hand-over near the end.
   const preSkip = useRef<{ forId: string; branch: Branch } | null>(null);
+  const scoutAbort = useRef<AbortController | null>(null);
+  const lensTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preSkip2 = useRef<{ forId: string; branch: Branch } | null>(null);
   const swapping = useRef("");
   /** Song ids last sent to Spotify, in order — lets Crate skip re-sending when the next door is already lined up. */
@@ -255,10 +257,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   );
 
   const fetchBranch = useCallback(
-    async (s: RadioState): Promise<Branch> => {
+    async (s: RadioState, signal?: AbortSignal): Promise<Branch> => {
       if (!s.seed) return null;
       try {
         const r = await pathFn({
+          signal,
           data: {
             seed: {
               spotifyId: s.seed.spotify_id ?? s.seed.id,
@@ -292,10 +295,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!s.active || !s.current) return;
       const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}|${lensRef.current ?? ""}`;
       if (branches.current?.key === key) return;
-      const playedB = fetchBranch(advance(s, "played"));
+      scoutAbort.current?.abort(); // drop any scouting still running for an old key
+      const ctrl = new AbortController();
+      scoutAbort.current = ctrl;
+      const playedB = fetchBranch(advance(s, "played"), ctrl.signal);
       const pre = preSkip.current?.forId === s.current.spotify_id ? preSkip.current : preSkip2.current;
       const skippedB =
-        pre && pre.forId === s.current.spotify_id ? Promise.resolve(pre.branch) : fetchBranch(advance(s, "skipped"));
+        pre && pre.forId === s.current.spotify_id ? Promise.resolve(pre.branch) : fetchBranch(advance(s, "skipped"), ctrl.signal);
       branches.current = { key, played: playedB, skipped: skippedB };
       setUpNext(null);
       setUpSkip(null);
@@ -564,7 +570,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const cur = radio.current;
     const skip = upSkip?.track;
     if (!sessionLive || !cur?.spotify_id || !skip?.spotify_id || !isPlayable(skip)) return;
-    if (door.current?.forId === cur.spotify_id) return;
+    if (door.current?.forId === cur.spotify_id && door.current.track.spotify_id === skip.spotify_id) return;
     if (lastPlayback.current.spotifyId !== cur.spotify_id) return;
     // Already lined up behind this song in Spotify (sent one step ahead) — no re-send, no glitch.
     const at = lineup.current.indexOf(cur.spotify_id);
@@ -576,6 +582,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const skipRoad = upSkip!.road;
     let cancelled = false;
     void (async () => {
+      // Wait a beat so rapid steering changes only re-send Spotify's line-up once.
+      await new Promise((res) => setTimeout(res, 700));
+      if (cancelled) return;
       // Scout one step further (the skip door's own skip door) so the next skip needs no re-send.
       const s0 = radioRef.current;
       const onSkip = { ...advance(s0, "skipped"), current: skip, road: skipRoad };
@@ -887,9 +896,21 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       } catch { /* ignore */ }
       const s = radioRef.current;
       if (next && s.active) log({ name: `lens:${next}`, artists: "" }, "steer", s);
-      branches.current = null; // lens bends both prefetched paths
-      if (s.active) note("steer", next ? `Side road ${next} on → re-scouting both doors` : "Side road off → back to the main roads");
-      if (s.active) setRadio({ ...s });
+      // Lens bends both paths: stop the old scouting now and wipe its doors instantly.
+      scoutAbort.current?.abort();
+      branches.current = null;
+      preSkip.current = null;
+      preSkip2.current = null;
+      if (!s.active) return;
+      setUpNext(null);
+      setUpSkip(null);
+      note("steer", next ? `Side road ${next} on → re-scouting both doors` : "Side road off → back to the main roads");
+      // Settle briefly so rapid toggling only scouts for the final choice.
+      if (lensTimer.current) clearTimeout(lensTimer.current);
+      lensTimer.current = setTimeout(() => {
+        lensTimer.current = null;
+        setRadio({ ...radioRef.current });
+      }, 350);
     },
     [log, note],
   );
