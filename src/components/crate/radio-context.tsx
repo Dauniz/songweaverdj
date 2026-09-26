@@ -156,7 +156,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const door = useRef<{ forId: string; track: RadioTrack } | null>(null);
   // "If you skip" door for the upcoming song, computed before the hand-over near the end.
   const preSkip = useRef<{ forId: string; branch: Branch } | null>(null);
+  const preSkip2 = useRef<{ forId: string; branch: Branch } | null>(null);
   const swapping = useRef("");
+  /** Song ids last sent to Spotify, in order — lets Crate skip re-sending when the next door is already lined up. */
+  const lineup = useRef<string[]>([]);
   // When Crate last moved to a new song — rapid skips right after this are followed, not re-rooted.
   const lastTransition = useRef(0);
   const idleSince = useRef(0);
@@ -290,7 +293,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}|${lensRef.current ?? ""}`;
       if (branches.current?.key === key) return;
       const playedB = fetchBranch(advance(s, "played"));
-      const pre = preSkip.current;
+      const pre = preSkip.current?.forId === s.current.spotify_id ? preSkip.current : preSkip2.current;
       const skippedB =
         pre && pre.forId === s.current.spotify_id ? Promise.resolve(pre.branch) : fetchBranch(advance(s, "skipped"));
       branches.current = { key, played: playedB, skipped: skippedB };
@@ -399,6 +402,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     setPlaybackIssue(null);
     door.current = null;
     preSkip.current = null;
+    preSkip2.current = null;
     setSessionLive(false);
     setSpotifyIdle(false);
     setRadio(IDLE);
@@ -422,6 +426,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       branches.current = null;
       door.current = null;
       preSkip.current = null;
+    preSkip2.current = null;
       noPlayFor.current = "";
       idleSince.current = 0;
       noDeviceSince.current = 0;
@@ -474,13 +479,21 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   );
 
   const startSpotifyPlayback = useCallback(
-    async (track = radioRef.current.current, quiet = false, skipDoor?: RadioTrack | null, positionMs?: number) => {
+    async (
+      track = radioRef.current.current,
+      quiet = false,
+      skipDoor?: RadioTrack | null,
+      positionMs?: number,
+      thenDoor?: RadioTrack | null,
+    ) => {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
       const nextId = skipDoor?.spotify_id && isPlayable(skipDoor) ? skipDoor.spotify_id : undefined;
+      const thenId = nextId && thenDoor?.spotify_id && isPlayable(thenDoor) ? thenDoor.spotify_id : undefined;
       setRetrying(true);
       try {
-        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, positionMs } });
+        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, thenId, positionMs } });
         if (result.status === "playing") {
+          lineup.current = [track.spotify_id, ...(nextId ? [nextId] : []), ...(thenId ? [thenId] : [])];
           setPlaybackIssue(null);
           door.current = nextId && skipDoor ? { forId: track.spotify_id, track: skipDoor } : null;
           if (!positionMs) lastTransition.current = Date.now();
@@ -553,9 +566,28 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     if (!sessionLive || !cur?.spotify_id || !skip?.spotify_id || !isPlayable(skip)) return;
     if (door.current?.forId === cur.spotify_id) return;
     if (lastPlayback.current.spotifyId !== cur.spotify_id) return;
+    // Already lined up behind this song in Spotify (sent one step ahead) — no re-send, no glitch.
+    const at = lineup.current.indexOf(cur.spotify_id);
+    if (at >= 0 && lineup.current[at + 1] === skip.spotify_id) {
+      door.current = { forId: cur.spotify_id, track: skip };
+      return;
+    }
     door.current = { forId: cur.spotify_id, track: skip };
+    const skipRoad = upSkip!.road;
     let cancelled = false;
     void (async () => {
+      // Scout one step further (the skip door's own skip door) so the next skip needs no re-send.
+      const s0 = radioRef.current;
+      const onSkip = { ...advance(s0, "skipped"), current: skip, road: skipRoad };
+      const then = await Promise.race([
+        fetchBranch(advance(onSkip, "skipped")),
+        new Promise<Branch>((res) => setTimeout(() => res(null), 4_000)),
+      ]);
+      if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) {
+        if (door.current?.forId === cur.spotify_id) door.current = null;
+        return;
+      }
+      if (then) preSkip.current = { forId: skip.spotify_id!, branch: then };
       // Read Spotify's real position right now so re-sending the line-up doesn't jump back.
       let pos: number | null = null;
       try {
@@ -576,12 +608,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         pos = Math.max(0, lp.progressMs + (Date.now() - lp.at));
       }
       noPlayFor.current = "";
-      void startSpotifyPlayback(cur, true, skip, Math.max(1, Math.round(pos)));
+      void startSpotifyPlayback(cur, true, skip, Math.max(1, Math.round(pos)), then?.track ?? null);
     })();
     return () => {
       cancelled = true;
     };
-  }, [sessionLive, radio.current, upSkip, startSpotifyPlayback, playbackFn]);
+  }, [sessionLive, radio.current, upSkip, startSpotifyPlayback, playbackFn, fetchBranch]);
 
   /** A few seconds before the song ends: replace the line-up with
    *  ["if you finish" pick, its own "if you skip" door]. */
@@ -599,17 +631,26 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         fetchBranch(advance(afterState, "skipped")),
         new Promise<Branch>((res) => setTimeout(() => res(null), Math.max(0, deadline - Date.now() - 4_000))),
       ]);
+      let thenB: Branch = null;
+      if (skipB?.track.spotify_id) {
+        const onSkip = { ...advance(afterState, "skipped"), current: skipB.track, road: skipB.road };
+        thenB = await Promise.race([
+          fetchBranch(advance(onSkip, "skipped")),
+          new Promise<Branch>((res) => setTimeout(() => res(null), Math.max(0, deadline - Date.now() - 3_000))),
+        ]);
+      }
       await new Promise((res) => setTimeout(res, Math.max(0, deadline - Date.now() - 2_500)));
       const now = radioRef.current;
       if (now.sessionId !== s.sessionId || now.current?.spotify_id !== cur.spotify_id) return; // you moved on yourself
       if (skipB) preSkip.current = { forId: finishB.track.spotify_id, branch: skipB };
+      if (thenB && skipB?.track.spotify_id) preSkip2.current = { forId: skipB.track.spotify_id, branch: thenB };
       log(cur, "play_through", s);
       played.current.push(cur.spotify_id);
       noPlayFor.current = finishB.track.spotify_id;
       branches.current = null;
       setRadio(afterState);
       noteMove(cur, "played", finishB.track, finishB.road);
-      await startSpotifyPlayback(finishB.track, true, skipB?.track ?? null);
+      await startSpotifyPlayback(finishB.track, true, skipB?.track ?? null, undefined, thenB?.track ?? null);
       lastPlayback.current = { ...lastPlayback.current, observed: true };
     },
     [fetchBranch, log, startSpotifyPlayback, noteMove],
