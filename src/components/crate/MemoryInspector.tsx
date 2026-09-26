@@ -230,7 +230,17 @@ export function MemoryInspector() {
         })}
       </div>
       )}
-      <div className="mt-auto flex justify-end border-t px-4 py-2">
+      <div className="mt-auto flex items-center justify-between border-t px-4 py-2">
+        <button
+          type="button"
+          onClick={() => {
+            setResetText("");
+            setResetOpen(true);
+          }}
+          className="inline-flex items-center gap-1 text-[11px] text-destructive/80 underline-offset-2 hover:text-destructive hover:underline"
+        >
+          <Trash2 className="h-3 w-3" /> Reset Walrus log
+        </button>
         <Link
           to="/crate-info"
           className="inline-flex items-center gap-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
@@ -238,6 +248,47 @@ export function MemoryInspector() {
           <Info className="h-3 w-3" /> How Crate uses Walrus
         </Link>
       </div>
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Walrus log?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This wipes everything Crate has learned about you — every memory,
+              listening lesson and note in the Walrus log. Your imported songs
+              stay untouched. It's like resetting your algorithm: a fresh start.
+              <span className="mt-3 block font-medium text-foreground">
+                Type RESET to confirm.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={resetText}
+            onChange={(e) => setResetText(e.target.value)}
+            placeholder="RESET"
+            autoFocus
+            className="font-mono"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              disabled={resetText !== "RESET" || resetting}
+              onClick={async () => {
+                setResetting(true);
+                try {
+                  await reset({ data: { confirm: "RESET" } });
+                  qc.invalidateQueries({ queryKey: ["memories"] });
+                  setResetOpen(false);
+                } finally {
+                  setResetting(false);
+                }
+              }}
+            >
+              {resetting ? "Resetting…" : "Reset everything"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
