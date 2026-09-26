@@ -142,33 +142,68 @@ const TAG: Record<string, { label: string; cls: string }> = {
 export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: boolean) => void }) {
   const { events, radio } = useRadio();
   const ref = useRef<HTMLDivElement>(null);
+  const [collapsing, setCollapsing] = useState(false);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [collapseH, setCollapseH] = useState<number | null>(null);
+  const expanded = open && !collapsing;
+
+  // Keep the log pinned to the newest line — also while it grows during the
+  // expand animation, so text is "pulled up" from below.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    const ro = new ResizeObserver(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const el = ref.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [events.length, open]);
 
+  const toggle = () => {
+    if (collapsing) return;
+    if (!open) return setOpen(true);
+    // Animate closed while the layout still reserves space, then release it.
+    const h = gridRef.current?.getBoundingClientRect().height ?? 0;
+    setCollapseH(h);
+    setCollapsing(true);
+    setOpen(false);
+    requestAnimationFrame(() => requestAnimationFrame(() => setCollapseH(0)));
+    window.setTimeout(() => {
+      setCollapseH(null);
+      setCollapsing(false);
+    }, 300);
+  };
+
   const live = radio.active;
 
   return (
-    <div className={cn("flex flex-col border-t", open ? "min-h-0 flex-1" : "shrink-0")}>
+    <div className={cn("flex flex-col border-t", expanded ? "min-h-0 flex-1" : "min-h-0 shrink-0")}>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
+        onClick={toggle}
+        aria-expanded={expanded}
         className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-accent/50"
       >
         <MessagesSquare className="h-4 w-4 text-primary" />
         <span className="text-sm font-bold uppercase tracking-wider">Crate console</span>
         <span className="ml-auto flex items-center gap-2 text-[10px] text-muted-foreground">
           {events.length > 0 && <span>{events.length} steps</span>}
-          {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+          {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
         </span>
       </button>
       <div
+        ref={gridRef}
+        style={collapseH !== null ? { height: collapseH } : undefined}
         className={cn(
           "grid min-h-0 transition-all duration-300 ease-out",
-          open ? "flex-1 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          expanded && "flex-1",
+          expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
       >
         <div className="flex min-h-0 flex-col justify-end overflow-hidden">
