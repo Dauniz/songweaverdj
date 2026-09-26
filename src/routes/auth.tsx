@@ -38,7 +38,6 @@ function AuthPage() {
   const [entry, setEntry] = useState<null | "spotify" | "guest">(null);
   const loginUrl = useServerFn(getSpotifyLoginUrl);
   const guestFn = useServerFn(createGuestSession);
-  const syncFn = useServerFn(syncSpotifyLibrary);
 
   async function finishSpotify(tokenHash: string) {
     setEntry("spotify");
