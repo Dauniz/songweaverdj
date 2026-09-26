@@ -346,7 +346,7 @@ export function MoodChat() {
           </TooltipProvider>
         </div>
         {personalizedPrompts.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-3">
+          <div className="mt-5 flex flex-wrap gap-4">
             {personalizedPrompts.map((prompt) => (
               <Button
                 key={prompt}
@@ -355,7 +355,7 @@ export function MoodChat() {
                 size="sm"
                 onClick={() => send(prompt)}
                 disabled={busy}
-                className="min-h-10 whitespace-normal rounded-full bg-surface px-4 py-2 text-left text-sm leading-relaxed text-muted-foreground hover:border-primary hover:text-primary"
+                className="min-h-11 whitespace-normal rounded-lg bg-surface px-5 py-3 text-left text-sm leading-relaxed text-muted-foreground hover:border-primary hover:text-primary"
               >
                 {prompt}
               </Button>
