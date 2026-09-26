@@ -183,6 +183,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       lastPlayback.current = { ...lastPlayback.current, spotifyId: saved.radio.current.spotify_id, observed: true, at: Date.now() };
     }
     setEvents(saved.events ?? []);
+    // Keep the doors Crate had already chosen — don't re-roll them on reload.
+    if (saved.branchKey && (saved.upNext || saved.upSkip)) {
+      branches.current = {
+        key: saved.branchKey,
+        played: Promise.resolve(saved.upNext ? { track: saved.upNext, road: saved.radio.road } : null),
+        skipped: Promise.resolve(saved.upSkip ?? null),
+      };
+      setUpNext(saved.upNext ?? null);
+      setUpSkip(saved.upSkip ?? null);
+    }
+    if (saved.door) door.current = saved.door;
     setRadio(saved.radio);
     setSessionLive(saved.sessionLive);
   }, []);
@@ -197,9 +208,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       JSON.stringify({
         radio, sessionLive, events, played: played.current,
         artistSkips: [...artistSkips.current], savedAt: Date.now(),
+        upNext, upSkip, door: door.current, branchKey: branches.current?.key ?? null,
       }),
     );
-  }, [restored, radio, sessionLive, events]);
+  }, [restored, radio, sessionLive, events, upNext, upSkip]);
   const note = useCallback((kind: MazeEvent["kind"], text: string) => {
     setEvents((e) => [...e, { at: Date.now(), kind, text }].slice(-30));
   }, []);
