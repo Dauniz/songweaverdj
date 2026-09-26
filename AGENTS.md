@@ -18,3 +18,4 @@
 - Crate is Songweaver's AI companion; product-facing branding uses Songweaver while assistant and DJ language uses Crate. Why: the product and its AI have distinct identities.
 - Radio playback uses server-side Spotify Connect commands and observes the active Spotify device; Songweaver renders no audio player. Why: listening stays in Spotify while Crate controls the path without exposing OAuth tokens.
 - Session playback sends Spotify a two-song list [current, "if you skip" door] instead of using the queue, and ~2.5s before the end replaces it with [finish pick, its skip door]. Why: the Spotify API cannot clear or remove queue items, but a new play list replaces the context cleanly.
+- Side roads (lenses, src/lib/lenses.ts) are single-select overlays on the vibe/era/mixed roads: Wormhole/Forgotten archive narrow the pool in code, Scene/Wave/Texture add a DJ prompt rule and force the AI path. Why: extra paths without breaking the finish/skip maze.
