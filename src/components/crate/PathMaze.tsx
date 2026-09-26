@@ -129,9 +129,9 @@ export function PathMaze() {
 const TAG: Record<string, { label: string; cls: string }> = {
   start: { label: "START", cls: "text-primary" },
   think: { label: "THINK", cls: "text-muted-foreground" },
-  door: { label: "DOOR ", cls: "text-primary" },
-  pick: { label: "PICK ", cls: "text-primary" },
-  finish: { label: "DONE ", cls: "text-primary" },
+  door: { label: "DOOR", cls: "text-primary" },
+  pick: { label: "PICK", cls: "text-primary" },
+  finish: { label: "DONE", cls: "text-primary" },
   skip: { label: "SKIP ", cls: "text-destructive" },
   reroot: { label: "ROOT ", cls: "text-primary" },
   steer: { label: "STEER", cls: "text-foreground" },
