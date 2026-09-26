@@ -123,6 +123,10 @@ export function MoodChat() {
   const recordingRef = useRef<VoiceRecording | null>(null);
   const stoppingRef = useRef(false);
   const { startRadio, lens, setLens } = useRadio();
+  // Deep cuts and side roads are mutually exclusive; a saved side road wins on load.
+  useEffect(() => {
+    if (lens) setDeepCuts(false);
+  }, [lens]);
   const lastUserText = useRef("");
   const { data: promptMemories = [] } = useQuery({
     queryKey: ["prompt-memories"],
@@ -206,6 +210,8 @@ export function MoodChat() {
     lastUserText.current = t;
     const filters: string[] = [];
     if (deepCuts) filters.push("prefer deep cuts I haven't heard in a while");
+    const activeLens = LENSES.find((l) => l.id === lens);
+    if (activeLens) filters.push(`side road ${activeLens.name}: ${activeLens.info}`);
     sendMessage({ text: filters.length ? `${t}\n\n(Filters: ${filters.join("; ")})` : t });
     setText("");
   }
@@ -344,7 +350,10 @@ export function MoodChat() {
               <Checkbox
                 id="deep-cuts"
                 checked={deepCuts}
-                onCheckedChange={(checked) => toggleDeepCuts(checked === true)}
+                onCheckedChange={(checked) => {
+                  if (checked === true) setLens(null);
+                  toggleDeepCuts(checked === true);
+                }}
                 aria-label="Enable Deep cuts"
                 className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
               />
@@ -362,7 +371,10 @@ export function MoodChat() {
                   <Checkbox
                     id={`lens-${l.id}`}
                     checked={on}
-                    onCheckedChange={(checked) => setLens(checked === true ? l.id : null)}
+                    onCheckedChange={(checked) => {
+                      if (checked === true) toggleDeepCuts(false);
+                      setLens(checked === true ? l.id : null);
+                    }}
                     aria-label={`Enable ${l.name}`}
                     className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
                   />
