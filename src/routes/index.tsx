@@ -1,4 +1,6 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { readLiveSession } from "@/components/crate/radio-context";
 import logo from "@/assets/crate-logo.jpg";
 
 export const Route = createFileRoute("/")({
@@ -23,6 +25,10 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (readLiveSession()) void navigate({ to: "/studio" });
+  }, [navigate]);
   return (
     <main className="min-h-screen bg-glow">
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-16">
