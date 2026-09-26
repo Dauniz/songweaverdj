@@ -1,4 +1,8 @@
 import { LIVE_KEY, readLiveSession } from "@/lib/live-session";
+
+const LAST_KEY = "songweaver-last-session";
+/** End the session when Spotify shows no open device for this long. */
+const NO_DEVICE_GRACE = 20_000;
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
@@ -68,6 +72,8 @@ type RadioContextValue = {
   sessionLive: boolean;
   startSession: () => Promise<void>;
   endSession: () => void;
+  hasLastSession: boolean;
+  resumeLastSession: () => void;
   events: MazeEvent[];
   spotifyIdle: boolean;
 };
@@ -153,7 +159,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const swapping = useRef("");
   const idleSince = useRef(0);
   const [events, setEvents] = useState<MazeEvent[]>([]);
+  const eventsRef = useRef(events);
+  eventsRef.current = events;
   const [spotifyIdle, setSpotifyIdle] = useState(false);
+  // When Spotify stopped reporting any active device (app closed).
+  const noDeviceSince = useRef(0);
+  const [hasLastSession, setHasLastSession] = useState(false);
+  useEffect(() => {
+    setHasLastSession(Boolean(localStorage.getItem(LAST_KEY)));
+  }, []);
   // Resume a live session on this device after a reload / tab switch (fresh within 30 min).
   const [restored, setRestored] = useState(false);
   useEffect(() => {
@@ -375,7 +389,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       noDeviceSince.current = 0;
       lastPlayback.current = { spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 };
       setEvents([...(saved.events ?? []), { at: Date.now(), kind: "reroot", text: `Resumed last session at "${saved.radio.current?.name}"` }].slice(-30));
-      setRadio({ ...saved.radio, active: true, sessionId: `${Date.now()}` });
+      setRadio({ ...saved.radio, active: true, sessionId: crypto.randomUUID() });
       setSessionLive(true);
     } catch {
       localStorage.removeItem(LAST_KEY);
@@ -751,7 +765,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         setLens,
         sessionLive,
         startSession,
-        endSession: stopRadio,
+        endSession: () => stopRadio(),
+        hasLastSession,
+        resumeLastSession,
         events,
         spotifyIdle,
       }}
