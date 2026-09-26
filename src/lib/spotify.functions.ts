@@ -276,6 +276,9 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         .eq("user_id", context.userId);
     }
 
+    // Spotify throttles bursts, so every paged request waits a beat.
+    const pace = (ms = 250) => new Promise((r) => setTimeout(r, ms));
+
     const rows: IngestRow[] = [];
     let likedCount = 0;
     let recentCount = 0;
