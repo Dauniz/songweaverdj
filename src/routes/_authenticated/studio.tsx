@@ -63,13 +63,20 @@ function Studio() {
             </button>
           ))}
         </nav>
-        <button
-          onClick={signOut}
-          aria-label="Sign out"
-          className="ml-auto rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <LogOut className="h-4 w-4" />
-        </button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={signOut}
+                aria-label="Log out"
+                className="ml-auto rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Log out</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </header>
       <div className="flex min-h-0 flex-1">
         <aside
