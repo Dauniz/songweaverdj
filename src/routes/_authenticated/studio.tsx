@@ -37,7 +37,7 @@ export const Route = createFileRoute("/_authenticated/studio")({
 
 function Studio() {
   const navigate = useNavigate();
-  const [mobileTab, setMobileTab] = useState<"library" | "chat" | "memory">("chat");
+  const [mobileTab, setMobileTab] = useState<"chat" | "memory">("chat");
   async function signOut() {
     await supabase.auth.signOut();
     navigate({ to: "/" });
@@ -50,7 +50,7 @@ function Studio() {
         <img src={logo} alt="Songweaver" width={32} height={32} className="h-8 w-8 rounded-lg" />
         <span className="font-display text-lg font-bold">Songweaver</span>
         <nav className="ml-4 flex gap-1 lg:hidden">
-          {(["library", "chat", "memory"] as const).map((t) => (
+          {(["chat", "memory"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setMobileTab(t)}
@@ -79,14 +79,7 @@ function Studio() {
         </TooltipProvider>
       </header>
       <div className="flex min-h-0 flex-1">
-        <aside
-          className={cn(
-            "w-full border-r bg-sidebar lg:block lg:w-80",
-            mobileTab === "library" ? "block" : "hidden",
-          )}
-        >
-          <LibraryPanel />
-        </aside>
+        <LibraryPanel />
         <main
           className={cn(
             "min-w-0 flex-1 bg-glow lg:block",
