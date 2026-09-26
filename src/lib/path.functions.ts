@@ -195,12 +195,16 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const excluded = new Set([data.seed.spotifyId, ...data.excludeSpotifyIds]);
     const avoid = new Set(data.avoidArtists);
     const playableOnly = pool.some((s) => !s.spotify_id.startsWith("demo-") || s.preview_url);
-    const available = pool.filter(
+    const unlensed = pool.filter(
       (s) =>
         !excluded.has(s.spotify_id) &&
         !avoid.has(s.artists) &&
         (!playableOnly || !s.spotify_id.startsWith("demo-") || s.preview_url),
     );
+    const available = applyCodeLens(data.lens, unlensed);
+    const lensLabel = lensName(data.lens);
+    const withLens = (why: string) => (lensLabel ? `${lensLabel} · ${why}` : why);
+    const aiLens = data.lens === "scene" || data.lens === "wave" || data.lens === "texture";
     if (!available.length) return { track: null, road: data.road, why: "Library exhausted" };
 
     // Anchor = last song played through, else the seed
@@ -228,7 +232,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     });
 
     // ERA road without chips: pure code, instant.
-    if (data.road === "era" && anchor && !data.chips.length) {
+    if (data.road === "era" && anchor && !data.chips.length && !aiLens) {
       const cands = eraCandidates(anchor, available);
       if (cands.length) {
         const pick = cands[Math.floor(Math.random() * Math.min(6, cands.length))]!;
@@ -238,7 +242,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
         const why = shared
           ? `Staying in ${shared.name}${shared.period ? ` · ${fmtPeriod(shared.period)}` : ""}`
           : `Same era · ${fmtPeriod(pick.source_period) || "around then"}`;
-        return toTrack(pick, why, "era");
+        return toTrack(pick, withLens(why), "era");
       }
     }
 
