@@ -30,6 +30,9 @@ export const STEER_CHIPS = [
   "Mer energi",
 ] as const;
 
+export type MazeEvent = { at: number; kind: "start" | "finish" | "skip" | "pick" | "reroot"; text: string };
+const ROAD_NAME: Record<Road, string> = { vibe: "Vibe road", era: "Era road", mixed: "New angle" };
+
 type HistoryItem = { spotifyId: string; name: string; artists: string; outcome: "played" | "skipped" };
 
 export type RadioState = {
@@ -61,6 +64,8 @@ type RadioContextValue = {
   sessionLive: boolean;
   startSession: () => Promise<void>;
   endSession: () => void;
+  events: MazeEvent[];
+  spotifyIdle: boolean;
 };
 
 const RadioContext = createContext<RadioContextValue | null>(null);
@@ -131,6 +136,23 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const preSkip = useRef<{ forId: string; branch: Branch } | null>(null);
   const swapping = useRef("");
   const idleSince = useRef(0);
+  const [events, setEvents] = useState<MazeEvent[]>([]);
+  const [spotifyIdle, setSpotifyIdle] = useState(false);
+  const note = useCallback((kind: MazeEvent["kind"], text: string) => {
+    setEvents((e) => [...e, { at: Date.now(), kind, text }].slice(-30));
+  }, []);
+  const noteMove = useCallback(
+    (from: { name: string }, outcome: "played" | "skipped", to: RadioTrack, road: Road) => {
+      note(
+        outcome === "played" ? "finish" : "skip",
+        outcome === "played"
+          ? `Finished "${from.name}" → Crate stays on ${ROAD_NAME[road]}`
+          : `Skipped "${from.name}" → Crate turns to ${ROAD_NAME[road]}`,
+      );
+      note("pick", `Next: "${to.name}"${to.why ? ` — ${to.why}` : ""}`);
+    },
+    [note],
+  );
 
   const avoidArtists = () =>
     [...artistSkips.current.entries()].filter(([, n]) => n >= 2).map(([a]) => a);
@@ -225,19 +247,27 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         setRadio(IDLE);
         return;
       }
+      const road: Road = NOSTALGIA.test(seedPrompt) ? "era" : "vibe";
       setRadio({
         ...IDLE,
         active: true,
         current: first,
         seed: first,
         seedPrompt,
-        road: NOSTALGIA.test(seedPrompt) ? "era" : "vibe",
+        road,
         sessionId: crypto.randomUUID(),
       });
+      setEvents([
+        {
+          at: Date.now(),
+          kind: "start",
+          text: `Starts from "${first.name}" on ${ROAD_NAME[road]}${road === "era" ? " (you mentioned nostalgia)" : ""}`,
+        },
+      ]);
       setSessionLive(true);
       idleSince.current = 0;
     },
-    [],
+    [note],
   );
 
   /** Play a searched song: with no session running it starts a fresh one;
@@ -255,8 +285,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       lastPlayback.current = { spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 };
       setRadio({ ...s, current: track, seed: track });
       log(track, "steer", s); // a deliberate choice — Walrus learns from it
+      note("reroot", `You picked "${track.name}" → the path continues from here`);
     },
-    [startRadio, log],
+    [startRadio, log, note],
   );
 
   const stopRadio = useCallback(() => {
@@ -266,6 +297,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     door.current = null;
     preSkip.current = null;
     setSessionLive(false);
+    setSpotifyIdle(false);
     setRadio(IDLE);
     // Hand Spotify back clean: pause and drop the songs Crate had lined up.
     void endSpotifySession().catch(() => undefined);
@@ -304,8 +336,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         return;
       }
       setRadio({ ...nextState, current: b.track, road: b.road });
+      noteMove(cur, outcome, b.track, b.road);
     },
-    [log, fetchBranch],
+    [log, fetchBranch, noteMove],
   );
 
   const startSpotifyPlayback = useCallback(
@@ -366,13 +399,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       lastPlayback.current = { spotifyId: track.spotify_id ?? "", ratio: 0, observed: true, progressMs: 0, durationMs: 0, at: Date.now() };
       door.current = null;
       branches.current = null;
+      if (reroot) note("reroot", `You played "${track.name}" in Spotify → new starting point`);
+      else noteMove(s.current, outcome, track, nextState.road);
       setRadio(
         reroot
           ? { ...nextState, current: track, seed: track, consecutiveSkips: 0 }
           : { ...nextState, current: track },
       );
     },
-    [log],
+    [log, note, noteMove],
   );
 
   // Line up exactly one song behind the current one: the "if you skip" door.
@@ -416,10 +451,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       noPlayFor.current = finishB.track.spotify_id;
       branches.current = null;
       setRadio(afterState);
+      noteMove(cur, "played", finishB.track, finishB.road);
       await startSpotifyPlayback(finishB.track, true, skipB?.track ?? null);
       lastPlayback.current = { ...lastPlayback.current, observed: true };
     },
-    [fetchBranch, log, startSpotifyPlayback],
+    [fetchBranch, log, startSpotifyPlayback, noteMove],
   );
 
   // Spotify owns playback. While a session is live, mirror what Spotify plays —
@@ -434,12 +470,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const previous = lastPlayback.current;
         const playing = state.status === "ready" && state.isPlaying;
         if (!playing) {
+          if (idleSince.current && Date.now() - idleSince.current > 12_000) setSpotifyIdle(true);
           if (!idleSince.current) idleSince.current = Date.now();
           else if (Date.now() - idleSince.current > 30 * 60_000) {
             stopRadio(); // idle ~30 min: hand Spotify back
             return;
           }
-        } else idleSince.current = 0;
+        } else {
+          idleSince.current = 0;
+          setSpotifyIdle(false);
+        }
         if (state.status === "ready" && state.spotifyId === current.spotify_id) {
           lastPlayback.current = {
             spotifyId: current.spotify_id,
@@ -458,7 +498,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (state.status === "ready" && state.spotifyId) {
           const q = door.current;
           if (q && q.forId === current.spotify_id && q.track.spotify_id === state.spotifyId) {
-            acceptObserved(q.track, "skipped", false); // you skipped onto Crate's "if you skip" door
+            acceptObserved(q.track, outcome, false); // you skipped onto Crate's "if you skip" door
           } else {
             acceptObserved(
               {
@@ -614,6 +654,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         sessionLive,
         startSession,
         endSession: stopRadio,
+        events,
+        spotifyIdle,
       }}
     >
       {children}
