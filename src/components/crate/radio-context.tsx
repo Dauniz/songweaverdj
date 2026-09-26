@@ -36,7 +36,7 @@ export const STEER_CHIPS = [
   "Mer energi",
 ] as const;
 
-export type MazeEvent = { at: number; kind: "start" | "finish" | "skip" | "pick" | "reroot"; text: string };
+export type MazeEvent = { at: number; kind: "start" | "finish" | "skip" | "pick" | "reroot" | "think" | "door" | "steer"; text: string };
 const ROAD_NAME: Record<Road, string> = { vibe: "Vibe road", era: "Era road", mixed: "New angle" };
 
 type HistoryItem = { spotifyId: string; name: string; artists: string; outcome: "played" | "skipped" };
@@ -213,7 +213,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     );
   }, [restored, radio, sessionLive, events, upNext, upSkip]);
   const note = useCallback((kind: MazeEvent["kind"], text: string) => {
-    setEvents((e) => [...e, { at: Date.now(), kind, text }].slice(-30));
+    setEvents((e) => [...e, { at: Date.now(), kind, text }].slice(-80));
   }, []);
   const noteMove = useCallback(
     (from: { name: string }, outcome: "played" | "skipped", to: RadioTrack, road: Road) => {
@@ -296,14 +296,29 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       branches.current = { key, played: playedB, skipped: skippedB };
       setUpNext(null);
       setUpSkip(null);
+      const skipRoad = advance(s, "skipped").road;
+      const avoid = avoidArtists();
+      const ctx = [
+        lensRef.current ? `side road ${lensRef.current}` : null,
+        s.chips.length ? `steering ${s.chips.join(", ")}` : null,
+        avoid.length ? `avoiding ${avoid.join(", ")}` : null,
+        `${played.current.length} songs already heard excluded`,
+      ].filter(Boolean).join(" · ");
+      note("think", `At "${s.current.name}" · on ${ROAD_NAME[s.road]} · skips in a row: ${s.consecutiveSkips}`);
+      note("think", `Scouting two doors: finish → ${ROAD_NAME[s.road]}, skip → ${ROAD_NAME[skipRoad]}${s.consecutiveSkips >= 1 ? " (second skip = new angle)" : ""}`);
+      note("think", ctx);
       skippedB.then((b) => {
-        if (branches.current?.key === key) setUpSkip(b ?? null);
+        if (branches.current?.key !== key) return;
+        setUpSkip(b ?? null);
+        note("door", b ? `Skip door ready: "${b.track.name}" by ${b.track.artists}${b.track.why ? ` — ${b.track.why}` : ""}` : "Skip door: nothing fits, will fall back");
       });
       playedB.then((b) => {
-        if (branches.current?.key === key) setUpNext(b?.track ?? null);
+        if (branches.current?.key !== key) return;
+        setUpNext(b?.track ?? null);
+        note("door", b ? `Finish door ready: "${b.track.name}" by ${b.track.artists}${b.track.why ? ` — ${b.track.why}` : ""}` : "Finish door: nothing fits, will fall back");
       });
     },
-    [fetchBranch],
+    [fetchBranch, note],
   );
 
   useEffect(() => {
@@ -807,9 +822,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const chips = on ? [...s.chips, chip] : s.chips.filter((c) => c !== chip);
       if (on) log({ name: chip, artists: "" }, "steer", s);
       branches.current = null; // steering invalidates the prefetched paths
+      if (s.active) note("steer", `${on ? "You steered toward" : "You dropped"} "${chip}" → re-scouting both doors`);
       setRadio({ ...s, chips });
     },
-    [log],
+    [log, note],
   );
 
   const setLens = useCallback(
@@ -822,9 +838,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const s = radioRef.current;
       if (next && s.active) log({ name: `lens:${next}`, artists: "" }, "steer", s);
       branches.current = null; // lens bends both prefetched paths
+      if (s.active) note("steer", next ? `Side road ${next} on → re-scouting both doors` : "Side road off → back to the main roads");
       if (s.active) setRadio({ ...s });
     },
-    [log],
+    [log, note],
   );
 
   return (
