@@ -383,26 +383,33 @@ export function MoodChat() {
                     aria-labelledby={`lens-${l.id}`}
                     className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
                   />
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-xs"
-                        aria-label={`About ${l.name}`}
-                        className="rounded-full text-muted-foreground"
-                      >
-                        <CircleHelp />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-[240px]">
-                      {l.info} Runs on top of the Vibe or Era road. Only one side road at a time;
-                      click it again to turn it off.
-                    </TooltipContent>
-                  </Tooltip>
                 </span>
               );
             })}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label="About side roads"
+                  className="rounded-full text-muted-foreground"
+                >
+                  <CircleHelp />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-[300px]">
+                <p>
+                  Side roads bend whichever road is active (Vibe, Era or New angle). Only one can be
+                  on at a time — tap it again to turn it off.
+                </p>
+                {LENSES.map((l) => (
+                  <p key={l.id} className="mt-1.5">
+                    <span className="font-medium text-foreground">{l.name}:</span> {l.info}
+                  </p>
+                ))}
+              </TooltipContent>
+            </Tooltip>
           </div>
         </TooltipProvider>
 
