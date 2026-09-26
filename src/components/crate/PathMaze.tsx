@@ -111,15 +111,21 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-1.5 flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+        className="mt-2 flex w-full items-start gap-2 rounded-md border border-border bg-surface p-2 text-left transition-colors hover:border-primary/60 hover:bg-primary/5"
       >
-        <NotebookPen className="h-3 w-3" /> Add a note about this song
+        <NotebookPen className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+        <span className="min-w-0">
+          <span className="block text-xs font-semibold">Feedbacker</span>
+          <span className="mt-0.5 block text-[10px] leading-snug text-muted-foreground">
+            Your feelings on this song teach Walrus the maze — helping it adapt to you over time.
+          </span>
+        </span>
       </button>
     );
   }
 
   return (
-    <div className="mt-1.5">
+    <div className="mt-2 rounded-md border border-primary/40 bg-primary/5 p-2">
       <input
         autoFocus
         value={note}
@@ -128,12 +134,14 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
           if (e.key === "Enter") void save();
           if (e.key === "Escape") setOpen(false);
         }}
-        placeholder='e.g. "nostalgi, minne från hälsninggården, högstadiet"'
+        placeholder='e.g. "nostalgi, minne från hälsingegården, högstadiet"'
         maxLength={200}
-        className="w-full rounded-md border bg-background px-2 py-1 text-xs outline-none placeholder:text-muted-foreground/70 focus:border-primary"
+        className="w-full rounded-md border bg-background px-2 py-1.5 text-xs outline-none placeholder:text-muted-foreground/70 focus:border-primary"
       />
-      <p className="mt-0.5 text-[10px] text-muted-foreground">
-        {saved ? "Saved to Walrus Memory ✓" : "Enter to save · Esc to close — only when you feel like it"}
+      <p className="mt-1 text-[10px] text-muted-foreground">
+        {saved
+          ? "Saved to Walrus Memory ✓"
+          : "A couple of words is plenty — Walrus learns your puzzle either way. Enter to save · Esc to close"}
       </p>
     </div>
   );
