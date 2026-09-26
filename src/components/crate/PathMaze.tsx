@@ -155,7 +155,7 @@ export function CrateConsole() {
     <div className={cn("flex flex-col border-t", open ? "min-h-0 flex-1" : "shrink-0")}>
       <button
         type="button"
-        onClick={toggle}
+        onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-accent/50"
       >
