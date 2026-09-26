@@ -26,10 +26,11 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { TrackCard, type CardTrack } from "./TrackCard";
 import { useRadio } from "./radio-context";
-import { LoaderCircle, Mic, Radio, Square } from "lucide-react";
+import { CircleHelp, LoaderCircle, Mic, Radio, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import logo from "@/assets/crate-logo.jpg";
 import { recordWav, type VoiceRecording } from "@/lib/record-wav";
 
@@ -372,25 +373,35 @@ export function MoodChat() {
                 </Button>
               ))}
             </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={deepCuts ? "default" : "outline"}
-                    size="sm"
-                    aria-pressed={deepCuts}
-                    onClick={() => setDeepCuts((enabled) => !enabled)}
-                    className="h-8 shrink-0 rounded-full px-3.5 text-sm"
-                  >
-                    Deep cuts
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[260px]">
-                  Skips heavily played recent tracks and digs up overlooked songs instead.
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+            <div className="flex shrink-0 items-center gap-2 text-sm">
+              <label htmlFor="deep-cuts" className="cursor-pointer font-medium text-foreground">
+                Deep cuts
+              </label>
+              <Checkbox
+                id="deep-cuts"
+                checked={deepCuts}
+                onCheckedChange={(checked) => setDeepCuts(checked === true)}
+                aria-label="Enable Deep cuts"
+              />
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label="About Deep cuts"
+                      className="rounded-full text-muted-foreground"
+                    >
+                      <CircleHelp />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[240px]">
+                    Finds overlooked songs you haven't heard in a while.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
           <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90 shadow-sm">
             <PromptInputTextarea
