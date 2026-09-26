@@ -350,22 +350,12 @@ export function MoodChat() {
               const on = lens === l.id;
               return (
                 <span key={l.id} className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    id={`lens-${l.id}`}
-                    role="checkbox"
-                    aria-checked={on}
-                    onClick={() => setLens(on ? null : l.id)}
-                    className="cursor-pointer text-muted-foreground hover:text-foreground"
-                  >
-                    {l.name}
-                  </button>
+                  <span className="text-muted-foreground">{l.name}</span>
                   <Checkbox
                     checked={on}
                     onCheckedChange={(checked) => setLens(checked === true ? l.id : null)}
                     aria-label={`Enable ${l.name}`}
-                    aria-labelledby={`lens-${l.id}`}
-                    className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
+                    className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 transition-transform duration-150 hover:scale-125 data-[state=checked]:border-primary"
                   />
                 </span>
               );
