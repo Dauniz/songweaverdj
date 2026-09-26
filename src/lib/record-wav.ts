@@ -83,7 +83,7 @@ export async function recordWav(onSilence: () => void): Promise<VoiceRecording> 
         stopped = true;
         await close();
         const blob = encodeWav(chunks, audioContext.sampleRate);
-        if (!heardVoice || blob.size < 2048) throw new Error("I didn't hear anything. Try again.");
+        if (blob.size < 2048) throw new Error("I didn't hear anything. Try again.");
         return new File([blob], "voice-prompt.wav", { type: "audio/wav" });
       },
       async cancel() {
