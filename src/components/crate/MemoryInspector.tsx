@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight, Database, Info, RefreshCw, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleHelp, Database, Info, RefreshCw, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogCancel,
