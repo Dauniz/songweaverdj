@@ -171,10 +171,10 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
     const h = gridRef.current?.getBoundingClientRect().height ?? 0;
     setCollapseH(h);
     setCollapsing(true);
+    setOpen(false);
     requestAnimationFrame(() => requestAnimationFrame(() => setCollapseH(0)));
     window.setTimeout(() => {
       setCollapseH(null);
-      setOpen(false);
       setCollapsing(false);
     }, 300);
   };
