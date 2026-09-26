@@ -224,6 +224,12 @@ export function MemoryInspector() {
       </div>
       )}
       <div className="mt-auto flex items-center justify-between border-t px-4 py-2">
+        <Link
+          to="/crate-info"
+          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+        >
+          <Info className="h-3 w-3" /> How Crate uses Walrus
+        </Link>
         <button
           type="button"
           onClick={() => {
@@ -234,12 +240,6 @@ export function MemoryInspector() {
         >
           <Trash2 className="h-3 w-3" /> Reset Walrus log
         </button>
-        <Link
-          to="/crate-info"
-          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-        >
-          <Info className="h-3 w-3" /> How Crate uses Walrus
-        </Link>
       </div>
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
         <AlertDialogContent>
