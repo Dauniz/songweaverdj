@@ -47,10 +47,13 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   failed: { label: "Failed", cls: "bg-destructive" },
 };
 
-function skillForMemory(origin: string, content: string) {
-  if (origin === "button") return "Feedbacker";
-  if (origin === "listening" && content.startsWith("Often steers")) return "Steer";
+function skillForMemory(kind: string, origin: string, content: string) {
+  if (content.startsWith("Note on")) return "Feedbacker";
+  if (content.startsWith("Often steers")) return "Steer";
+  if (kind === "skipped") return "Skipped";
+  if (kind === "favorite") return "Favorite";
   if (origin === "listening") return "Listening";
+  if (origin === "button") return "Reaction";
   return "User input";
 }
 
@@ -169,7 +172,7 @@ export function MemoryInspector() {
               </div>
               <div className="mt-2">
                 <span className="inline-flex rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                  Crate skill · {skillForMemory(n.origin, n.content)}
+                  Crate skill · {skillForMemory(n.kind, n.origin, n.content)}
                 </span>
               </div>
               <p className="mt-2 text-sm">{n.content}</p>
