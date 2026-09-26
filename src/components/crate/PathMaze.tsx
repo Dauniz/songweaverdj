@@ -139,7 +139,15 @@ const TAG: Record<string, { label: string; cls: string }> = {
  * it's a single bar; expanding slides the bar up while the console unfolds
  * below it, showing Crate's live reasoning as it walks the maze.
  */
-export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: boolean) => void }) {
+export function CrateConsole({
+  open,
+  setOpen,
+  onAnimatingChange,
+}: {
+  open: boolean;
+  setOpen: (v: boolean) => void;
+  onAnimatingChange?: (v: boolean) => void;
+}) {
   const { events, radio } = useRadio();
   const ref = useRef<HTMLDivElement>(null);
   const [collapsing, setCollapsing] = useState(false);
@@ -191,13 +199,15 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
     setCollapseH(h);
     collapsingRef.current = true;
     setCollapsing(true);
+    onAnimatingChange?.(true);
     setOpen(false);
     requestAnimationFrame(() => requestAnimationFrame(() => setCollapseH(0)));
     window.setTimeout(() => {
       setCollapseH(null);
       collapsingRef.current = false;
       setCollapsing(false);
-    }, 300);
+      onAnimatingChange?.(false);
+    }, 500);
   };
 
   const live = radio.active;
@@ -221,7 +231,7 @@ export function CrateConsole({ open, setOpen }: { open: boolean; setOpen: (v: bo
         ref={gridRef}
         style={collapseH !== null ? { height: collapseH } : undefined}
         className={cn(
-          "grid min-h-0 transition-all duration-300 ease-out",
+          "grid min-h-0 transition-all duration-500 ease-in-out",
           expanded && "flex-1",
           expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
         )}
