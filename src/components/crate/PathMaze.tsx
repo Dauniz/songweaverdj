@@ -117,8 +117,6 @@ export function PathMaze() {
               icon={<SkipForward className="h-3 w-3" />}
             />
           </div>
-
-          <ConsoleToggle events={events} />
         </div>
       )}
     </div>
