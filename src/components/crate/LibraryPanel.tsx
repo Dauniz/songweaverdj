@@ -132,6 +132,24 @@ export function LibraryPanel() {
     <div className="fixed bottom-4 right-4 z-40 w-72 rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur">
       <div className="flex items-center gap-2 text-sm font-semibold">
         <Disc3 className="h-4 w-4 text-primary" /> Spotify
+        <TooltipProvider delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                aria-label={status?.connected ? "Spotify connected" : "Spotify not connected"}
+                className={cn(
+                  "inline-block h-2 w-2 shrink-0 rounded-full",
+                  status?.connected
+                    ? "bg-primary shadow-[0_0_6px_var(--primary)]"
+                    : "bg-muted-foreground/40",
+                )}
+              />
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              {status?.connected ? "Spotify connected" : "Spotify not connected"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <span className="ml-auto text-xs font-normal text-muted-foreground">
           {tracks.length} tracks
         </span>
