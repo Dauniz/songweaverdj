@@ -54,6 +54,7 @@ type RadioContextValue = {
   askSteer: boolean;
   dismissSteer: () => void;
   startRadio: (tracks: CardTrack[], seedPrompt: string, startAt?: number) => void;
+  rerootTo: (track: CardTrack) => void;
   stopRadio: () => void;
   next: (outcome: Outcome) => void;
   toggleChip: (chip: string) => void;
@@ -233,6 +234,25 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       idleSince.current = 0;
     },
     [],
+  );
+
+  /** Play a searched song: with no session running it starts a fresh one;
+   *  mid-session it re-roots the path from that song while keeping the trail,
+   *  road, chips and skipped-artist memory — like picking it in Spotify. */
+  const rerootTo = useCallback(
+    (track: CardTrack) => {
+      const s = radioRef.current;
+      if (!s.active) {
+        startRadio([track], "");
+        return;
+      }
+      branches.current = null; // the prefetched doors are stale from here on
+      queued.current = null;
+      lastPlayback.current = { spotifyId: "", ratio: 0, observed: false };
+      setRadio({ ...s, current: track, seed: track });
+      log(track, "steer", s); // a deliberate choice — Walrus learns from it
+    },
+    [startRadio, log],
   );
 
   const stopRadio = useCallback(() => {
@@ -524,6 +544,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         askSteer,
         dismissSteer: () => setAskSteer(false),
         startRadio,
+        rerootTo,
         stopRadio,
         next,
         toggleChip,
