@@ -233,7 +233,7 @@ export function MoodChat() {
       setVoiceState("idle");
       textareaRef.current?.focus();
     }
-  }, [busy, deepCuts, sendMessage]);
+  }, [busy, deepCuts, lens, sendMessage]);
 
   const toggleVoice = useCallback(async () => {
     if (voiceState === "recording") {
