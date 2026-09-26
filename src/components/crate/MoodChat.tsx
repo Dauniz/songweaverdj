@@ -101,7 +101,7 @@ async function transcribeVoice(file: File) {
   return result;
 }
 
-export function MoodChat() {
+export function MoodChat({ compact = false }: { compact?: boolean | undefined }) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [deepCuts, setDeepCuts] = useState(true);
