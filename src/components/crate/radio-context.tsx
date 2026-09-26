@@ -157,6 +157,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // "If you skip" door for the upcoming song, computed before the hand-over near the end.
   const preSkip = useRef<{ forId: string; branch: Branch } | null>(null);
   const swapping = useRef("");
+  // When Crate last moved to a new song — rapid skips right after this are followed, not re-rooted.
+  const lastTransition = useRef(0);
   const idleSince = useRef(0);
   const [events, setEvents] = useState<MazeEvent[]>([]);
   const eventsRef = useRef(events);
@@ -445,6 +447,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (result.status === "playing") {
           setPlaybackIssue(null);
           door.current = nextId && skipDoor ? { forId: track.spotify_id, track: skipDoor } : null;
+          if (!positionMs) lastTransition.current = Date.now();
           lastPlayback.current = {
             spotifyId: track.spotify_id,
             ratio: 0,
@@ -481,7 +484,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // Spotify owns playback. Observe its active track so skips and completions still steer Crate's path.
   /** Accept a song Spotify is already playing as the new current song. */
   const acceptObserved = useCallback(
-    (track: RadioTrack, outcome: "played" | "skipped", reroot: boolean) => {
+    (track: RadioTrack, outcome: "played" | "skipped", reroot: boolean, progressMs = 0, durationMs = 0) => {
       const s = radioRef.current;
       if (!s.current) return;
       log(s.current, outcome === "played" ? "play_through" : "early_skip", s);
@@ -491,7 +494,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       const nextState = advance(s, outcome);
       noPlayFor.current = track.spotify_id ?? "";
-      lastPlayback.current = { spotifyId: track.spotify_id ?? "", ratio: 0, observed: true, progressMs: 0, durationMs: 0, at: Date.now() };
+      lastTransition.current = Date.now();
+      lastPlayback.current = { spotifyId: track.spotify_id ?? "", ratio: 0, observed: true, progressMs, durationMs, at: Date.now() };
       door.current = null;
       branches.current = null;
       if (reroot) note("reroot", `You played "${track.name}" in Spotify → new starting point`);
@@ -512,14 +516,36 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const skip = upSkip?.track;
     if (!sessionLive || !cur?.spotify_id || !skip?.spotify_id || !isPlayable(skip)) return;
     if (door.current?.forId === cur.spotify_id) return;
-    const lp = lastPlayback.current;
-    if (lp.spotifyId !== cur.spotify_id) return;
-    const pos = Math.max(0, lp.progressMs + (Date.now() - lp.at));
-    if (lp.durationMs && lp.durationMs - pos < 30_000) return; // hand-over near the end covers it
+    if (lastPlayback.current.spotifyId !== cur.spotify_id) return;
     door.current = { forId: cur.spotify_id, track: skip };
-    noPlayFor.current = "";
-    void startSpotifyPlayback(cur, true, skip, pos);
-  }, [sessionLive, radio.current, upSkip, startSpotifyPlayback]);
+    let cancelled = false;
+    void (async () => {
+      // Read Spotify's real position right now so re-sending the line-up doesn't jump back.
+      let pos: number | null = null;
+      try {
+        const st = await playbackFn();
+        if (st.status === "ready" && st.spotifyId === cur.spotify_id) {
+          if (st.durationMs && st.durationMs - st.progressMs < 30_000) return; // hand-over covers it
+          pos = st.progressMs + 250; // small network allowance
+        }
+      } catch {
+        /* fall back to estimate */
+      }
+      if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) {
+        if (door.current?.forId === cur.spotify_id) door.current = null;
+        return;
+      }
+      if (pos === null) {
+        const lp = lastPlayback.current;
+        pos = Math.max(0, lp.progressMs + (Date.now() - lp.at));
+      }
+      noPlayFor.current = "";
+      void startSpotifyPlayback(cur, true, skip, Math.max(1, Math.round(pos)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionLive, radio.current, upSkip, startSpotifyPlayback, playbackFn]);
 
   /** A few seconds before the song ends: replace the line-up with
    *  ["if you finish" pick, its own "if you skip" door]. */
@@ -598,12 +624,26 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (playing && state.durationMs && remaining < 25_000) void handOver(remaining);
           return;
         }
-        if (previous.spotifyId !== current.spotify_id || !previous.observed) return;
+        if (previous.spotifyId !== current.spotify_id) return;
+        const sinceMove = Date.now() - lastTransition.current;
+        const rapid = sinceMove < 15_000;
+        // Not seen playing yet: only a rapid skip (after Spotify had time to start it) counts.
+        if (!previous.observed && !(rapid && sinceMove > 2_500)) return;
         const outcome = previous.ratio >= 0.7 ? "played" : "skipped";
         if (state.status === "ready" && state.spotifyId) {
           const q = door.current;
           if (q && q.forId === current.spotify_id && q.track.spotify_id === state.spotifyId) {
-            acceptObserved(q.track, outcome, false); // you skipped onto Crate's "if you skip" door
+            // you skipped onto Crate's "if you skip" door
+            acceptObserved(q.track, outcome, false, state.progressMs, state.durationMs);
+          } else if (rapid && outcome === "skipped") {
+            // Skipped again before the next door was lined up: Spotify fell off the end of
+            // the list. Keep up — follow the skip road instead of treating it as your own pick.
+            advancing.current = true;
+            try {
+              await next("skipped");
+            } finally {
+              advancing.current = false;
+            }
           } else {
             acceptObserved(
               {
@@ -631,9 +671,20 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         // A later poll can recover without interrupting the listening session.
       }
     };
-    const timer = setInterval(() => void check(), 4_000);
-    void check();
-    return () => clearInterval(timer);
+    // Poll fast right after a move so rapid skips are caught, slower once the song settles.
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const loop = async () => {
+      await check();
+      if (stopped) return;
+      const fast = Date.now() - lastTransition.current < 15_000;
+      timer = setTimeout(() => void loop(), fast ? 1_200 : 4_000);
+    };
+    void loop();
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
   }, [sessionLive, radio.active, radio.sessionId, playbackIssue, playbackFn, next, acceptObserved, stopRadio, handOver]);
 
   // "Open Spotify" issue left unresolved for a minute → Spotify isn't coming; end the session.
