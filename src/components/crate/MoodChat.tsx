@@ -351,14 +351,6 @@ export function MoodChat() {
             </Tooltip>
           </TooltipProvider>
         </div>
-        {empty && (
-          <>
-            <div className="mt-6">
-              <LibrarySearch />
-            </div>
-            <ContinueWhere onPrompt={send} disabled={busy} />
-          </>
-        )}
       </div>
     </div>
   );
