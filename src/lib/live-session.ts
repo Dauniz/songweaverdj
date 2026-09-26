@@ -5,6 +5,8 @@ const LIVE_MAX_AGE = 30 * 60 * 1000;
 type SavedSession = {
   radio: RadioState; sessionLive: boolean; events: MazeEvent[];
   played: string[]; artistSkips: [string, number][]; savedAt: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  upNext?: any; upSkip?: any; door?: any; branchKey?: string | null;
 };
 export function readLiveSession(): SavedSession | null {
   try {
