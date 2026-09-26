@@ -338,7 +338,7 @@ export function MoodChat() {
           <Checkbox
             id="deep-cuts"
             checked={deepCuts}
-            onCheckedChange={(checked) => setDeepCuts(checked === true)}
+            onCheckedChange={(checked) => toggleDeepCuts(checked === true)}
             aria-label="Enable Deep cuts"
             className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
           />
