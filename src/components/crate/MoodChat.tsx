@@ -34,7 +34,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import logo from "@/assets/crate-logo.jpg";
 import { recordWav, type VoiceRecording } from "@/lib/record-wav";
 import { LibrarySearch } from "./LibrarySearch";
-import { ContinueWhere } from "./ContinueWhere";
 
 type PromptMemory = { id: string; kind: string; content: string };
 
@@ -263,6 +262,11 @@ export function MoodChat() {
       )}
     >
       <div className="mx-auto w-full max-w-3xl">
+        {empty && (
+          <div className="mb-4">
+            <LibrarySearch />
+          </div>
+        )}
         <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90 shadow-sm">
           <PromptInputTextarea
             ref={textareaRef}
@@ -347,14 +351,6 @@ export function MoodChat() {
             </Tooltip>
           </TooltipProvider>
         </div>
-        {empty && (
-          <>
-            <div className="mt-6">
-              <LibrarySearch />
-            </div>
-            <ContinueWhere onPrompt={send} disabled={busy} />
-          </>
-        )}
       </div>
     </div>
   );

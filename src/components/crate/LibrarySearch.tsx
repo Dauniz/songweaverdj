@@ -70,7 +70,7 @@ export function LibrarySearch() {
 
   return (
     <div className="relative">
-      <div className="flex h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 focus-within:border-primary">
+      <div className="flex h-11 items-center gap-2 rounded-lg border border-border bg-surface/90 px-4 shadow-sm focus-within:border-primary">
         <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
         <input
           value={q}
