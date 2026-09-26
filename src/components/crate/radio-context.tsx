@@ -73,7 +73,7 @@ type RadioContextValue = {
 };
 
 // Keep one context instance across hot reloads so provider and consumers never diverge.
-const g = globalThis as { __songweaverRadioCtx?: React.Context<RadioContextValue | null> };
+const g = globalThis as { __songweaverRadioCtx?: import("react").Context<RadioContextValue | null> };
 const RadioContext = (g.__songweaverRadioCtx ??= createContext<RadioContextValue | null>(null));
 
 const IDLE: RadioState = {
