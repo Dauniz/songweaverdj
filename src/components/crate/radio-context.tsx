@@ -337,7 +337,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [startRadio, log, note],
   );
 
-  const stopRadio = useCallback(() => {
+  const stopRadio = useCallback((opts?: { keepSpotify?: boolean }) => {
+    // Remember where in the maze Crate was, so the session can be resumed later.
+    const s = radioRef.current;
+    if (s.active && s.current) {
+      localStorage.setItem(
+        LAST_KEY,
+        JSON.stringify({ radio: s, events: eventsRef.current, played: played.current, artistSkips: [...artistSkips.current], savedAt: Date.now() }),
+      );
+      setHasLastSession(true);
+    }
     branches.current = null;
     setAskSteer(false);
     setPlaybackIssue(null);
@@ -348,7 +357,30 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     setRadio(IDLE);
     localStorage.removeItem(LIVE_KEY);
     // Hand Spotify back clean: pause and drop the songs Crate had lined up.
-    void endSpotifySession().catch(() => undefined);
+    if (!opts?.keepSpotify) void endSpotifySession().catch(() => undefined);
+  }, []);
+
+  const resumeLastSession = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(LAST_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as { radio: RadioState; events: MazeEvent[]; played: string[]; artistSkips: [string, number][] };
+      played.current = saved.played ?? [];
+      artistSkips.current = new Map(saved.artistSkips ?? []);
+      branches.current = null;
+      door.current = null;
+      preSkip.current = null;
+      noPlayFor.current = "";
+      idleSince.current = 0;
+      noDeviceSince.current = 0;
+      lastPlayback.current = { spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 };
+      setEvents([...(saved.events ?? []), { at: Date.now(), kind: "reroot", text: `Resumed last session at "${saved.radio.current?.name}"` }].slice(-30));
+      setRadio({ ...saved.radio, active: true, sessionId: `${Date.now()}` });
+      setSessionLive(true);
+    } catch {
+      localStorage.removeItem(LAST_KEY);
+      setHasLastSession(false);
+    }
   }, []);
 
   const next = useCallback(
