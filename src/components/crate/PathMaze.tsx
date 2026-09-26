@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Route, SkipForward, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Route, SkipForward, Sparkles } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
