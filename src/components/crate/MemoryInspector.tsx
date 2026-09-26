@@ -47,6 +47,16 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   failed: { label: "Failed", cls: "bg-destructive" },
 };
 
+function skillForMemory(kind: string, origin: string, content: string) {
+  if (content.startsWith("Note on")) return "Feedbacker";
+  if (content.startsWith("Often steers")) return "Steer";
+  if (kind === "skipped") return "Skipped";
+  if (kind === "favorite") return "Favorite";
+  if (origin === "listening") return "Listening";
+  if (origin === "button") return "Reaction";
+  return "User input";
+}
+
 export function MemoryInspector() {
   const qc = useQueryClient();
   const [showLog, setShowLog] = useState(false);
@@ -160,12 +170,10 @@ export function MemoryInspector() {
                   <span className={cn("h-1.5 w-1.5 rounded-full", s.cls)} /> {s.label}
                 </span>
               </div>
-              <div className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                {n.origin === "listening"
-                  ? "Based on how you listened (skips, replays, finishes)"
-                  : n.origin === "button"
-                    ? "Based on your reaction to a song"
-                    : "Based on user input"}
+              <div className="mt-2">
+                <span className="inline-flex rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                  Crate skill · {skillForMemory(n.kind, n.origin, n.content)}
+                </span>
               </div>
               <p className="mt-2 text-sm">{n.content}</p>
               <div className="mt-2 flex justify-between gap-2 font-mono text-[10px] text-muted-foreground">
