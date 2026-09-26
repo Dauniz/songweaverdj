@@ -276,6 +276,9 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         .eq("user_id", context.userId);
     }
 
+    // Spotify throttles bursts, so every paged request waits a beat.
+    const pace = (ms = 250) => new Promise((r) => setTimeout(r, ms));
+
     const rows: IngestRow[] = [];
     let likedCount = 0;
     let recentCount = 0;
@@ -293,6 +296,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         const page: { items: (Pl | null)[]; next: string | null } = await spotifyGet(token, plNext);
         for (const p of page.items ?? []) if (p && p.owner?.id === me.id) allPlaylists.push(p);
         plNext = page.next;
+        if (plNext) await pace();
       } catch (e) {
         console.error("playlist list failed", e);
         limited = true;
@@ -318,7 +322,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         done: plDone,
         total: allPlaylists.length,
       });
-      await new Promise((r) => setTimeout(r, 150));
+      await pace(400);
       try {
         // Spotify renamed /tracks → /items (2026); try the new endpoint first.
         let first: PlItems;
@@ -332,6 +336,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         const items = [...(first.items ?? [])];
         let next = first.next;
         while (next) {
+          await pace();
           const page = await spotifyGet<PlItems>(token, next);
           items.push(...(page.items ?? []));
           next = page.next;
@@ -359,6 +364,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         total?: number;
       };
       try {
+        if (offset > 0) await pace(300);
         saved = await spotifyGet(token, `/me/tracks?limit=50&offset=${offset}`);
       } catch (e) {
         console.error("liked fetch failed", e);
