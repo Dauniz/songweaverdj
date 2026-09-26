@@ -345,22 +345,6 @@ export function MoodChat() {
                 aria-label="Enable Deep cuts"
                 className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
               />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label="About Deep cuts"
-                    className="rounded-full text-muted-foreground"
-                  >
-                    <CircleHelp />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="max-w-[240px]">
-                  Finds overlooked songs you haven't heard in a while.
-                </TooltipContent>
-              </Tooltip>
             </span>
             {LENSES.map((l) => {
               const on = lens === l.id;
@@ -392,20 +376,27 @@ export function MoodChat() {
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  aria-label="About side roads"
+                  aria-label="About deep cuts and side roads"
                   className="rounded-full text-muted-foreground"
                 >
                   <CircleHelp />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right" className="max-w-[300px]">
+              <TooltipContent
+                side="right"
+                className="max-w-[300px] border border-border bg-background text-foreground shadow-lg"
+              >
                 <p>
+                  <span className="font-medium">Deep cuts:</span> Finds overlooked songs you
+                  haven't heard in a while.
+                </p>
+                <p className="mt-1.5">
                   Side roads bend whichever road is active (Vibe, Era or New angle). Only one can be
                   on at a time — tap it again to turn it off.
                 </p>
                 {LENSES.map((l) => (
                   <p key={l.id} className="mt-1.5">
-                    <span className="font-medium text-foreground">{l.name}:</span> {l.info}
+                    <span className="font-medium">{l.name}:</span> {l.info}
                   </p>
                 ))}
               </TooltipContent>
