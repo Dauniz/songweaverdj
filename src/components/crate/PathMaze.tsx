@@ -71,7 +71,7 @@ export function PathMaze() {
             </div>
           ))}
 
-          <div className="rounded-xl border border-primary/40 bg-primary/5 p-3.5">
+          <div className="mt-3 rounded-xl border border-primary/40 bg-primary/5 p-3.5">
             <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-primary">
               <span className="flex h-3.5 items-end gap-[2px]" aria-hidden>
                 {[0, 1, 2, 3].map((i) => (
