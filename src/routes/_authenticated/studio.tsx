@@ -1,6 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { LogOut } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { MoodChat } from "@/components/crate/MoodChat";
 import { RadioProvider } from "@/components/crate/radio-context";
@@ -57,13 +63,20 @@ function Studio() {
             </button>
           ))}
         </nav>
-        <button
-          onClick={signOut}
-          aria-label="Sign out"
-          className="ml-auto rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <LogOut className="h-4 w-4" />
-        </button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={signOut}
+                aria-label="Log out"
+                className="ml-auto rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Log out</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </header>
       <div className="flex min-h-0 flex-1">
         <aside

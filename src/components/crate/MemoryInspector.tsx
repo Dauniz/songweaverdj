@@ -2,6 +2,12 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Database, RefreshCw } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { getMemoryStatus, refreshMemories } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
@@ -71,16 +77,25 @@ export function MemoryInspector() {
           <Database className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold uppercase tracking-wider">Walrus Memory</h2>
         </div>
-        <button
-          aria-label="Refresh memories"
-          onClick={async () => {
-            await refresh().catch(() => null);
-            qc.invalidateQueries({ queryKey: ["memories"] });
-          }}
-          className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <RefreshCw className="h-4 w-4" />
-        </button>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                aria-label="Re-check Walrus memories"
+                onClick={async () => {
+                  await refresh().catch(() => null);
+                  qc.invalidateQueries({ queryKey: ["memories"] });
+                }}
+                className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="left">
+              Re-checks your Walrus memories — nothing is reset
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
       <div className="px-4 py-3 text-xs">
         {cfg?.configured ? (
