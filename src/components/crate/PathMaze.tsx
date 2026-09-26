@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertTriangle, Check, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Route, SkipForward, Sparkles, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Route, SkipForward, Sparkles, Trash2 } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
@@ -24,7 +24,7 @@ function Art({ src, alt, className }: { src: string | null | undefined; alt: str
 
 /** Visual "maze solver": the path walked so far, and the two doors ahead. */
 export function PathMaze() {
-  const { radio, upNext, upSkip, events, spotifyIdle, sessionLive } = useRadio();
+  const { radio, upNext, upSkip, spotifyIdle, sessionLive } = useRadio();
 
   return (
     <div className="border-b px-4 py-4">
