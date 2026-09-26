@@ -296,6 +296,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
         const page: { items: (Pl | null)[]; next: string | null } = await spotifyGet(token, plNext);
         for (const p of page.items ?? []) if (p && p.owner?.id === me.id) allPlaylists.push(p);
         plNext = page.next;
+        if (plNext) await pace();
       } catch (e) {
         console.error("playlist list failed", e);
         limited = true;
