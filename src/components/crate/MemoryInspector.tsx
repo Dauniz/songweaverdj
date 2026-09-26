@@ -21,7 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { getMemoryStatus, refreshMemories } from "@/lib/memory.functions";
+import { getMemoryStatus, refreshMemories, resetMemoryLog } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
 import { PathMaze } from "@/components/crate/PathMaze";
 
@@ -78,6 +78,10 @@ export function MemoryInspector() {
   const qc = useQueryClient();
   const [showLog, setShowLog] = useState(false);
   const [showSkills, setShowSkills] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetText, setResetText] = useState("");
+  const [resetting, setResetting] = useState(false);
+  const reset = useServerFn(resetMemoryLog);
   const refresh = useServerFn(refreshMemories);
   const status = useServerFn(getMemoryStatus);
   const { data: cfg } = useQuery({ queryKey: ["memwal-status"], queryFn: () => status() });
