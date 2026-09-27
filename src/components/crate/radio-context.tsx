@@ -180,6 +180,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const jumps = useRef<number[]>([]);
   /** While set, Crate stops reacting to Spotify: the listener is being asked to slow down. */
   const cooldownUntil = useRef(0);
+  const calmingRef = useRef(false);
   // When Crate last moved to a new song — rapid skips right after this are followed, not re-rooted.
   const lastTransition = useRef(0);
   const idleSince = useRef(0);
