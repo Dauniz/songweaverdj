@@ -1010,13 +1010,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           const at = lineup.current.indexOf(current.spotify_id);
           const landed = lineup.current.indexOf(state.spotifyId);
           const steps = at >= 0 && landed > at ? landed - at : 0;
-          jumps.current = [...jumps.current.filter((t) => Date.now() - t < 3_000), Date.now()];
-          const bursts = jumps.current.length + Math.max(0, steps - 1);
           // Skipped past the whole chain (skip 1, 2 and 3): pause, warn, then restart clean
           // once Crate has songs for the new angle ready.
           const ranOff =
             landed < 0 && lineup.current.length >= 3 && at >= 0 && at === lineup.current.length - 1;
-          if (ranOff || bursts >= 4 || (landed < 0 && jumps.current.length >= 3)) {
+          // A song outside Crate's line-up (and not a run-off) is the listener's own pick in
+          // Spotify — never count it as a skip burst, always re-root from it.
+          const manualPick = landed < 0 && !ranOff;
+          if (!manualPick) {
+            jumps.current = [...jumps.current.filter((t) => Date.now() - t < 3_000), Date.now()];
+          }
+          const bursts = jumps.current.length + Math.max(0, steps - 1);
+          if (!manualPick && (ranOff || bursts >= 4)) {
             await calmDown();
             return;
           }
@@ -1044,7 +1049,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             acceptObserved(landedTrack, "skipped", false, state.progressMs, state.durationMs);
             setRadio((s) => ({ ...s, consecutiveSkips: Math.max(2, steps), road: "mixed" }));
             setAskSteer(true);
-          } else if (rapid && outcome === "skipped") {
+          } else if (!manualPick && landed >= 0 && rapid && outcome === "skipped") {
             // Skipped again before the next door was lined up: Spotify fell off the end of
             // the list. Keep up — follow the skip road instead of treating it as your own pick.
             advancing.current = true;
