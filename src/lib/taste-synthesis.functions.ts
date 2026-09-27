@@ -16,10 +16,9 @@ export const synthesizeMemories = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { synthesizeTasteMemories } = await import("./taste-synthesis.server");
-    const { data: conn } = await context.supabase
-      .from("spotify_connections")
-      .select("display_name")
-      .maybeSingle();
+    const claims = context.claims as { email?: string; user_metadata?: { full_name?: string; name?: string } };
+    const name =
+      claims?.user_metadata?.full_name ?? claims?.user_metadata?.name ?? claims?.email?.split("@")[0] ?? null;
     try {
       const r = await synthesizeTasteMemories(context.supabase, context.userId, {
         sessionId: data.sessionId,
