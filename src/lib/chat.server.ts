@@ -10,7 +10,7 @@ import {
 } from "./ai/run-id.server";
 import { recallMemories, submitMemory } from "./memwal.server";
 
-const MODEL = "openai/gpt-6-astra";
+const MODEL = "openai/gpt-6-luna";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {

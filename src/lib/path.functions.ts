@@ -52,7 +52,7 @@ function lensRule(lens: LensId | null, step: number) {
   }
 }
 
-const MODEL = "openai/gpt-6-astra";
+const MODEL = "openai/gpt-6-luna";
 
 type Row = {
   id: string;

@@ -5,7 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { createLovableAiGatewayRunIdFetch } from "./ai/run-id.server";
 import { submitMemory, type MemoryKind } from "./memwal.server";
 
-const MODEL = "openai/gpt-6-astra";
+const MODEL = "openai/gpt-6-luna";
 const KINDS: MemoryKind[] = ["taste", "genre", "mood_trigger", "skipped", "session", "favorite"];
 
 type Db = SupabaseClient<Database>;
