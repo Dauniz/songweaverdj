@@ -155,7 +155,7 @@ export async function synthesizeTasteMemories(
     .from("listening_events")
     .select("event, track_name, artists, mode, session_id, created_at")
     .order("created_at", { ascending: false })
-    .limit(opts.scope === "session" ? 60 : 300);
+    .limit(opts.scope === "session" ? 60 : 600);
   if (opts.scope === "session" && opts.sessionId) q = q.eq("session_id", opts.sessionId);
   const { data: rows } = await q;
   const events = (rows ?? []).reverse() as EventRow[];
