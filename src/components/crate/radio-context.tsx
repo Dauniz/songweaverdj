@@ -192,6 +192,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // When Crate last moved to a new song — rapid skips right after this are followed, not re-rooted.
   const lastTransition = useRef(0);
   const idleSince = useRef(0);
+  // Require several fresh, visible-tab snapshots before calling Spotify idle.
+  // A single stale `is_playing: false` response is common around device/track handovers.
+  const idlePolls = useRef(0);
   const [events, setEvents] = useState<MazeEvent[]>([]);
   const eventsRef = useRef(events);
   eventsRef.current = events;
@@ -609,6 +612,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             ...reserveIds,
           ];
           setPlaybackIssue(null);
+          idleSince.current = 0;
+          idlePolls.current = 0;
+          setSpotifyIdle(false);
           door.current = nextId && skipDoor ? { forId: track.spotify_id, track: skipDoor } : null;
           if (!positionMs) {
             lastTransition.current = Date.now();
@@ -944,11 +950,35 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const current = radioRef.current.current;
       if (!current?.spotify_id || advancing.current || committing.current) return;
       if (Date.now() < cooldownUntil.current) return; // catching our breath
+      // Polling is throttled while Spotify is foregrounded on mobile. Ignore those stale
+      // snapshots and require a fresh observation after Songweaver becomes visible again.
+      if (document.hidden) {
+        idleSince.current = 0;
+        idlePolls.current = 0;
+        return;
+      }
       try {
         const state = await playbackFn();
+        // The request may have started just before Crate began a hand-over or deliberate
+        // skip-spam pause. Discard that now-stale response instead of surfacing it as idle.
+        if (calmingRef.current || committing.current || swapping.current) {
+          idleSince.current = 0;
+          idlePolls.current = 0;
+          return;
+        }
         const previous = lastPlayback.current;
-        const playing = state.status === "ready" && state.isPlaying;
+        // Spotify occasionally reports `is_playing: false` while progress is still moving.
+        // Treat advancing progress as authoritative so a transient API snapshot never raises
+        // the warning over music that is audibly playing.
+        const progressMoved =
+          state.status === "ready" &&
+          state.spotifyId === previous.spotifyId &&
+          state.progressMs > previous.progressMs + 250;
+        const playing = state.status === "ready" && (state.isPlaying || progressMoved);
         if (!playing) {
+          // Connection/API failures are not proof that playback stopped. Keep the last known
+          // live state and let the next poll recover instead of showing a misleading warning.
+          if (state.status !== "ready" && state.status !== "idle" && state.status !== "no_device") return;
           // Spotify reports no open device at all → Spotify is closed; end the session.
           if (state.status === "idle" || state.status === "no_device") {
             if (!noDeviceSince.current) noDeviceSince.current = Date.now();
@@ -968,9 +998,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
               return;
             }
           } else noDeviceSince.current = 0;
-          if (idleSince.current && Date.now() - idleSince.current > 12_000) setSpotifyIdle(true);
           if (!idleSince.current) idleSince.current = Date.now();
-          else if (Date.now() - idleSince.current > 30 * 60_000) {
+          idlePolls.current += 1;
+          if (idlePolls.current >= 5 && Date.now() - idleSince.current > 15_000) setSpotifyIdle(true);
+          if (Date.now() - idleSince.current > 30 * 60_000) {
             stopRadio(); // idle ~30 min: hand Spotify back
             return;
           }
@@ -980,6 +1011,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           return;
         } else {
           idleSince.current = 0;
+          idlePolls.current = 0;
           noDeviceSince.current = 0;
           setSpotifyIdle(false);
         }
