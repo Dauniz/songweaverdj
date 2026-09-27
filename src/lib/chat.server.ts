@@ -10,7 +10,7 @@ import {
 } from "./ai/run-id.server";
 import { recallMemories, submitMemory } from "./memwal.server";
 
-const MODEL = "openai/gpt-6-astra";
+const MODEL = "openai/gpt-6-luna";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -165,10 +165,6 @@ DEEP CUTS IS ON: at least 5 of the picks must come from playlists dated 12+ mont
     providerOptions: {
       openai: {
         store: false,
-        forceReasoning: true,
-        reasoningEffort: "low",
-        reasoningSummary: "auto",
-        include: ["reasoning.encrypted_content"],
       },
     },
     tools: {

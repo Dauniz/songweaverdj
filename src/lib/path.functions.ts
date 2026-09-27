@@ -52,7 +52,7 @@ function lensRule(lens: LensId | null, step: number) {
   }
 }
 
-const MODEL = "openai/gpt-6-astra";
+const MODEL = "openai/gpt-6-luna";
 
 type Row = {
   id: string;
@@ -457,7 +457,7 @@ Pick the next song.`;
       system,
       messages: [{ role: "user", content: live }],
       stopWhen: stepCountIs(1),
-      providerOptions: { openai: { store: false, reasoningEffort: "low" } },
+      providerOptions: { openai: { store: false } },
       tools: {
         pick_next: tool({
           description: "Choose the next song.",
