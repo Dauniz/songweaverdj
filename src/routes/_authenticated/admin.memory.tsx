@@ -38,6 +38,9 @@ function toCsv(users: Data["users"]) {
   return rows.map((r) => r.map(esc).join(",")).join("\n");
 }
 
+/** Durable anchors first, then single-session observations, then raw notes. */
+const rank = (origin: string) => (origin === "cross_session" ? 2 : origin === "synthesis" ? 1 : 0);
+
 function AdminMemory() {
   const fetchAll = useServerFn(getAllTesterMemories);
   const { data, isLoading, error } = useQuery({ queryKey: ["admin-memory"], queryFn: () => fetchAll(), retry: false });
