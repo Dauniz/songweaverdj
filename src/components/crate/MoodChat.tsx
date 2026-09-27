@@ -256,7 +256,6 @@ export function MoodChat() {
 
   const composer = (
     <div
-      data-onboarding="prompt"
       className={cn(
         "composer-reveal w-full bg-background/80 backdrop-blur",
         empty
@@ -265,6 +264,7 @@ export function MoodChat() {
       )}
     >
       <div className="mx-auto w-full max-w-3xl">
+        <div data-onboarding="prompt">
         <div className={empty ? "mb-4" : "pt-3"}>
           <LibrarySearch />
         </div>
