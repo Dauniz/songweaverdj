@@ -871,12 +871,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // Never fall back to the old queued songs: Spotify's "Next up" must mirror the screen.
       noPlayFor.current = "";
       const ok = await startSpotifyPlayback(cur, true, skip, Math.max(1, Math.round(pos)), then?.track ?? null);
-      if (!ok && !cancelled && radioRef.current.current?.spotify_id === cur.spotify_id) {
+      const curId = cur.spotify_id;
+      if (!ok && curId && !cancelled && radioRef.current.current?.spotify_id === curId) {
         // Spotify didn't take the new list: show the song it will really play on a skip.
-        const i = lineup.current.indexOf(cur.spotify_id);
+        const i = lineup.current.indexOf(curId);
         const queued = i >= 0 ? lineupTracks.current.get(lineup.current[i + 1] ?? "") : undefined;
         if (queued) {
-          door.current = { forId: cur.spotify_id, track: queued };
+          door.current = { forId: curId, track: queued };
           setUpSkip({ track: queued, road: advance(radioRef.current, "skipped").road });
           pushSpotifyLog({ kind: "event", at: Date.now(), text: `Resend failed — screen reverted to Spotify's queued "${queued.name}"` });
         }
