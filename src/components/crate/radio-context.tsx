@@ -836,14 +836,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) return;
       if (swapping.current === cur.spotify_id) return; // end-of-song hand-over owns the line-up now
       const pre = preSkip.current?.forId === skip.spotify_id ? preSkip.current.branch : null;
-      const then = pre?.skip?.track && pre.skip.track.spotify_id !== skip.spotify_id ? pre.skip : null;
+      const then = pre?.track && pre.track.spotify_id !== skip.spotify_id ? pre : null;
       // Read Spotify's exact position right before sending so the resume point is seamless:
       // one single call, early in the song, starting at the precise millisecond.
       let pos: number | null = null;
       try {
+        const t0 = Date.now();
         const st = await playbackFn();
         if (st.status === "ready" && st.spotifyId === cur.spotify_id) {
-          pos = st.progressMs + Math.max(0, Date.now() - st.fetchedAt) + 120;
+          pos = st.progressMs + Math.round((Date.now() - t0) / 2) + 150;
         }
       } catch {
         /* fall back to estimate */
@@ -854,7 +855,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         pos = Math.max(0, lp.progressMs + (Date.now() - lp.at));
       }
       // Never fall back to the old queued songs: Spotify's "Next up" must mirror the screen.
-      door.current = { forId: cur.spotify_id!, track: skip };
       noPlayFor.current = "";
       await startSpotifyPlayback(cur, true, skip, Math.max(1, Math.round(pos)), then?.track ?? null);
     })();
