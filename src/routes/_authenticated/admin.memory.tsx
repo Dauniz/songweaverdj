@@ -38,6 +38,9 @@ function toCsv(users: Data["users"]) {
   return rows.map((r) => r.map(esc).join(",")).join("\n");
 }
 
+/** Durable anchors first, then single-session observations, then raw notes. */
+const rank = (origin: string) => (origin === "cross_session" ? 2 : origin === "synthesis" ? 1 : 0);
+
 function AdminMemory() {
   const fetchAll = useServerFn(getAllTesterMemories);
   const { data, isLoading, error } = useQuery({ queryKey: ["admin-memory"], queryFn: () => fetchAll(), retry: false });
@@ -67,11 +70,12 @@ function AdminMemory() {
         </div>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
           ["Testers", data.users.length],
           ["Memories", total],
-          ["Crate insights", data.users.reduce((n, u) => n + u.memories.filter((m) => m.origin === "synthesis").length, 0)],
+          ["Session observations", data.users.reduce((n, u) => n + u.memories.filter((m) => m.origin === "synthesis").length, 0)],
+          ["Cross-session anchors", data.users.reduce((n, u) => n + u.memories.filter((m) => m.origin === "cross_session").length, 0)],
           ["Stored on Walrus", stored],
         ].map(([l, v]) => (
           <div key={l} className="rounded-lg border bg-card p-4">
@@ -80,6 +84,7 @@ function AdminMemory() {
           </div>
         ))}
       </div>
+
 
       <div className="mb-4 flex gap-2">
         <Button size="sm" variant="outline" onClick={() => download(`songweaver-memory-${stamp}.csv`, toCsv(data.users), "text/csv")}>
@@ -102,24 +107,35 @@ function AdminMemory() {
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">
-                {u.memories.length} memories · {u.memories.filter((m) => m.origin === "synthesis").length} Crate insights · {u.plays} plays · {u.skips} skips
+                {u.memories.length} memories · {u.memories.filter((m) => m.origin === "cross_session").length} anchors ·{" "}
+                {u.memories.filter((m) => m.origin === "synthesis").length} session insights · {u.plays} plays · {u.skips} skips
               </div>
             </button>
             {open === u.id && (
               <div className="border-t p-4">
                 {u.memories.length === 0 && <p className="text-sm text-muted-foreground">No memories yet.</p>}
                 <ul className="space-y-2">
-                  {[...u.memories].sort((a, b) => Number(b.origin === "synthesis") - Number(a.origin === "synthesis")).map((m) => (
-                    <li key={m.id} className={m.origin === "synthesis" ? "rounded-md border border-chart-4/40 bg-chart-4/5 p-2 text-sm" : "p-2 text-sm"}>
+                  {[...u.memories]
+                    .sort((a, b) => rank(b.origin) - rank(a.origin))
+                    .map((m) => (
+                    <li key={m.id} className={m.origin === "cross_session" ? "rounded-md border border-chart-5/40 bg-chart-5/5 p-2 text-sm" : m.origin === "synthesis" ? "rounded-md border border-chart-4/40 bg-chart-4/5 p-2 text-sm" : "p-2 text-sm"}>
                       <div className="text-xs text-muted-foreground">
-                        {new Date(m.created_at).toLocaleString()} · {m.origin === "synthesis" ? <span className="font-semibold text-chart-4">Crate insight</span> : m.origin} · {m.kind} ·{" "}
-                        <span className={m.status === "stored" ? "text-primary" : ""}>{m.status}</span>
+                        {new Date(m.created_at).toLocaleString()} ·{" "}
+                        {m.origin === "cross_session" ? (
+                          <span className="font-semibold text-chart-5">Cross-session anchor</span>
+                        ) : m.origin === "synthesis" ? (
+                          <span className="font-semibold text-chart-4">Session observation</span>
+                        ) : (
+                          m.origin
+                        )}{" "}
+                        · {m.kind} · <span className={m.status === "stored" ? "text-primary" : ""}>{m.status}</span>
                         {m.blob_id && !m.blob_id.startsWith("job:") && <span className="ml-1 font-mono">· {m.blob_id.slice(0, 16)}…</span>}
                       </div>
                       <p>{m.content}</p>
                     </li>
                   ))}
                 </ul>
+
               </div>
             )}
           </li>

@@ -31,9 +31,39 @@ function period(p: string | null) {
   return d.toLocaleString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
 }
 
+/**
+ * A long run of finished songs with zero interaction is more likely someone who
+ * walked away (or is deep in flow) than a run of deliberate favourites. Only
+ * runs of this length or longer are treated as unattended.
+ */
+const PASSIVE_STREAK = 12;
+
+/** Flag indexes that sit inside a long, interaction-free run of play-throughs. */
+function passiveIndexes(events: EventRow[]) {
+  const passive = new Set<number>();
+  let run: number[] = [];
+  const flush = () => {
+    if (run.length >= PASSIVE_STREAK) for (const i of run) passive.add(i);
+    run = [];
+  };
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]!;
+    const sameSession = i > 0 && e.session_id === events[i - 1]!.session_id;
+    if (e.event !== "play_through") {
+      flush();
+      continue;
+    }
+    if (!sameSession) flush();
+    run.push(i);
+  }
+  flush();
+  return passive;
+}
+
 /** Build a dense, human-readable trace of how the user actually listened. */
 function traceLines(events: EventRow[], meta: Map<string, { source: string; period: string | null; album: string | null }>, tzOffsetMin: number) {
   const lines: string[] = [];
+  const passive = passiveIndexes(events);
   for (let i = 0; i < events.length; i++) {
     const e = events[i]!;
     const next = events[i + 1];
@@ -53,11 +83,38 @@ function traceLines(events: EventRow[], meta: Map<string, { source: string; peri
     lines.push(
       `${hhmm(e.created_at, tzOffsetMin)} | ${verdict} | ${e.track_name} — ${e.artists}` +
         (m?.source ? ` | from "${m.source}"${m.period ? ` (${period(m.period)})` : ""}` : "") +
-        (e.mode ? ` | road ${e.mode}` : ""),
+        (e.mode ? ` | road ${e.mode}` : "") +
+        (passive.has(i) ? " | UNATTENDED?" : ""),
     );
   }
   return lines;
 }
+
+/** One line per session: when it ran, how long, how engaged the listener was. */
+function sessionLines(events: EventRow[], tzOffsetMin: number) {
+  const byId = new Map<string, EventRow[]>();
+  for (const e of events) {
+    const id = e.session_id ?? "none";
+    (byId.get(id) ?? byId.set(id, []).get(id)!).push(e);
+  }
+  const passive = passiveIndexes(events);
+  const passiveKeys = new Set([...passive].map((i) => `${events[i]!.session_id}|${events[i]!.created_at}`));
+  const out: string[] = [];
+  for (const [id, rows] of byId) {
+    const skips = rows.filter((r) => r.event === "early_skip").length;
+    const plays = rows.filter((r) => r.event === "play_through").length;
+    const unattended = rows.filter((r) => passiveKeys.has(`${r.session_id}|${r.created_at}`)).length;
+    const first = rows[0]!;
+    const last = rows[rows.length - 1]!;
+    const mins = Math.round((new Date(last.created_at).getTime() - new Date(first.created_at).getTime()) / 60000);
+    out.push(
+      `session ${id.slice(0, 8)} | started ${hhmm(first.created_at, tzOffsetMin)} | ${mins} min | ${plays} finished, ${skips} skipped` +
+        (unattended ? ` | ${unattended} finished inside an unattended run` : " | actively steered"),
+    );
+  }
+  return out;
+}
+
 
 export type Insight = { kind: MemoryKind; content: string };
 
@@ -98,7 +155,7 @@ export async function synthesizeTasteMemories(
     .from("listening_events")
     .select("event, track_name, artists, mode, session_id, created_at")
     .order("created_at", { ascending: false })
-    .limit(opts.scope === "session" ? 60 : 300);
+    .limit(opts.scope === "session" ? 60 : 600);
   if (opts.scope === "session" && opts.sessionId) q = q.eq("session_id", opts.sessionId);
   const { data: rows } = await q;
   const events = (rows ?? []).reverse() as EventRow[];
@@ -130,16 +187,35 @@ export async function synthesizeTasteMemories(
   const plays = events.filter((e) => e.event === "play_through").length;
 
   const who = opts.displayName?.trim() || "The listener";
-  const system = `You are Crate, a music companion who has been sitting next to ${who} watching exactly when their finger hits skip.
+  const cross = opts.scope === "history";
 
-Write 1–2 memories about their taste that ONLY someone observing this listening trace could know.
-
-Hard rules:
+  const shared = `Hard rules:
 - NEVER state something obvious from their playlists ("loves R&B", "listens to hip hop"). That is banned.
 - Look for: contradictions inside a genre (loves X but skips the sub-style Y), production texture (drums, bass, reverb, vocals vs instrumental), patience patterns (how many seconds before a skip, which songs they always finish), time-of-day rituals (late night vs afternoon behaviour), nostalgia vs exploration (old playlist months vs recent), artists they seem to have outgrown, and songs they protect and return to.
+- Lines marked UNATTENDED? sit inside a run of ${PASSIVE_STREAK}+ finished songs with zero interaction — the listener may simply have walked away or been deep in flow. Never build a conclusion on those alone; they only count as weak support next to an active signal (a deliberate skip, a manual search, a road change, a return in another session).
 - Be concrete: name real artists, songs or playlist months from the trace.
 - Third person, one or two sentences each, warm and specific, English.
-- Do not repeat or lightly reword an existing memory.
+- Do not repeat or lightly reword an existing memory.`;
+
+  const system = cross
+    ? `You are Crate, a music companion who has followed ${who} across many separate listening sessions.
+
+Write 1–2 DURABLE taste memories — patterns that hold up across sessions, not moods from one evening.
+
+- Only write a memory you can support with evidence from at least 3 distinct sessions (or a clear, repeated time-of-day ritual). If nothing reaches that bar, return an empty array [].
+- Say how the pattern shows across sessions ("across seven sessions", "every session started after 23:00"), and mention taste that has shifted over time when you see it.
+${shared}
+
+Return ONLY a JSON array, no prose:
+[{"kind":"taste","content":"..."}]
+kind is one of: taste, genre, mood_trigger, skipped, session, favorite.
+
+Existing memories (do not repeat):
+${known.length ? known.map((c) => `- ${c}`).join("\n") : "- (none)"}`
+    : `You are Crate, a music companion who has been sitting next to ${who} watching exactly when their finger hits skip.
+
+Write 1–2 memories about this single session that ONLY someone observing this listening trace could know. Keep them to what actually happened in this session; if the session was mostly unattended playback with no active choices, return an empty array [].
+${shared}
 
 Return ONLY a JSON array, no prose:
 [{"kind":"taste","content":"..."}]
@@ -149,7 +225,7 @@ Existing memories (do not repeat):
 ${known.length ? known.map((c) => `- ${c}`).join("\n") : "- (none)"}`;
 
   const prompt = `Listening trace (${events.length} events across ${sessions} session(s); ${plays} played through, ${skips} skipped early). Local times.
-
+${cross ? `\nSessions:\n${sessionLines(events, tz).join("\n")}\n` : ""}
 ${traceLines(events, meta, tz).join("\n")}`;
 
   const runIdFetch = createLovableAiGatewayRunIdFetch();
@@ -187,7 +263,7 @@ ${traceLines(events, meta, tz).join("\n")}`;
       user_id: userId,
       kind: ins.kind,
       content: ins.content,
-      origin: "synthesis",
+      origin: cross ? "cross_session" : "synthesis",
       blob_id: jobId ? `job:${jobId}` : null,
       status: jobId ? "pending" : error === "not_configured" ? "local" : "failed",
     });
