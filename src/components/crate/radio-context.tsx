@@ -10,6 +10,7 @@ import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack, pathReserves } from "@/lib/path.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
+import { pushSpotifyLog, ackSpotifySend, observeSpotify } from "@/lib/spotify-log";
 import { endSpotifySession, getSpotifyAuthUrl, getSpotifyPlayback, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
@@ -645,7 +646,20 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       setRetrying(true);
       try {
-        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, thenId, reserveIds, positionMs } });
+        const nameOf = (id: string) =>
+          id === track.spotify_id ? track.name : id === nextId ? skipDoor?.name ?? id : id === thenId ? thenDoor?.name ?? id
+            : reserveTracks.find((t) => t.spotify_id === id)?.name ?? id;
+        const logId = pushSpotifyLog({
+          kind: "send",
+          at: Date.now(),
+          positionMs,
+          uris: [track.spotify_id, nextId, thenId, ...reserveIds].filter((x): x is string => Boolean(x)).map((id) => ({ id, name: nameOf(id) })),
+        });
+        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, thenId, reserveIds, positionMs } }).catch((err) => {
+          ackSpotifySend(logId, "error");
+          throw err;
+        });
+        ackSpotifySend(logId, result.status);
         if (result.status === "playing") {
           lineup.current = [
             track.spotify_id,
@@ -969,6 +983,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     door.current = null;
     lineup.current = [];
     void pauseFn().catch(() => undefined);
+    pushSpotifyLog({ kind: "event", at: Date.now(), text: "PAUSE — skipped past the buffer, Crate catching its breath" });
     setCalming(true);
     note("think", "Too many skips at once — pausing until the clicking stops, then weaving a fresh song");
     const s = radioRef.current;
@@ -1046,6 +1061,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       try {
         const state = await playbackFn();
+        if (state.status === "ready") {
+          observeSpotify(state.spotifyId, [state.name, state.artists].filter(Boolean).join(" — ") || state.spotifyId || "", state.progressMs, state.isPlaying);
+        }
         // The request may have started just before Crate began a hand-over or deliberate
         // skip-spam pause. Discard that now-stale response instead of surfacing it as idle.
         if (calmingRef.current || committing.current || swapping.current) {

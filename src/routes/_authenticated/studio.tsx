@@ -18,6 +18,7 @@ import { BugReportButton } from "@/components/BugReportButton";
 import { OnboardingTour } from "@/components/crate/OnboardingTour";
 import logo from "@/assets/crate-logo.jpg";
 import { Button } from "@/components/ui/button";
+import { SpotifyLogPanel } from "@/components/crate/SpotifyLogPanel";
 
 export const Route = createFileRoute("/_authenticated/studio")({
   head: () => ({
@@ -51,6 +52,7 @@ function Studio() {
     <RadioProvider>
       <StudioLayout mobileTab={mobileTab} onTab={setMobileTab} onSignOut={signOut} />
       <BugReportButton />
+      <SpotifyLogPanel />
     </RadioProvider>
   );
 }
