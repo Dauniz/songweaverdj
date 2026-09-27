@@ -659,11 +659,20 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // Let the song play out fully — only swap the line-up once it has actually ended.
       await new Promise((res) => setTimeout(res, Math.max(0, deadline - Date.now() + 400)));
       const now = radioRef.current;
-      if (now.sessionId !== s.sessionId || now.current?.spotify_id !== cur.spotify_id) return; // you moved on yourself
+      if (now.sessionId !== s.sessionId || now.current?.spotify_id !== cur.spotify_id) {
+        if (swapping.current === cur.spotify_id) swapping.current = "";
+        return; // you moved on yourself
+      }
       // Tell Spotify first; only move Crate forward once Spotify actually took the finish pick.
       noPlayFor.current = finishB.track.spotify_id;
-      let ok = await startSpotifyPlayback(finishB.track, true, skipB?.track ?? null, undefined, thenB?.track ?? null);
-      if (!ok) ok = await startSpotifyPlayback(finishB.track, true, null);
+      committing.current = true;
+      let ok = false;
+      try {
+        ok = await startSpotifyPlayback(finishB.track, true, skipB?.track ?? null, undefined, thenB?.track ?? null);
+        if (!ok) ok = await startSpotifyPlayback(finishB.track, true, null);
+      } finally {
+        committing.current = false;
+      }
       if (!ok) {
         noPlayFor.current = "";
         swapping.current = "";
@@ -677,7 +686,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       branches.current = null;
       setRadio(afterState);
       noteMove(cur, "played", finishB.track, finishB.road);
-      lastPlayback.current = { ...lastPlayback.current, observed: true };
+      lastPlayback.current = {
+        spotifyId: finishB.track.spotify_id, ratio: 0, observed: true,
+        progressMs: 0, durationMs: 0, at: Date.now(),
+      };
+      lastTransition.current = Date.now();
+      swapping.current = ""; // hand-over done — keep watching for your skips
     },
     [fetchBranch, log, note, startSpotifyPlayback, noteMove],
   );
