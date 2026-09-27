@@ -6,7 +6,7 @@ export type SpotifyLogEntry =
       id: number;
       at: number;
       uris: { id: string; name: string }[];
-      positionMs?: number;
+      positionMs?: number | undefined;
       ackAt?: number;
       status?: string;
     }
