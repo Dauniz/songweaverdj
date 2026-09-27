@@ -16,6 +16,7 @@ import { Route as CrateInfoRouteImport } from './routes/crate-info'
 import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated/studio'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
+import { Route as AuthenticatedAdminBugsRouteImport } from './routes/_authenticated/admin.bugs'
 import { Route as ApiPublicSpotifyCallbackRouteImport } from './routes/api/public/spotify/callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -52,6 +53,11 @@ const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
   path: '/api/transcribe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAdminBugsRoute = AuthenticatedAdminBugsRouteImport.update({
+  id: '/admin/bugs',
+  path: '/admin/bugs',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const ApiPublicSpotifyCallbackRoute =
   ApiPublicSpotifyCallbackRouteImport.update({
     id: '/api/public/spotify/callback',
@@ -66,6 +72,7 @@ export interface FileRoutesByFullPath {
   '/studio': typeof AuthenticatedStudioRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/admin/bugs': typeof AuthenticatedAdminBugsRoute
   '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/studio': typeof AuthenticatedStudioRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/admin/bugs': typeof AuthenticatedAdminBugsRoute
   '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
 export interface FileRoutesById {
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/_authenticated/studio': typeof AuthenticatedStudioRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
+  '/_authenticated/admin/bugs': typeof AuthenticatedAdminBugsRoute
   '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
 export interface FileRouteTypes {
@@ -97,6 +106,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/api/chat'
     | '/api/transcribe'
+    | '/admin/bugs'
     | '/api/public/spotify/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/studio'
     | '/api/chat'
     | '/api/transcribe'
+    | '/admin/bugs'
     | '/api/public/spotify/callback'
   id:
     | '__root__'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/_authenticated/studio'
     | '/api/chat'
     | '/api/transcribe'
+    | '/_authenticated/admin/bugs'
     | '/api/public/spotify/callback'
   fileRoutesById: FileRoutesById
 }
@@ -180,6 +192,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTranscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/admin/bugs': {
+      id: '/_authenticated/admin/bugs'
+      path: '/admin/bugs'
+      fullPath: '/admin/bugs'
+      preLoaderRoute: typeof AuthenticatedAdminBugsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/public/spotify/callback': {
       id: '/api/public/spotify/callback'
       path: '/api/public/spotify/callback'
@@ -192,10 +211,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedStudioRoute: typeof AuthenticatedStudioRoute
+  AuthenticatedAdminBugsRoute: typeof AuthenticatedAdminBugsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedStudioRoute: AuthenticatedStudioRoute,
+  AuthenticatedAdminBugsRoute: AuthenticatedAdminBugsRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
