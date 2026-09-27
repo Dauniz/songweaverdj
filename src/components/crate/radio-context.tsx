@@ -600,7 +600,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             deepCuts: deepCutsRef.current,
             avoidArtists: avoidArtists(),
             excludeSpotifyIds: played.current.slice(-500),
-            count: 2,
+            count: 3,
           },
         });
         if (!cancelled) reserves.current = { forId: cur.spotify_id!, tracks: r.tracks as RadioTrack[] };
