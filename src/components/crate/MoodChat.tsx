@@ -261,7 +261,7 @@ export function MoodChat() {
       className={cn(
         "composer-reveal w-full bg-background/80 backdrop-blur",
         empty
-          ? "mt-10 px-5 pb-6 lg:px-7"
+          ? "mt-6 px-0 pb-4 sm:mt-10 sm:px-5 sm:pb-6 lg:px-7"
           : "border-t px-5 pb-8 pt-3 lg:px-7 lg:pb-10",
       )}
     >
@@ -276,7 +276,7 @@ export function MoodChat() {
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="Describe the vibe, setting, or a song to start from…"
-            className="min-h-28 px-4 py-3 text-lg leading-7 placeholder:text-base"
+            className="min-h-24 px-4 py-3 text-base leading-6 placeholder:text-base sm:min-h-28 sm:text-lg sm:leading-7"
           />
           <PromptInputFooter className="flex items-center justify-between px-3 pb-3">
             <div className="flex items-center gap-2">
@@ -411,16 +411,16 @@ export function MoodChat() {
 
   if (empty) {
     return (
-      <div className="chat-enter scrollbar-thin flex h-full flex-col items-center justify-start overflow-y-auto px-4 pb-10 pt-44 sm:px-6 sm:pb-16 sm:pl-72 sm:pt-36 xl:justify-center xl:pb-24 xl:pl-0 xl:pt-0 xl:max-2xl:pl-72 [@media(max-height:800px)]:justify-start [@media(max-height:800px)]:pb-8 [@media(max-height:800px)]:pt-7">
+      <div className="chat-enter scrollbar-thin flex h-full flex-col items-center justify-start overflow-y-auto px-4 pb-6 pt-44 sm:px-6 sm:pb-16 sm:pl-72 sm:pt-36 xl:justify-center xl:pb-24 xl:pl-0 xl:pt-0 xl:max-2xl:pl-72 [@media(max-height:850px)]:pt-40 [@media(max-height:800px)]:justify-start [@media(max-height:800px)]:pb-4 [@media(max-height:800px)]:pt-40 sm:[@media(max-height:800px)]:pt-7">
         <div className="flex flex-col items-center text-center">
           <img
             src={logo}
             alt="Crate"
             width={80}
             height={80}
-            className="h-16 w-16 rounded-2xl sm:h-20 sm:w-20 [@media(max-height:800px)]:h-14 [@media(max-height:800px)]:w-14"
+            className="h-14 w-14 rounded-2xl sm:h-20 sm:w-20 [@media(max-height:800px)]:h-12 [@media(max-height:800px)]:w-12 sm:[@media(max-height:800px)]:h-14 sm:[@media(max-height:800px)]:w-14"
           />
-          <h2 className="mt-5 max-w-full text-3xl font-bold leading-tight sm:mt-6 sm:text-4xl [@media(max-height:800px)]:mt-3 [@media(max-height:800px)]:text-3xl">
+          <h2 className="mt-4 max-w-full text-3xl font-bold leading-tight sm:mt-6 sm:text-4xl [@media(max-height:800px)]:mt-3 [@media(max-height:800px)]:text-[1.75rem] sm:[@media(max-height:800px)]:text-3xl">
             What does today sound like?
           </h2>
           <p className="mt-3 max-w-lg text-base leading-6 text-muted-foreground sm:text-lg sm:leading-7 [@media(max-height:800px)]:text-base [@media(max-height:800px)]:leading-6">

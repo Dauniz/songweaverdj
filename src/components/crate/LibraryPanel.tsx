@@ -197,7 +197,7 @@ export function LibraryPanel() {
   }
 
   return (
-    <div className="scrollbar-thin fixed left-3 top-16 z-40 max-h-[calc(100dvh-5rem)] w-[min(18rem,calc(100vw-1.5rem))] overflow-y-auto rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur sm:left-4 sm:w-72">
+    <div className="scrollbar-thin fixed left-3 top-16 z-40 max-h-[calc(100dvh-5rem)] w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur sm:left-4 sm:w-72">
       <div className="flex items-center gap-2 text-sm font-semibold">
         <Disc3 className="h-4 w-4 text-primary" /> Spotify
         <TooltipProvider delayDuration={200}>
