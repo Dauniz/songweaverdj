@@ -411,7 +411,7 @@ export function MoodChat() {
 
   if (empty) {
     return (
-      <div className="chat-enter scrollbar-thin flex h-full flex-col items-center justify-start overflow-y-auto px-4 pb-6 pt-44 sm:px-6 sm:pb-16 sm:pl-72 sm:pt-36 xl:justify-center xl:pb-24 xl:pl-0 xl:pt-0 xl:max-2xl:pl-72 [@media(max-height:850px)]:pt-40 [@media(max-height:800px)]:justify-start [@media(max-height:800px)]:pb-4 [@media(max-height:800px)]:pt-40 sm:[@media(max-height:800px)]:pt-7">
+      <div className="chat-enter scrollbar-thin flex h-full flex-col items-center justify-start overflow-y-auto px-4 pb-6 pt-44 sm:px-6 sm:pb-16 sm:pt-36 xl:justify-center xl:pb-24 xl:pl-0 xl:pt-0 xl:max-2xl:pl-72 [@media(max-height:850px)]:pt-40 [@media(max-height:800px)]:justify-start [@media(max-height:800px)]:pb-4 [@media(max-height:800px)]:pt-40 sm:[@media(max-height:800px)]:pt-7">
         <div className="flex flex-col items-center text-center">
           <img
             src={logo}
