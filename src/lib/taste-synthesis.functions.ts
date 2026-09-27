@@ -24,7 +24,7 @@ export const synthesizeMemories = createServerFn({ method: "POST" })
         sessionId: data.sessionId,
         scope: data.scope,
         tzOffsetMin: data.tzOffsetMin,
-        displayName: conn?.display_name ?? null,
+        displayName: name,
       });
       return { saved: r.saved, insights: r.insights };
     } catch (e) {
