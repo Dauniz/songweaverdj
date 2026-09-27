@@ -912,7 +912,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           const steps = at >= 0 && landed > at ? landed - at : 0;
           jumps.current = [...jumps.current.filter((t) => Date.now() - t < 3_000), Date.now()];
           const bursts = jumps.current.length + Math.max(0, steps - 1);
-          if (bursts >= 4 || (steps >= 3 && sinceMove < 2_000)) {
+          // Skipped past the whole chain (skip 1, 2 and 3): pause, warn, restart clean.
+          if (bursts >= 4 || (landed < 0 && jumps.current.length >= 3)) {
             await calmDown();
             return;
           }
