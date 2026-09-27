@@ -180,6 +180,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const jumps = useRef<number[]>([]);
   /** While set, Crate stops reacting to Spotify: the listener is being asked to slow down. */
   const cooldownUntil = useRef(0);
+  const calmingRef = useRef(false);
   // When Crate last moved to a new song — rapid skips right after this are followed, not re-rooted.
   const lastTransition = useRef(0);
   const idleSince = useRef(0);
@@ -323,6 +324,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const prefetch = useCallback(
     (s: RadioState) => {
       if (!s.active || !s.current) return;
+      if (calmingRef.current) return; // wait for the clicking to stop before looking for songs
       const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
       if (branches.current?.key === key) return;
       scoutAbort.current?.abort(); // drop any scouting still running for an old key
@@ -614,6 +616,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const current = radio.current;
     // Crate only touches Spotify playback while a session is live.
     if (!sessionLive || !radio.active || !current?.spotify_id || current.spotify_id.startsWith("demo-")) return;
+    if (calmingRef.current) return;
     if (noPlayFor.current === current.spotify_id) {
       noPlayFor.current = "";
       return; // Spotify is already playing it
@@ -660,6 +663,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const cur = radio.current;
     const skip = upSkip?.track;
     if (!sessionLive || !cur?.spotify_id || !skip?.spotify_id || !isPlayable(skip)) return;
+    if (calmingRef.current) return; // hands off Spotify while Crate waits out the clicking
     if (door.current?.forId === cur.spotify_id && door.current.track.spotify_id === skip.spotify_id) return;
     if (lastPlayback.current.spotifyId !== cur.spotify_id) return;
     // Already lined up behind this song in Spotify (sent one step ahead) — no re-send, no glitch.
@@ -808,34 +812,70 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   /** Skip spamming (many skips in a second): pause, warn, then restart clean. */
   const calmDown = useCallback(async () => {
-    if (Date.now() < cooldownUntil.current) return;
-    cooldownUntil.current = Date.now() + 4_000;
+    if (calmingRef.current || Date.now() < cooldownUntil.current) return;
+    calmingRef.current = true;
+    cooldownUntil.current = Date.now() + 60_000; // held until the clicking stops
     jumps.current = [];
+    // Stop any song scouting that is running: nothing is picked while you keep clicking.
+    scoutAbort.current?.abort();
+    branches.current = null;
+    door.current = null;
+    lineup.current = [];
     void pauseFn().catch(() => undefined);
     setCalming(true);
-    window.setTimeout(() => setCalming(false), 3_500);
-    note("think", "Too many skips at once — pausing a beat, then weaving a fresh song");
+    note("think", "Too many skips at once — pausing until the clicking stops, then weaving a fresh song");
     const s = radioRef.current;
-    const fresh = upSkipRef.current?.track ?? reserves.current.tracks[0] ?? null;
-    await new Promise((res) => setTimeout(res, 2_500));
-    const now = radioRef.current;
-    if (now.sessionId !== s.sessionId || !now.current) {
-      cooldownUntil.current = 0;
-      return;
-    }
-    door.current = null;
-    branches.current = null;
-    lineup.current = [];
-    if (fresh?.spotify_id && isPlayable(fresh)) {
-      noPlayFor.current = fresh.spotify_id;
-      if (await startSpotifyPlayback(fresh, true, null)) {
-        if (now.current.spotify_id) played.current.push(now.current.spotify_id);
-        setRadio({ ...advance(now, "skipped"), current: fresh });
-        note("pick", `Picking up again: "${fresh.name}" by ${fresh.artists}`);
+    try {
+      // Wait for 2 quiet seconds: every further skip (even while paused) restarts the wait.
+      const started = Date.now();
+      let quietSince = Date.now();
+      let seen = "";
+      try {
+        const st = await playbackFn();
+        seen = st.spotifyId ?? "";
+      } catch {
+        /* keep waiting anyway */
       }
+      while (Date.now() - quietSince < 2_000 && Date.now() - started < 20_000) {
+        await new Promise((res) => setTimeout(res, 400));
+        if (radioRef.current.sessionId !== s.sessionId) return;
+        try {
+          const st = await playbackFn();
+          const id = st.spotifyId ?? "";
+          if (id && id !== seen) {
+            seen = id;
+            quietSince = Date.now(); // still clicking — keep waiting
+            void pauseFn().catch(() => undefined);
+          }
+        } catch {
+          /* ignore a hiccup and keep waiting */
+        }
+      }
+      setCalming(false);
+      const now = radioRef.current;
+      if (now.sessionId !== s.sessionId || !now.current) return;
+      // Only now does Crate look for the next song and build a clean line-up.
+      const fresh =
+        upSkipRef.current?.track ??
+        reserves.current.tracks.find(isPlayable) ??
+        (await fetchBranch(advance(now, "skipped")))?.track ??
+        null;
+      if (radioRef.current.sessionId !== s.sessionId) return;
+      if (fresh?.spotify_id && isPlayable(fresh)) {
+        noPlayFor.current = fresh.spotify_id;
+        calmingRef.current = false; // scouting may resume now that a fresh song is starting
+        if (await startSpotifyPlayback(fresh, true, null)) {
+          if (now.current.spotify_id) played.current.push(now.current.spotify_id);
+          setRadio({ ...advance(now, "skipped"), current: fresh });
+          note("pick", `Picking up again: "${fresh.name}" by ${fresh.artists}`);
+        }
+      }
+    } finally {
+      setCalming(false);
+      calmingRef.current = false;
+      cooldownUntil.current = Date.now() + 600;
     }
-    cooldownUntil.current = Date.now() + 600;
-  }, [pauseFn, startSpotifyPlayback, note]);
+  }, [pauseFn, playbackFn, fetchBranch, startSpotifyPlayback, note]);
 
   // Spotify owns playback. While a session is live, mirror what Spotify plays —
   // skips, finishes and songs you pick yourself inside the Spotify app.
