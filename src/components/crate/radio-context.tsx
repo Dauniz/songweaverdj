@@ -189,6 +189,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const playbackWrite = useRef<Promise<void>>(Promise.resolve());
   /** True after the first skip until that song's new authoritative pair is accepted. */
   const awaitingSkipPair = useRef(false);
+  /** Skip landed on a door whose own skip song was already queued: another change before this
+   *  moment is a rapid double skip; after it, a skip onto the queued skip-ahead is allowed. */
+  const quickSkipUntil = useRef(0);
+  /** Prepared while the skip door plays: what to send the moment you skip onto the skip-ahead. */
+  const landingPlan = useRef<{ forId: string; door: Branch; ahead: Branch; generation: number } | null>(null);
   /** After a song change Crate waits one quiet second before scouting, in case you skip again. */
   const settleUntil = useRef(0);
   const [settleTick, setSettleTick] = useState(0);
