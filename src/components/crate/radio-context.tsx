@@ -716,7 +716,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       lastTransition.current = Date.now();
       swapping.current = ""; // hand-over done — keep watching for your skips
     },
-    [fetchBranch, log, note, startSpotifyPlayback, noteMove],
+    [fetchBranch, log, note, startSpotifyPlayback, noteMove, playbackFn],
   );
 
   // Spotify owns playback. While a session is live, mirror what Spotify plays —
