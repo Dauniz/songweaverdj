@@ -298,6 +298,7 @@ const inputSchema = z.object({
   chips: z.array(z.string().max(40)).max(10).default([]),
   lens: z.enum(LENS_IDS).nullable().default(null),
   deepCuts: z.boolean().default(false),
+  tzOffsetMin: z.number().int().min(-900).max(900).default(0),
   avoidArtists: z.array(z.string().max(300)).max(30).default([]),
   excludeSpotifyIds: z.array(z.string()).max(600).default([]),
 });
@@ -380,11 +381,34 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     });
 
 
-    const recalled = await recallMemories(
-      userId,
-      `${data.seedPrompt} ${data.seed.name} ${data.seed.artists}`,
-      6,
-    ).catch(() => []);
+    // Local clock for the listener: lets Crate apply time-of-day / weekday rituals it learned.
+    const local = new Date(Date.now() - data.tzOffsetMin * 60_000);
+    const weekday = local.toLocaleString("en-US", { weekday: "long", timeZone: "UTC" });
+    const hour = local.getUTCHours();
+    const partOfDay = hour < 5 ? "late night" : hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 22 ? "evening" : "late night";
+    const nowLabel = `${weekday} ${partOfDay}, ${String(hour).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
+
+    const [recalled, learned] = await Promise.all([
+      recallMemories(
+        userId,
+        `${weekday} ${partOfDay} ${data.seedPrompt} ${data.seed.name} ${data.seed.artists}`,
+        6,
+      ).catch(() => []),
+      // Crate's own learned knowledge: cross-session anchors, session observations, Feedbacker notes.
+      supabase
+        .from("memory_nodes")
+        .select("content, origin, created_at")
+        .or("origin.eq.cross_session,origin.eq.synthesis,content.like.Note on%")
+        .order("created_at", { ascending: false })
+        .limit(40)
+        .then((r: { data: { content: string; origin: string }[] | null }) => r.data ?? []),
+    ]);
+    const anchors = learned.filter((m) => m.origin === "cross_session").slice(0, 6);
+    const observations = learned.filter((m) => m.origin === "synthesis").slice(0, 4);
+    const notes = learned.filter((m) => m.content.startsWith("Note on")).slice(0, 8);
+    const seen = new Set(learned.map((m) => m.content));
+    const walrus = recalled.filter((m: { text: string }) => ![...seen].some((c) => m.text.includes(c.slice(0, 40))));
+    const bullets = (xs: { content: string }[]) => xs.map((m) => `- ${m.content}`).join("\n") || "- (none yet)";
 
     const roadRule =
       data.road === "vibe"
@@ -394,15 +418,26 @@ export const nextPathTrack = createServerFn({ method: "POST" })
           : "Their last two picks were skipped. Try a fresh angle: blend era and vibe, or change direction noticeably, to figure out what they're after.";
 
     const system = `You are Crate's radio DJ, picking ONE next song at a time like solving a maze.
+It is ${nowLabel} for the listener right now.
 Seed song: "${data.seed.name}" by ${data.seed.artists}.${data.seedPrompt ? `\nThe session started from: "${data.seedPrompt}".` : ""}
 Played through (the road that works): ${liked.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(only the seed so far)"}
 Skipped (wrong turns, avoid similar): ${skipped.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(none)"}
 ${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
 ${roadRule}
 ${lensRule(data.lens, data.history.length)}${data.deepCuts ? "\nDEEP CUTS: prefer forgotten songs they saved long ago and rarely return to — never the obvious staples." : ""}
-Favorites in memory are hints about taste, not a rotation list.
-Walrus Memory:
-${recalled.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
+
+What you have learned about this listener over time — use it to make the pick personal:
+Durable patterns across many sessions (strongest; apply them, especially rituals matching ${weekday} ${partOfDay}):
+${bullets(anchors)}
+Recent single-session observations (weaker hints):
+${bullets(observations)}
+Things they told you about specific songs (Feedbacker — their own words, trust them):
+${bullets(notes)}
+Other Walrus Memory:
+${walrus.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
+
+Priority: live signals in this session (skips, chips, road, side road) beat learned memory. When live signals are neutral, let a matching learned pattern tip the choice. Favorites are hints about taste, not a rotation list.
+If your pick was driven by a learned memory, say so briefly in "why" (e.g. "Your Sunday-evening Swedish ritual").
 
 Candidates (code|title—artist [playlist yyyy-mm]):
 ${lines.join("\n")}
