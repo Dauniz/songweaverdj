@@ -131,7 +131,23 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
       fetch(`https://api.spotify.com/v1/me/player/repeat?state=off&${dev}`, { method: "PUT", headers }),
       fetch(`https://api.spotify.com/v1/me/player/shuffle?state=false&${dev}`, { method: "PUT", headers }),
     ]).catch(() => undefined);
-    return { status: "playing" as const, deviceName: device.name };
+
+    // Spotify can acknowledge a play command even when a stale/inactive device never
+    // starts it. Do not tell Songweaver it is playing until Spotify reports the requested
+    // track as actively playing; otherwise the observer can react to stale player state.
+    for (const delay of [250, 450, 700]) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      const verify = await fetch("https://api.spotify.com/v1/me/player", { headers }).catch(() => null);
+      if (!verify?.ok || verify.status === 204) continue;
+      const playback = (await verify.json()) as { is_playing?: boolean; item?: { id?: string | null } | null };
+      if (playback.is_playing && playback.item?.id === data.spotifyId) {
+        return { status: "playing" as const, deviceName: device.name };
+      }
+    }
+    return {
+      status: "no_device" as const,
+      message: "Spotify didn't start playback. Open Spotify on a device, then try again.",
+    };
   });
 
 export const getSpotifyPlayback = createServerFn({ method: "GET" })
