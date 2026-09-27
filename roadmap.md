@@ -17,4 +17,4 @@
 - [x] Fixed 4-track Spotify line-up (now, skip 1, skip 2, new angle), 1s settle before scouting, pause + warning on the 4th skip with resume once the new angle is ready
 - Crate Session Synthesis: AI writes Crate-only taste insights from listening events to Walrus (auto every 7 events + on session end + manual "Let Crate reflect"); badged in Studio inspector and /admin/memory
 - Memory depth: unattended-run filter (12+ untouched finishes discounted), two-tier synthesis (session observation vs cross-session anchor needing 3+ sessions), badges in inspector + /admin/memory, detailed explanation on /crate-info
-- [ ] Running-cost cuts: cache-friendly AI prompts, lighter reflections, library indexes/caching (keep Crate as smart)
+- [x] Running-cost cuts: cache-friendly AI prompts, lighter reflections, library indexes/caching (keep Crate as smart)
