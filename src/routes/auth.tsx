@@ -74,8 +74,14 @@ function AuthPage() {
     setEntry("spotify");
     try {
       const { url } = await loginUrl({ data: { origin: window.location.origin } });
-      const w = window.open(url, "spotify-login", "width=480,height=720");
-      if (!w) window.location.href = url;
+      const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      if (ios) {
+        window.location.assign(url);
+        return;
+      }
+      const popup = window.open(url, "spotify-login", "width=480,height=720");
+      if (!popup) window.location.assign(url);
       setEntry(null);
     } catch (e) {
       setEntry(null);

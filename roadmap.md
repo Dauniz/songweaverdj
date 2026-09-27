@@ -20,3 +20,4 @@
 - [x] Running-cost cuts: cache-friendly AI prompts, lighter reflections, library indexes/caching (keep Crate as smart)
 
 - [x] Responsive audit: fix Studio clipping and oversized content at 1960x1080 and smaller screens
+- [x] iPhone Safari support: same-tab Spotify authorization fallback, callback return, safe viewport sizing, and touch-ready session UI

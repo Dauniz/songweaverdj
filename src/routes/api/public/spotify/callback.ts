@@ -4,7 +4,7 @@ import { exchangeToken, spotifyGet, verifyState } from "@/lib/spotify.server";
 const esc = (s: string) =>
   s.replace(
     /[&<>"']/g,
-    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c,
   );
 
 function loginPage(origin: string, tokenHash: string) {
@@ -17,10 +17,14 @@ function loginPage(origin: string, tokenHash: string) {
   );
 }
 
-function page(rawMessage: string, ok: boolean) {
+function page(rawMessage: string, ok: boolean, returnOrigin?: string) {
   const message = esc(rawMessage);
+  const fallback = returnOrigin ? `${returnOrigin}/studio` : null;
+  const fallbackScript = ok && fallback
+    ? `setTimeout(()=>{if(!window.opener)location.replace(${JSON.stringify(fallback)})},500)`
+    : "";
   return new Response(
-    `<!doctype html><html><head><title>Spotify</title></head><body style="background:#111;color:#eee;font-family:sans-serif;display:grid;place-items:center;height:100vh;margin:0"><div style="text-align:center"><h2>${ok ? "Spotify connected" : "Spotify connection failed"}</h2><p>${message}</p><p>You can close this window.</p></div><script>try{window.opener&&window.opener.postMessage({type:"spotify-connected",ok:${ok}},"*")}catch(e){};${ok ? "setTimeout(()=>window.close(),1200)" : ""}</script></body></html>`,
+    `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Spotify</title></head><body style="background:#111;color:#eee;font-family:system-ui,-apple-system,sans-serif;display:grid;place-items:center;min-height:100dvh;margin:0;padding:24px;box-sizing:border-box"><div style="text-align:center"><h2>${ok ? "Spotify connected" : "Spotify connection failed"}</h2><p>${message}</p><p>${fallback ? "Returning to Songweaver…" : "You can close this window."}</p></div><script>try{window.opener&&window.opener.postMessage({type:"spotify-connected",ok:${ok}},"*")}catch(e){};${ok ? "setTimeout(()=>window.close(),1200);" : ""}${fallbackScript}</script></body></html>`,
     { status: ok ? 200 : 400, headers: { "content-type": "text/html; charset=utf-8" } },
   );
 }
@@ -75,7 +79,7 @@ export const Route = createFileRoute("/api/public/spotify/callback")({
           });
           if (error) throw new Error(error.message);
           if (tokenHash) return loginPage(st.o, tokenHash);
-          return page(`Signed in as ${me.display_name ?? me.id}.`, true);
+          return page(`Signed in as ${me.display_name ?? me.id}.`, true, st.o);
         } catch (e) {
           console.error(e);
           return page(e instanceof Error ? e.message : "Unknown error", false);
