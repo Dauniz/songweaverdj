@@ -730,35 +730,36 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     // Only a door scouted FOR this exact song counts; the on-screen skip door can still be the
     // previous song's, which would send Spotify skip songs Crate never chose for this start.
     const ready = preSkip.current?.forId === current.spotify_id ? preSkip.current!.branch : null;
-    if (ready?.track && isPlayable(ready.track)) {
-      void startSpotifyPlayback(current, false, ready.track);
-      return;
-    }
     // No skip door yet (e.g. a searched song): wait for the SAME scouting that fills the
-    // screen, so skip 1 in Spotify is exactly the "if you skip" door shown — one source.
+    // screen, so the skip song in Spotify is exactly the "if you skip" door shown — one source.
+    // Then pick that door's own skip song too, so all three go out in the first call.
     let cancelled = false;
     void (async () => {
-      const prefix = `${current.id}|`;
-      for (let i = 0; i < 20 && !branches.current?.key.startsWith(prefix); i++) {
-        await new Promise((res) => setTimeout(res, 100));
-        if (cancelled) return;
+      let branch: Branch = ready?.track && isPlayable(ready.track) ? ready : null;
+      if (!branch) {
+        const prefix = `${current.id}|`;
+        for (let i = 0; i < 20 && !branches.current?.key.startsWith(prefix); i++) {
+          await new Promise((res) => setTimeout(res, 100));
+          if (cancelled) return;
+        }
+        const b = branches.current?.key.startsWith(prefix) ? branches.current : null;
+        branch = await Promise.race([
+          (b ? b.skipped : fetchBranch(advance(radioRef.current, "skipped"))).catch(() => null),
+          new Promise<Branch>((res) => setTimeout(() => res(null), 10_000)),
+        ]);
       }
-      const b = branches.current?.key.startsWith(prefix) ? branches.current : null;
-      const branch = await Promise.race([
-        (b ? b.skipped : fetchBranch(advance(radioRef.current, "skipped"))).catch(() => null),
-        new Promise<Branch>((res) => setTimeout(() => res(null), 10_000)),
-      ]);
       if (cancelled || radioRef.current.current?.spotify_id !== current.spotify_id) return;
       const skip = branch?.track && isPlayable(branch.track) && branch.track.spotify_id !== current.spotify_id ? branch : null;
-      if (skip) {
-        setUpSkip(skip);
-      }
-      await startSpotifyPlayback(current, false, skip?.track ?? null, undefined, "session start");
+      if (skip) setUpSkip(skip);
+      const finishId = upNextRef.current?.spotify_id;
+      const ahead = skip ? await scoutAhead(radioRef.current, skip, [finishId], 6_000) : null;
+      if (cancelled || radioRef.current.current?.spotify_id !== current.spotify_id) return;
+      await startSpotifyPlayback(current, false, skip?.track ?? null, undefined, "session start", ahead?.track ?? null);
     })();
     return () => {
       cancelled = true;
     };
-  }, [sessionLive, radio.active, radio.current?.spotify_id, startSpotifyPlayback, fetchBranch]);
+  }, [sessionLive, radio.active, radio.current?.spotify_id, startSpotifyPlayback, fetchBranch, scoutAhead]);
 
 
   // Spotify owns playback. Observe its active track so skips and completions still steer Crate's path.
