@@ -556,8 +556,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       noPlayFor.current = "";
       return; // Spotify is already playing it
     }
-    void startSpotifyPlayback(current);
+    // Send the "if you skip" door in the very same call when it's already known:
+    // adding it later would make Spotify re-buffer mid-song (an audible hiccup).
+    const pre = preSkip.current?.forId === current.spotify_id ? preSkip.current.branch : null;
+    const ready = pre ?? (upSkipRef.current && radioRef.current.current?.spotify_id === current.spotify_id ? upSkipRef.current : null);
+    void startSpotifyPlayback(current, false, ready?.track ?? null);
   }, [sessionLive, radio.active, radio.current?.spotify_id, startSpotifyPlayback]);
+
 
   // Spotify owns playback. Observe its active track so skips and completions still steer Crate's path.
   /** Accept a song Spotify is already playing as the new current song. */
@@ -604,43 +609,43 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const skipRoad = upSkip!.road;
     let cancelled = false;
     void (async () => {
-      // Keep trying until the "if you skip" door is really lined up in Spotify.
-      for (let attempt = 0; attempt < 6 && !cancelled; attempt++) {
-        // Wait a beat so rapid steering changes only re-send Spotify's line-up once,
-        // and so a song that just started is playing steadily before a door is added.
-        await new Promise((res) => setTimeout(res, attempt === 0 ? 1_500 : 3_000));
-
-        if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) return;
-        if (swapping.current === cur.spotify_id) return; // end-of-song hand-over owns the line-up now
-        // Scout one step further (the skip door's own skip door) so the next skip needs no re-send.
-        const s0 = radioRef.current;
-        const onSkip = { ...advance(s0, "skipped"), current: skip, road: skipRoad };
-        const then = attempt === 0
-          ? await Promise.race([
-              fetchBranch(advance(onSkip, "skipped")),
-              new Promise<Branch>((res) => setTimeout(() => res(null), 4_000)),
-            ])
-          : null;
-        if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) return;
-        if (then) preSkip.current = { forId: skip.spotify_id!, branch: then };
-        // Read Spotify's real position right now so re-sending the line-up doesn't jump back.
-        let pos: number | null = null;
-        try {
-          const st = await playbackFn();
-          if (st.status === "ready" && st.spotifyId === cur.spotify_id) pos = st.progressMs + 250;
-        } catch {
-          /* fall back to estimate */
-        }
-        if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id || swapping.current === cur.spotify_id) return;
-        if (pos === null) {
-          const lp = lastPlayback.current;
-          pos = Math.max(0, lp.progressMs + (Date.now() - lp.at));
-        }
-        noPlayFor.current = "";
-        const ok = await startSpotifyPlayback(cur, true, skip, Math.max(1, Math.round(pos)), then?.track ?? null);
-        if (ok) return; // door.current is set by startSpotifyPlayback on success
+      // Small settle so rapid steering changes only send Spotify one line-up.
+      await new Promise((res) => setTimeout(res, 400));
+      if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) return;
+      if (swapping.current === cur.spotify_id) return; // end-of-song hand-over owns the line-up now
+      // Scout one step further (the skip door's own skip door) so the next skip needs no re-send.
+      const s0 = radioRef.current;
+      const onSkip = { ...advance(s0, "skipped"), current: skip, road: skipRoad };
+      const then = await Promise.race([
+        fetchBranch(advance(onSkip, "skipped")),
+        new Promise<Branch>((res) => setTimeout(() => res(null), 2_000)),
+      ]);
+      if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) return;
+      if (then) preSkip.current = { forId: skip.spotify_id!, branch: then };
+      // Read Spotify's real position: re-sending the line-up restarts the audio buffer,
+      // which is audible. Only do it while the song has barely started.
+      let pos: number | null = null;
+      try {
+        const st = await playbackFn();
+        if (st.status === "ready" && st.spotifyId === cur.spotify_id) pos = st.progressMs + 250;
+      } catch {
+        /* fall back to estimate */
       }
+      if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id || swapping.current === cur.spotify_id) return;
+      if (pos === null) {
+        const lp = lastPlayback.current;
+        pos = Math.max(0, lp.progressMs + (Date.now() - lp.at));
+      }
+      if (pos > 6_000) {
+        // Too late to line it up without a hiccup — if you skip in Spotify,
+        // Crate follows from the poll and starts the door itself.
+        door.current = null;
+        return;
+      }
+      noPlayFor.current = "";
+      await startSpotifyPlayback(cur, true, skip, Math.max(1, Math.round(pos)), then?.track ?? null);
     })();
+
     return () => {
       cancelled = true;
     };
@@ -689,26 +694,32 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       } catch {
         /* keep the estimate */
       }
-      // Fire slightly before the last millisecond to cover the round-trip to Spotify
-      // (the final ~0.3 s of a track is almost always silence).
-      await new Promise((res) => setTimeout(res, Math.max(0, end - Date.now() - 350)));
+      // Fire a beat before the last millisecond: the round-trip to Spotify takes time, and
+      // sending while the track is in its final moments makes Spotify skip straight past the
+      // first song in the list. The final ~1 s of a track is almost always silence/fade.
+      await new Promise((res) => setTimeout(res, Math.max(0, end - Date.now() - 1_100)));
       const now = radioRef.current;
       if (now.sessionId !== s.sessionId || now.current?.spotify_id !== cur.spotify_id) {
         if (swapping.current === cur.spotify_id) swapping.current = "";
         return; // you moved on yourself
       }
       // Tell Spotify first; only move Crate forward once Spotify actually took the finish pick.
-      // Send the finish pick ALONE: if a door follows it in the same list while the old song is
-      // in its final moments, Spotify sometimes skips straight past it. The "if you skip" door is
-      // lined up a second later by the effect above, once the new song is playing steadily.
+      // Send the finish pick AND its "if you skip" door in the same call, so nothing has to be
+      // re-sent while the new song plays (a mid-song re-send makes Spotify re-buffer audibly).
       noPlayFor.current = finishB.track.spotify_id;
       committing.current = true;
       let ok = false;
       try {
-        ok = await startSpotifyPlayback(finishB.track, true, null);
+        ok = await startSpotifyPlayback(
+          finishB.track, true,
+          skipB?.track && isPlayable(skipB.track) ? skipB.track : null,
+          undefined,
+          thenB?.track && isPlayable(thenB.track) ? thenB.track : null,
+        );
       } finally {
         committing.current = false;
       }
+
 
       if (!ok) {
         noPlayFor.current = "";
