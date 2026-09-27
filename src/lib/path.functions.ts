@@ -417,42 +417,35 @@ export const nextPathTrack = createServerFn({ method: "POST" })
           ? "Follow the ERA: songs from the same playlists / time period as the last song they played through, filtered by their steering chips."
           : "Their last two picks were skipped. Try a fresh angle: blend era and vibe, or change direction noticeably, to figure out what they're after.";
 
+    // Cache-friendly order: fixed rules + learned memory first (stable across picks),
+    // then candidates, and the live per-pick state last in the user message.
     const system = `You are Crate's radio DJ, picking ONE next song at a time like solving a maze.
-It is ${nowLabel} for the listener right now.
+Priority: live signals in this session (skips, chips, road, side road) beat learned memory. When live signals are neutral, let a matching learned pattern tip the choice. Favorites are hints about taste, not a rotation list.
+If your pick was driven by a learned memory, say so briefly in "why" (e.g. "Your Sunday-evening Swedish ritual").
+Call pick_next exactly once with one code from the candidate list.
+
+What you have learned about this listener over time — use it to make the pick personal:
+Durable patterns across many sessions (strongest; apply them, especially rituals matching the listener's current day and time):
+${bullets(anchors)}
+Recent single-session observations (weaker hints):
+${bullets(observations)}
+Things they told you about specific songs (Feedbacker — their own words, trust them):
+${bullets(notes)}
+
+Candidates (code|title—artist [playlist yyyy-mm]):
+${lines.join("\n")}`;
+
+    const live = `It is ${nowLabel} (${weekday} ${partOfDay}) for the listener right now.
 Seed song: "${data.seed.name}" by ${data.seed.artists}.${data.seedPrompt ? `\nThe session started from: "${data.seedPrompt}".` : ""}
 Played through (the road that works): ${liked.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(only the seed so far)"}
 Skipped (wrong turns, avoid similar): ${skipped.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(none)"}
 ${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
 ${roadRule}
 ${lensRule(data.lens, data.history.length)}${data.deepCuts ? "\nDEEP CUTS: prefer forgotten songs they saved long ago and rarely return to — never the obvious staples." : ""}
-
-What you have learned about this listener over time — use it to make the pick personal:
-Durable patterns across many sessions (strongest; apply them, especially rituals matching ${weekday} ${partOfDay}):
-${bullets(anchors)}
-Recent single-session observations (weaker hints):
-${bullets(observations)}
-Things they told you about specific songs (Feedbacker — their own words, trust them):
-${bullets(notes)}
-Other Walrus Memory:
+Other Walrus Memory relevant right now:
 ${walrus.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
 
-Priority: live signals in this session (skips, chips, road, side road) beat learned memory. When live signals are neutral, let a matching learned pattern tip the choice. Favorites are hints about taste, not a rotation list.
-If your pick was driven by a learned memory, say so briefly in "why" (e.g. "Your Sunday-evening Swedish ritual").
-
-Candidates (code|title—artist [playlist yyyy-mm]):
-${lines.join("\n")}
-
-Call pick_next exactly once with one code from the list.`;
-
-    const provider = createOpenAI({
-      baseURL: "https://ai.gateway.lovable.dev/v1",
-      apiKey,
-      headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-    });
-    const result = streamText({
-      model: provider.responses(MODEL),
-      system,
-      messages: [{ role: "user", content: "Pick the next song." }],
+Pick the next song.`;
       stopWhen: stepCountIs(1),
       providerOptions: { openai: { store: false, reasoningEffort: "low" } },
       tools: {
