@@ -1063,6 +1063,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           state.progressMs > previous.progressMs + 250;
         const playing = state.status === "ready" && (state.isPlaying || progressMoved);
         if (!playing) {
+          // Skipped past skip 3: Spotify ran out of Crate's list and stopped on its last song.
+          // That is a skip-through (not a pause by you) — pause, warn and rebuild.
+          const lastId = lineup.current[lineup.current.length - 1];
+          const recentSkip = Date.now() - lastTransition.current < 4_000 || jumps.current.some((t) => Date.now() - t < 4_000);
+          if (
+            state.status === "ready" && lineup.current.length >= 3 && lastId &&
+            state.spotifyId === lastId && lineup.current.includes(current.spotify_id) &&
+            recentSkip && state.progressMs < 2_000
+          ) {
+            await calmDown();
+            return;
+          }
           // Connection/API failures are not proof that playback stopped. Keep the last known
           // live state and let the next poll recover instead of showing a misleading warning.
           if (state.status !== "ready" && state.status !== "idle" && state.status !== "no_device") return;
@@ -1135,8 +1147,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           const steps = at >= 0 && landed > at ? landed - at : 0;
           // Skipped past the whole chain (skip 1, 2 and 3): pause, warn, then restart clean
           // once Crate has songs for the new angle ready.
+          // Also counts when the polls lagged behind fast clicks (Crate still thinks you're on
+          // skip 1 or 2) and Spotify is already past the list within ~2 s of the last skip.
           const ranOff =
-            landed < 0 && lineup.current.length >= 3 && at >= 0 && at === lineup.current.length - 1;
+            landed < 0 && lineup.current.length >= 3 && at >= 0 &&
+            (at === lineup.current.length - 1 || sinceMove < 2_500);
           // A song outside Crate's line-up (and not a run-off) is the listener's own pick in
           // Spotify — never count it as a skip burst, always re-root from it.
           const manualPick = landed < 0 && !ranOff;
