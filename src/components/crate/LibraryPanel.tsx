@@ -89,7 +89,14 @@ export function LibraryPanel() {
     setBusy("connect");
     try {
       const { url } = await authUrlFn({ data: { origin: window.location.origin } });
-      window.open(url, "spotify-auth", "width=520,height=720");
+      const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      if (ios) {
+        window.location.assign(url);
+        return;
+      }
+      const popup = window.open(url, "spotify-auth", "width=520,height=720");
+      if (!popup) window.location.assign(url);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't start Spotify sign-in");
     } finally {

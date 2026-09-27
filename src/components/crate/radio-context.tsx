@@ -1180,8 +1180,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const connectSpotify = useCallback(async () => {
     try {
       const { url } = await authUrlFn({ data: { origin: window.location.origin } });
+      const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      if (ios) {
+        window.location.assign(url);
+        return;
+      }
       const popup = window.open(url, "spotify-auth", "width=520,height=720");
-      if (!popup) window.location.href = url;
+      if (!popup) window.location.assign(url);
     } catch {
       setPlaybackIssue({ status: "unavailable", message: "Spotify could not be connected." });
     }
