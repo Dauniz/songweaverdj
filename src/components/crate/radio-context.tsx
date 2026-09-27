@@ -690,7 +690,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (nextId && skipDoor) door.current = { forId: track.spotify_id, track: skipDoor };
           if (!positionMs) {
             lastTransition.current = Date.now();
-            settleUntil.current = Date.now() + 1_000; // let the clicking settle before scouting
+            // The one-quiet-second rule is for SKIPS only. A fresh start you clicked gets it;
+            // a finish hand-over (quiet) already carries its full line-up, so scouting for the
+            // new song's finish door can start right away.
+            if (!quiet) settleUntil.current = Date.now() + 1_000;
           }
           lastPlayback.current = {
             spotifyId: track.spotify_id,
