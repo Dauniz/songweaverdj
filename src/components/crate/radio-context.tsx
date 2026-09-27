@@ -179,6 +179,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const swapping = useRef("");
   /** Song ids last sent to Spotify, in order — lets Crate skip re-sending when the next door is already lined up. */
   const lineup = useRef<string[]>([]);
+  /** Full song info for everything in `lineup`, so a skip onto any of them is followed exactly. */
+  const lineupTracks = useRef<Map<string, RadioTrack>>(new Map());
   /** Code-picked back-ups (no AI) sent behind the doors so fast skips never empty Spotify's list. */
   const reserves = useRef<{ forId: string; tracks: RadioTrack[] }>({ forId: "", tracks: [] });
   /** Times Spotify was seen changing song — used to spot skip spamming. */
@@ -611,6 +613,21 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             ...(thenId ? [thenId] : []),
             ...reserveIds,
           ];
+          const m = new Map<string, RadioTrack>();
+          m.set(track.spotify_id, track);
+          if (nextId && skipDoor) m.set(nextId, skipDoor);
+          if (thenId && thenDoor) m.set(thenId, thenDoor);
+          for (const t of reserves.current.tracks) if (t.spotify_id && reserveIds.includes(t.spotify_id)) m.set(t.spotify_id, t);
+          lineupTracks.current = m;
+          // What's on screen must be what Spotify has queued: if no scouted skip door went
+          // with this call, show the back-up Spotify will actually land on.
+          if (!nextId && reserveIds[0] && !positionMs) {
+            const r = m.get(reserveIds[0]);
+            if (r) {
+              door.current = { forId: track.spotify_id, track: r };
+              setUpSkip({ track: r, road: advance(radioRef.current, "skipped").road });
+            }
+          }
           setPlaybackIssue(null);
           idleSince.current = 0;
           idlePolls.current = 0;
@@ -765,7 +782,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (pos > 6_000) {
         // Too late to line it up without a hiccup — if you skip in Spotify,
         // Crate follows from the poll and starts the door itself.
-        door.current = null;
+        const at2 = lineup.current.indexOf(cur.spotify_id);
+        const queued = at2 >= 0 ? lineupTracks.current.get(lineup.current[at2 + 1] ?? "") : undefined;
+        if (queued) {
+          // Show the song Spotify will really play on a skip instead of a door it never got.
+          door.current = { forId: cur.spotify_id, track: queued };
+          setUpSkip({ track: queued, road: skipRoad });
+        } else door.current = null;
         return;
       }
       noPlayFor.current = "";
@@ -1085,15 +1108,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             acceptObserved(landedTrack, "skipped", false, state.progressMs, state.durationMs);
             setRadio((s) => ({ ...s, consecutiveSkips: Math.max(2, steps), road: "mixed" }));
             setAskSteer(true);
-          } else if (!manualPick && landed >= 0 && rapid && outcome === "skipped") {
-            // Skipped again before the next door was lined up: Spotify fell off the end of
-            // the list. Keep up — follow the skip road instead of treating it as your own pick.
-            advancing.current = true;
-            try {
-              await next("skipped");
-            } finally {
-              advancing.current = false;
-            }
+          } else if (!manualPick && landed >= 0 && lineupTracks.current.get(state.spotifyId)) {
+            // Landed on a song Crate itself queued: follow exactly that song — never swap in
+            // a different pick, or Spotify and the screen drift apart.
+            acceptObserved(lineupTracks.current.get(state.spotifyId)!, outcome, false, state.progressMs, state.durationMs);
           } else {
             acceptObserved(
               {
