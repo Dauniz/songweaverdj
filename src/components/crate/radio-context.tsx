@@ -6,7 +6,6 @@ const NO_DEVICE_GRACE = 5 * 60_000;
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack, pathReserves } from "@/lib/path.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
