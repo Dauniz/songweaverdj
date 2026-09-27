@@ -31,9 +31,33 @@ function period(p: string | null) {
   return d.toLocaleString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
 }
 
+/**
+ * A long run of finished songs with zero interaction is more likely someone who
+ * walked away (or is deep in flow) than a run of deliberate favourites. Only
+ * runs of this length or longer are treated as unattended.
+ */
+const PASSIVE_STREAK = 12;
+
+/** Flag indexes that sit inside a long, interaction-free run of play-throughs. */
+function passiveIndexes(events: EventRow[]) {
+  const passive = new Set<number>();
+  let start = 0;
+  for (let i = 0; i <= events.length; i++) {
+    const e = events[i];
+    const breaks = !e || e.event !== "play_through" || (i > 0 && e.session_id !== events[i - 1]!.session_id);
+    if (breaks) {
+      if (i - start >= PASSIVE_STREAK) for (let j = start; j < i; j++) passive.add(j);
+      start = i + (e && e.event !== "play_through" ? 1 : 0);
+      if (e && e.event === "play_through") start = i;
+    }
+  }
+  return passive;
+}
+
 /** Build a dense, human-readable trace of how the user actually listened. */
 function traceLines(events: EventRow[], meta: Map<string, { source: string; period: string | null; album: string | null }>, tzOffsetMin: number) {
   const lines: string[] = [];
+  const passive = passiveIndexes(events);
   for (let i = 0; i < events.length; i++) {
     const e = events[i]!;
     const next = events[i + 1];
@@ -53,11 +77,38 @@ function traceLines(events: EventRow[], meta: Map<string, { source: string; peri
     lines.push(
       `${hhmm(e.created_at, tzOffsetMin)} | ${verdict} | ${e.track_name} — ${e.artists}` +
         (m?.source ? ` | from "${m.source}"${m.period ? ` (${period(m.period)})` : ""}` : "") +
-        (e.mode ? ` | road ${e.mode}` : ""),
+        (e.mode ? ` | road ${e.mode}` : "") +
+        (passive.has(i) ? " | UNATTENDED?" : ""),
     );
   }
   return lines;
 }
+
+/** One line per session: when it ran, how long, how engaged the listener was. */
+function sessionLines(events: EventRow[], tzOffsetMin: number) {
+  const byId = new Map<string, EventRow[]>();
+  for (const e of events) {
+    const id = e.session_id ?? "none";
+    (byId.get(id) ?? byId.set(id, []).get(id)!).push(e);
+  }
+  const passive = passiveIndexes(events);
+  const passiveKeys = new Set([...passive].map((i) => `${events[i]!.session_id}|${events[i]!.created_at}`));
+  const out: string[] = [];
+  for (const [id, rows] of byId) {
+    const skips = rows.filter((r) => r.event === "early_skip").length;
+    const plays = rows.filter((r) => r.event === "play_through").length;
+    const unattended = rows.filter((r) => passiveKeys.has(`${r.session_id}|${r.created_at}`)).length;
+    const first = rows[0]!;
+    const last = rows[rows.length - 1]!;
+    const mins = Math.round((new Date(last.created_at).getTime() - new Date(first.created_at).getTime()) / 60000);
+    out.push(
+      `session ${id.slice(0, 8)} | started ${hhmm(first.created_at, tzOffsetMin)} | ${mins} min | ${plays} finished, ${skips} skipped` +
+        (unattended ? ` | ${unattended} finished inside an unattended run` : " | actively steered"),
+    );
+  }
+  return out;
+}
+
 
 export type Insight = { kind: MemoryKind; content: string };
 
