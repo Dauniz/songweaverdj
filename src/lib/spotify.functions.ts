@@ -106,7 +106,13 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
     const device = body.devices?.find((item) => item.is_active && !item.is_restricted && item.id)
       ?? body.devices?.find((item) => !item.is_restricted && item.id);
     if (!device?.id) return { status: "no_device" as const, message: "Spotify needs to be open on one of your devices." };
-    const uris = [data.spotifyId, ...(data.nextId ? [data.nextId] : []), ...(data.nextId && data.thenId ? [data.thenId] : [])].map((id) => `spotify:track:${id}`);
+    const chain = [
+      data.spotifyId,
+      ...(data.nextId ? [data.nextId] : []),
+      ...(data.nextId && data.thenId ? [data.thenId] : []),
+      ...(data.nextId ? data.reserveIds : []),
+    ];
+    const uris = [...new Set(chain)].map((id) => `spotify:track:${id}`);
     const response = await fetch(
       `https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(device.id)}`,
       {
