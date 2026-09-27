@@ -256,7 +256,6 @@ export function MoodChat() {
 
   const composer = (
     <div
-      data-onboarding="prompt"
       className={cn(
         "composer-reveal w-full bg-background/80 backdrop-blur",
         empty
@@ -265,6 +264,7 @@ export function MoodChat() {
       )}
     >
       <div className="mx-auto w-full max-w-3xl">
+        <div data-onboarding="prompt">
         <div className={empty ? "mb-4" : "pt-3"}>
           <LibrarySearch />
         </div>
@@ -322,8 +322,9 @@ export function MoodChat() {
             />
           </PromptInputFooter>
         </PromptInput>
+        </div>
         <TooltipProvider>
-          <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
+          <div data-onboarding="side-roads" className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
             <span className="flex w-fit origin-left items-center gap-1.5 transition-transform duration-150 hover:scale-110">
               <label
                 htmlFor="deep-cuts"
