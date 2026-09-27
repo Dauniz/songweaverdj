@@ -41,16 +41,22 @@ const PASSIVE_STREAK = 12;
 /** Flag indexes that sit inside a long, interaction-free run of play-throughs. */
 function passiveIndexes(events: EventRow[]) {
   const passive = new Set<number>();
-  let start = 0;
-  for (let i = 0; i <= events.length; i++) {
-    const e = events[i];
-    const breaks = !e || e.event !== "play_through" || (i > 0 && e.session_id !== events[i - 1]!.session_id);
-    if (breaks) {
-      if (i - start >= PASSIVE_STREAK) for (let j = start; j < i; j++) passive.add(j);
-      start = i + (e && e.event !== "play_through" ? 1 : 0);
-      if (e && e.event === "play_through") start = i;
+  let run: number[] = [];
+  const flush = () => {
+    if (run.length >= PASSIVE_STREAK) for (const i of run) passive.add(i);
+    run = [];
+  };
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]!;
+    const sameSession = i > 0 && e.session_id === events[i - 1]!.session_id;
+    if (e.event !== "play_through") {
+      flush();
+      continue;
     }
+    if (!sameSession) flush();
+    run.push(i);
   }
+  flush();
   return passive;
 }
 
