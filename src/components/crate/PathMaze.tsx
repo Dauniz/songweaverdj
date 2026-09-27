@@ -24,7 +24,7 @@ function Art({ src, alt, className }: { src: string | null | undefined; alt: str
 
 /** Visual "maze solver": the path walked so far, and the two doors ahead. */
 export function PathMaze() {
-  const { radio, upNext, upSkip, spotifyIdle, sessionLive } = useRadio();
+  const { radio, upNext, upSkip, spotifyIdle, sessionLive, calming } = useRadio();
 
   return (
     <div className="border-b px-4 py-4">
