@@ -175,6 +175,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const swapping = useRef("");
   /** Song ids last sent to Spotify, in order — lets Crate skip re-sending when the next door is already lined up. */
   const lineup = useRef<string[]>([]);
+  /** Code-picked back-ups (no AI) sent behind the doors so fast skips never empty Spotify's list. */
+  const reserves = useRef<{ forId: string; tracks: RadioTrack[] }>({ forId: "", tracks: [] });
+  /** Times Spotify was seen changing song — used to spot skip spamming. */
+  const jumps = useRef<number[]>([]);
+  /** While set, Crate stops reacting to Spotify: the listener is being asked to slow down. */
+  const cooldownUntil = useRef(0);
   // When Crate last moved to a new song — rapid skips right after this are followed, not re-rooted.
   const lastTransition = useRef(0);
   const idleSince = useRef(0);
