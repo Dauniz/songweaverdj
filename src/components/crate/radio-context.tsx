@@ -687,15 +687,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         return; // you moved on yourself
       }
       // Tell Spotify first; only move Crate forward once Spotify actually took the finish pick.
+      // Send the finish pick ALONE: if a door follows it in the same list while the old song is
+      // in its final moments, Spotify sometimes skips straight past it. The "if you skip" door is
+      // lined up a second later by the effect above, once the new song is playing steadily.
       noPlayFor.current = finishB.track.spotify_id;
       committing.current = true;
       let ok = false;
       try {
-        ok = await startSpotifyPlayback(finishB.track, true, skipB?.track ?? null, undefined, thenB?.track ?? null);
-        if (!ok) ok = await startSpotifyPlayback(finishB.track, true, null);
+        ok = await startSpotifyPlayback(finishB.track, true, null);
       } finally {
         committing.current = false;
       }
+
       if (!ok) {
         noPlayFor.current = "";
         swapping.current = "";
