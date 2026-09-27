@@ -740,7 +740,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     }
     // Send the "if you skip" door in the very same call when it's already known:
     // adding it later would make Spotify re-buffer mid-song (an audible hiccup).
-    const pre = preSkip.current?.forId === current.spotify_id ? preSkip.current.branch : null;
+    const pre = preSkip.current?.forId === current.spotify_id ? preSkip.current!.branch : null;
     const ready = pre ?? (upSkipRef.current && radioRef.current.current?.spotify_id === current.spotify_id ? upSkipRef.current : null);
     if (ready?.track && isPlayable(ready.track)) {
       void startSpotifyPlayback(current, false, ready.track);
@@ -835,7 +835,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // deeper scout. Skip 2/3 come from an already-scouted branch or fast library reserves.
       if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) return;
       if (swapping.current === cur.spotify_id) return; // end-of-song hand-over owns the line-up now
-      const pre = preSkip.current?.forId === skip.spotify_id ? preSkip.current.branch : null;
+      const pre = preSkip.current?.forId === skip.spotify_id ? preSkip.current!.branch : null;
       const then = pre?.track && pre.track.spotify_id !== skip.spotify_id ? pre : null;
       // Read Spotify's exact position right before sending so the resume point is seamless:
       // one single call, early in the song, starting at the precise millisecond.
