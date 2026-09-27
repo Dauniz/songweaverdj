@@ -2,7 +2,7 @@ import { LIVE_KEY, readLiveSession } from "@/lib/live-session";
 
 const LAST_KEY = "songweaver-last-session";
 /** End the session when Spotify shows no open device for this long. */
-const NO_DEVICE_GRACE = 20_000;
+const NO_DEVICE_GRACE = 5 * 60_000;
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
@@ -171,6 +171,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [spotifyIdle, setSpotifyIdle] = useState(false);
   // When Spotify stopped reporting any active device (app closed).
   const noDeviceSince = useRef(0);
+  // Last time we tried to wake Spotify back up after losing the device.
+  const lastReconnectTry = useRef(0);
   const [hasLastSession, setHasLastSession] = useState(false);
   useEffect(() => {
     setHasLastSession(Boolean(localStorage.getItem(LAST_KEY)));
