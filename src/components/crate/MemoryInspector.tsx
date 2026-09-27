@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight, CircleHelp, Database, Info, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleHelp, Database, Info, Sparkle, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -61,8 +61,11 @@ export function MemoryInspector() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetText, setResetText] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [reflecting, setReflecting] = useState(false);
+  const [reflectMsg, setReflectMsg] = useState<string | null>(null);
   const reset = useServerFn(resetMemoryLog);
   const refresh = useServerFn(refreshMemories);
+  const reflect = useServerFn(synthesizeMemories);
   const status = useServerFn(getMemoryStatus);
   const { data: cfg } = useQuery({ queryKey: ["memwal-status"], queryFn: () => status() });
   const { data: nodes = [] } = useQuery({
