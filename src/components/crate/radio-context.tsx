@@ -285,7 +285,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   );
 
   const fetchBranch = useCallback(
-    async (s: RadioState, signal?: AbortSignal): Promise<Branch> => {
+    async (s: RadioState, signal?: AbortSignal, extraExclude: string[] = []): Promise<Branch> => {
       if (!s.seed) return null;
       try {
         const r = await pathFn({
@@ -306,6 +306,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             excludeSpotifyIds: [
               ...played.current.slice(-500),
               ...(s.current?.spotify_id ? [s.current.spotify_id] : []),
+              ...extraExclude,
             ],
           },
         });
@@ -329,8 +330,20 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       scoutAbort.current = ctrl;
       const playedB = fetchBranch(advance(s, "played"), ctrl.signal);
       const pre = preSkip.current?.forId === s.current.spotify_id ? preSkip.current : preSkip2.current;
-      const skippedB =
-        pre && pre.forId === s.current.spotify_id ? Promise.resolve(pre.branch) : fetchBranch(advance(s, "skipped"), ctrl.signal);
+      const skippedState = advance(s, "skipped");
+      const skippedB: Promise<Branch> =
+        pre && pre.forId === s.current.spotify_id
+          ? Promise.resolve(pre.branch)
+          : playedB.then(async (finish) => {
+              // The skip door must never be the same song as the finish door.
+              const finishId = finish?.track.spotify_id;
+              const first = await fetchBranch(skippedState, ctrl.signal, finishId ? [finishId] : []);
+              if (first && finishId && first.track.spotify_id === finishId) {
+                // Defensive: server ignored the exclusion (e.g. tiny pool) — retry excluding it.
+                return fetchBranch(skippedState, ctrl.signal, [finishId, first.track.spotify_id]);
+              }
+              return first;
+            });
       branches.current = { key, played: playedB, skipped: skippedB };
       setUpNext(null);
       setUpSkip(null);
