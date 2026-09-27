@@ -24,7 +24,7 @@ function Art({ src, alt, className }: { src: string | null | undefined; alt: str
 
 /** Visual "maze solver": the path walked so far, and the two doors ahead. */
 export function PathMaze() {
-  const { radio, upNext, upSkip, spotifyIdle, sessionLive } = useRadio();
+  const { radio, upNext, upSkip, spotifyIdle, sessionLive, calming } = useRadio();
 
   return (
     <div className="border-b px-4 py-4">
@@ -43,11 +43,20 @@ export function PathMaze() {
         </p>
       ) : (
         <div className="mt-4 space-y-0">
-          {sessionLive && spotifyIdle && (
+          {sessionLive && spotifyIdle && !calming && (
             <div className="mb-3 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
               <span>
                 Spotify isn't playing — open Spotify and press play. The maze waits until music is on.
+              </span>
+            </div>
+          )}
+          {calming && (
+            <div className="mb-3 flex items-start gap-2 rounded-lg border border-primary/40 bg-primary/10 p-2.5 text-xs">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+              <span>
+                Cool your jets — Crate needs a moment to catch his breath. Spotify is paused and
+                the maze restarts fresh once the new songs are ready.
               </span>
             </div>
           )}

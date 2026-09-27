@@ -79,6 +79,8 @@ type RadioContextValue = {
   resumeLastSession: () => void;
   events: MazeEvent[];
   spotifyIdle: boolean;
+  /** Skip-spam cooldown: Spotify paused, Crate catching its breath. */
+  calming: boolean;
 };
 
 // Keep one context instance across hot reloads so provider and consumers never diverge.
@@ -1369,19 +1371,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         resumeLastSession,
         events,
         spotifyIdle,
+        calming,
       }}
     >
       {children}
-      {calming && (
-        <div
-          role="status"
-          aria-live="assertive"
-          className="pointer-events-none fixed left-1/2 top-6 z-[100] -translate-x-1/2 animate-in fade-in slide-in-from-top-2 rounded-2xl border border-border bg-popover px-5 py-3 text-center shadow-2xl"
-        >
-          <p className="text-sm font-bold text-popover-foreground">Cool your jets</p>
-          <p className="text-xs text-muted-foreground">Crate needs a moment to catch his breath.</p>
-        </div>
-      )}
       {askSteer && (
         <SteerChips
           prompt
