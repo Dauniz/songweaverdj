@@ -178,6 +178,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const reserves = useRef<{ forId: string; tracks: RadioTrack[] }>({ forId: "", tracks: [] });
   /** Times Spotify was seen changing song — used to spot skip spamming. */
   const jumps = useRef<number[]>([]);
+  /** After a song change Crate waits one quiet second before scouting, in case you skip again. */
+  const settleUntil = useRef(0);
+  const [settleTick, setSettleTick] = useState(0);
   /** While set, Crate stops reacting to Spotify: the listener is being asked to slow down. */
   const cooldownUntil = useRef(0);
   const calmingRef = useRef(false);
@@ -375,8 +378,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    // One quiet second after a song change: if you skip again, no search is wasted.
+    const wait = settleUntil.current - Date.now();
+    if (wait > 0) {
+      const t = setTimeout(() => setSettleTick((n) => n + 1), wait + 50);
+      return () => clearTimeout(t);
+    }
     prefetch(radio);
-  }, [radio, prefetch]);
+    return undefined;
+  }, [radio, prefetch, settleTick]);
 
   const startRadio = useCallback(
     (tracks: CardTrack[], seedPrompt: string, startAt = 0) => {
@@ -542,12 +552,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
       const nextId = skipDoor?.spotify_id && isPlayable(skipDoor) ? skipDoor.spotify_id : undefined;
       const thenId = nextId && thenDoor?.spotify_id && isPlayable(thenDoor) ? thenDoor.spotify_id : undefined;
-      // Back-ups sit behind the doors: if you skip past everything, Spotify still has songs left.
-      const used = new Set([track.spotify_id, nextId, thenId]);
+      // Spotify always gets the same four-song list: [now, skip 1, skip 2, skip 3].
+      // Whatever Crate hasn't scouted yet is filled with instant code-picked back-ups.
+      const used = new Set([track.spotify_id, nextId, thenId].filter(Boolean) as string[]);
       const reserveIds = reserves.current.tracks
         .map((t) => t.spotify_id)
-        .filter((id): id is string => Boolean(id) && !used.has(id!))
-        .slice(0, 2);
+        .filter((id): id is string => Boolean(id) && !used.has(id as string))
+        .slice(0, Math.max(0, 4 - used.size));
       setRetrying(true);
       try {
         const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, thenId, reserveIds, positionMs } });
@@ -556,11 +567,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             track.spotify_id,
             ...(nextId ? [nextId] : []),
             ...(thenId ? [thenId] : []),
-            ...(nextId ? reserveIds : []),
+            ...reserveIds,
           ];
           setPlaybackIssue(null);
           door.current = nextId && skipDoor ? { forId: track.spotify_id, track: skipDoor } : null;
-          if (!positionMs) lastTransition.current = Date.now();
+          if (!positionMs) {
+            lastTransition.current = Date.now();
+            settleUntil.current = Date.now() + 1_000; // let the clicking settle before scouting
+          }
           lastPlayback.current = {
             spotifyId: track.spotify_id,
             ratio: 0,
@@ -599,7 +613,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             deepCuts: deepCutsRef.current,
             avoidArtists: avoidArtists(),
             excludeSpotifyIds: played.current.slice(-500),
-            count: 2,
+            count: 3,
           },
         });
         if (!cancelled) reserves.current = { forId: cur.spotify_id!, tracks: r.tracks as RadioTrack[] };
@@ -643,6 +657,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const nextState = advance(s, outcome);
       noPlayFor.current = track.spotify_id ?? "";
       lastTransition.current = Date.now();
+      settleUntil.current = Date.now() + 1_000; // one quiet second before Crate looks for new songs
       lastPlayback.current = { spotifyId: track.spotify_id ?? "", ratio: 0, observed: true, progressMs, durationMs, at: Date.now() };
       door.current = null;
       branches.current = null;
@@ -826,7 +841,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     note("think", "Too many skips at once — pausing until the clicking stops, then weaving a fresh song");
     const s = radioRef.current;
     try {
-      // Wait for 2 quiet seconds: every further skip (even while paused) restarts the wait.
+      // Wait for one quiet second: every further skip (even while paused) restarts the wait.
       const started = Date.now();
       let quietSince = Date.now();
       let seen = "";
@@ -836,8 +851,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       } catch {
         /* keep waiting anyway */
       }
-      while (Date.now() - quietSince < 2_000 && Date.now() - started < 20_000) {
-        await new Promise((res) => setTimeout(res, 400));
+      while (Date.now() - quietSince < 1_000 && Date.now() - started < 20_000) {
+        await new Promise((res) => setTimeout(res, 300));
         if (radioRef.current.sessionId !== s.sessionId) return;
         try {
           const st = await playbackFn();
@@ -851,23 +866,28 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           /* ignore a hiccup and keep waiting */
         }
       }
-      setCalming(false);
       const now = radioRef.current;
       if (now.sessionId !== s.sessionId || !now.current) return;
-      // Only now does Crate look for the next song and build a clean line-up.
-      const fresh =
-        upSkipRef.current?.track ??
-        reserves.current.tracks.find(isPlayable) ??
-        (await fetchBranch(advance(now, "skipped")))?.track ??
-        null;
+      // The clicking stopped: Crate now searches the new angle and rebuilds a clean line-up.
+      // The warning stays up and Spotify stays paused until the new songs are ready.
+      const angle: RadioState = { ...advance(now, "skipped"), consecutiveSkips: 2, road: "mixed" };
+      const freshB = (await fetchBranch(angle)) ?? null;
+      const fresh = freshB?.track ?? reserves.current.tracks.find(isPlayable) ?? null;
       if (radioRef.current.sessionId !== s.sessionId) return;
       if (fresh?.spotify_id && isPlayable(fresh)) {
+        // Scout its own "if you skip" door too, so the restart is a full line-up.
+        const doorB = await Promise.race([
+          fetchBranch({ ...angle, current: fresh, road: freshB?.road ?? "mixed" }),
+          new Promise<Branch>((res) => setTimeout(() => res(null), 4_000)),
+        ]);
+        if (radioRef.current.sessionId !== s.sessionId) return;
         noPlayFor.current = fresh.spotify_id;
         calmingRef.current = false; // scouting may resume now that a fresh song is starting
-        if (await startSpotifyPlayback(fresh, true, null)) {
+        if (await startSpotifyPlayback(fresh, true, doorB?.track ?? null)) {
           if (now.current.spotify_id) played.current.push(now.current.spotify_id);
-          setRadio({ ...advance(now, "skipped"), current: fresh });
-          note("pick", `Picking up again: "${fresh.name}" by ${fresh.artists}`);
+          setRadio({ ...angle, current: fresh, road: freshB?.road ?? "mixed" });
+          setUpSkip(doorB ?? null);
+          note("pick", `Picking up again on a new angle: "${fresh.name}" by ${fresh.artists}`);
         }
       }
     } finally {
@@ -953,8 +973,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           const steps = at >= 0 && landed > at ? landed - at : 0;
           jumps.current = [...jumps.current.filter((t) => Date.now() - t < 3_000), Date.now()];
           const bursts = jumps.current.length + Math.max(0, steps - 1);
-          // Skipped past the whole chain (skip 1, 2 and 3): pause, warn, restart clean.
-          if (bursts >= 4 || (landed < 0 && jumps.current.length >= 3)) {
+          // Skipped past the whole chain (skip 1, 2 and 3): pause, warn, then restart clean
+          // once Crate has songs for the new angle ready.
+          const ranOff =
+            landed < 0 && lineup.current.length >= 3 && at >= 0 && at === lineup.current.length - 1;
+          if (ranOff || bursts >= 4 || (landed < 0 && jumps.current.length >= 3)) {
             await calmDown();
             return;
           }

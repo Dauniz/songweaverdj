@@ -106,13 +106,15 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
     const device = body.devices?.find((item) => item.is_active && !item.is_restricted && item.id)
       ?? body.devices?.find((item) => !item.is_restricted && item.id);
     if (!device?.id) return { status: "no_device" as const, message: "Spotify needs to be open on one of your devices." };
+    // Fixed four-song list: [now, skip 1, skip 2, skip 3]. Back-ups fill any gap so
+    // three fast skips always land on a real song instead of running Spotify dry.
     const chain = [
       data.spotifyId,
       ...(data.nextId ? [data.nextId] : []),
       ...(data.nextId && data.thenId ? [data.thenId] : []),
-      ...(data.nextId ? data.reserveIds : []),
+      ...data.reserveIds,
     ];
-    const uris = [...new Set(chain)].map((id) => `spotify:track:${id}`);
+    const uris = [...new Set(chain)].slice(0, 4).map((id) => `spotify:track:${id}`);
     const response = await fetch(
       `https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(device.id)}`,
       {
