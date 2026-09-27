@@ -263,7 +263,7 @@ ${traceLines(events, meta, tz).join("\n")}`;
       user_id: userId,
       kind: ins.kind,
       content: ins.content,
-      origin: "synthesis",
+      origin: cross ? "cross_session" : "synthesis",
       blob_id: jobId ? `job:${jobId}` : null,
       status: jobId ? "pending" : error === "not_configured" ? "local" : "failed",
     });
