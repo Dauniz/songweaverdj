@@ -863,6 +863,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (radioRef.current.sessionId !== s.sessionId) return;
       if (fresh?.spotify_id && isPlayable(fresh)) {
         noPlayFor.current = fresh.spotify_id;
+        calmingRef.current = false; // scouting may resume now that a fresh song is starting
         if (await startSpotifyPlayback(fresh, true, null)) {
           if (now.current.spotify_id) played.current.push(now.current.spotify_id);
           setRadio({ ...advance(now, "skipped"), current: fresh });
