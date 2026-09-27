@@ -145,7 +145,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const upNextRef = useRef<RadioTrack | null>(null);
   upNextRef.current = upNext;
   const [upSkip, setUpSkip] = useState<{ track: RadioTrack; road: Road } | null>(null);
-  upSkipRef.current = upSkip;
   const lastSteerAsk = useRef(0);
   const lastSkipAsk = useRef(0);
   const lastPlayback = useRef({ spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 });
@@ -163,8 +162,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const lensTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preSkip2 = useRef<{ forId: string; branch: Branch } | null>(null);
   const upSkipRef = useRef<{ track: RadioTrack; road: Road } | null>(null);
+  upSkipRef.current = upSkip;
   const sideSnap = useRef<{
-    at: number; lens: LensId | null; deep: boolean; currentId: string | undefined; historyLen: number;
+    at: number; lens: LensId | null; deep: boolean; currentId: string | null | undefined; historyLen: number;
     branches: { key: string; played: Promise<Branch>; skipped: Promise<Branch> } | null;
     upNext: RadioTrack | null; upSkip: { track: RadioTrack; road: Road } | null;
     preSkip: { forId: string; branch: Branch } | null; preSkip2: { forId: string; branch: Branch } | null;
