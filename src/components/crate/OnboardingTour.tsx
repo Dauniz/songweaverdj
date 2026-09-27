@@ -116,6 +116,16 @@ export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
     setFeedbackOpen(false);
   };
   const dismiss = feedbackOpen ? dismissFeedback : finishSetup;
+
+  useEffect(() => {
+    if (!step) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") dismiss();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [step, feedbackOpen]);
+
   const pad = 8;
   const vw = typeof window === "undefined" ? 1280 : window.innerWidth;
   const vh = typeof window === "undefined" ? 800 : window.innerHeight;
