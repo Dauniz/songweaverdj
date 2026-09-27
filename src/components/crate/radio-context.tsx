@@ -994,7 +994,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       lastTransition.current = Date.now();
       swapping.current = ""; // hand-over done — keep watching for your skips
     },
-    [fetchBranch, log, note, startSpotifyPlayback, noteMove, playbackFn],
+    [fetchBranch, log, note, startSpotifyPlayback, noteMove, playbackFn, scoutAhead],
   );
 
   /** A second skip before the first skip's new pair is accepted: pause and rebuild cleanly. */
@@ -1006,6 +1006,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     scoutAbort.current?.abort();
     branches.current = null;
     door.current = null;
+    landingPlan.current = null;
+    quickSkipUntil.current = 0;
     lineup.current = [];
     await pauseFn().catch(() => undefined);
     pushSpotifyLog({ kind: "event", at: Date.now(), text: "PAUSE — second rapid skip, Crate catching its breath" });
@@ -1023,7 +1025,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       ]);
       if (!doorB?.track.spotify_id || radioRef.current.sessionId !== s.sessionId) return;
       calmingRef.current = false;
-      if (await startSpotifyPlayback(fresh, true, doorB.track, undefined, "cooldown resume")) {
+      const aheadB = await scoutAhead(now, doorB, [], 5_000);
+      if (radioRef.current.sessionId !== s.sessionId) return;
+      if (await startSpotifyPlayback(fresh, true, doorB.track, undefined, "cooldown resume", aheadB?.track ?? null)) {
         setUpSkip(doorB);
         awaitingSkipPair.current = false;
         pushSpotifyLog({ kind: "event", at: Date.now(), text: `RESUME — rebuilt from "${fresh.name}"` });
@@ -1035,7 +1039,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       calmingRef.current = false;
       cooldownUntil.current = Date.now() + 600;
     }
-  }, [pauseFn, fetchBranch, startSpotifyPlayback, note]);
+  }, [pauseFn, fetchBranch, startSpotifyPlayback, note, scoutAhead]);
 
   // Spotify owns playback. While a session is live, mirror what Spotify plays —
   // skips, finishes and songs you pick yourself inside the Spotify app.
@@ -1076,7 +1080,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (!playing) {
           // A second skip runs the two-song context dry. Spotify commonly reports the skip
           // door paused at its beginning; stop and rebuild rather than guessing another song.
-          const skipId = lineup.current[1];
+          const skipId = lineup.current[lineup.current.length - 1];
           if (
             awaitingSkipPair.current && state.status === "ready" && skipId &&
             state.spotifyId === skipId && state.progressMs < 3_000
@@ -1154,7 +1158,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           const landed = lineup.current.indexOf(state.spotifyId);
           // Once the first skip has landed, any further change before its replacement pair is
           // accepted is the second rapid skip. Polling cannot safely infer deeper positions.
-          if (awaitingSkipPair.current && state.spotifyId !== current.spotify_id) {
+          const curAt = lineup.current.indexOf(current.spotify_id ?? "");
+          if (
+            state.spotifyId !== current.spotify_id &&
+            (awaitingSkipPair.current || Date.now() < quickSkipUntil.current || (curAt >= 0 && landed > curAt + 1))
+          ) {
             await calmDown();
             return;
           }
