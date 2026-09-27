@@ -143,6 +143,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     null,
   );
   const [upNext, setUpNext] = useState<RadioTrack | null>(null);
+  const upNextRef = useRef<RadioTrack | null>(null);
+  upNextRef.current = upNext;
   const [upSkip, setUpSkip] = useState<{ track: RadioTrack; road: Road } | null>(null);
   const lastSteerAsk = useRef(0);
   const lastSkipAsk = useRef(0);
@@ -638,8 +640,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!cur?.spotify_id || swapping.current === cur.spotify_id) return;
       swapping.current = cur.spotify_id;
       const deadline = Date.now() + remainingMs;
-      const finishB = await branches.current?.played;
-      if (!finishB?.track.spotify_id || !isPlayable(finishB.track)) return; // Spotify will just continue
+      // Use exactly the "if you finish" pick shown on screen — never a different one.
+      const shown = upNextRef.current;
+      let finishB: Branch = shown?.spotify_id && isPlayable(shown) ? { track: shown, road: s.road } : null;
+      if (!finishB) finishB = (await branches.current?.played) ?? null;
+      if (!finishB) finishB = await fetchBranch(advance(s, "played"));
+      if (!finishB?.track.spotify_id || !isPlayable(finishB.track)) {
+        swapping.current = ""; // let the next check try again
+        return;
+      }
       const afterState = { ...advance(s, "played"), current: finishB.track, road: finishB.road };
       const skipB = await Promise.race([
         fetchBranch(advance(afterState, "skipped")),
@@ -656,18 +665,26 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       await new Promise((res) => setTimeout(res, Math.max(0, deadline - Date.now() - 2_500)));
       const now = radioRef.current;
       if (now.sessionId !== s.sessionId || now.current?.spotify_id !== cur.spotify_id) return; // you moved on yourself
+      // Tell Spotify first; only move Crate forward once Spotify actually took the finish pick.
+      noPlayFor.current = finishB.track.spotify_id;
+      let ok = await startSpotifyPlayback(finishB.track, true, skipB?.track ?? null, undefined, thenB?.track ?? null);
+      if (!ok) ok = await startSpotifyPlayback(finishB.track, true, null);
+      if (!ok) {
+        noPlayFor.current = "";
+        swapping.current = "";
+        note("think", `Couldn't hand "${finishB.track.name}" to Spotify in time — retrying`);
+        return;
+      }
       if (skipB) preSkip.current = { forId: finishB.track.spotify_id, branch: skipB };
       if (thenB && skipB?.track.spotify_id) preSkip2.current = { forId: skipB.track.spotify_id, branch: thenB };
       log(cur, "play_through", s);
       played.current.push(cur.spotify_id);
-      noPlayFor.current = finishB.track.spotify_id;
       branches.current = null;
       setRadio(afterState);
       noteMove(cur, "played", finishB.track, finishB.road);
-      await startSpotifyPlayback(finishB.track, true, skipB?.track ?? null, undefined, thenB?.track ?? null);
       lastPlayback.current = { ...lastPlayback.current, observed: true };
     },
-    [fetchBranch, log, startSpotifyPlayback, noteMove],
+    [fetchBranch, log, note, startSpotifyPlayback, noteMove],
   );
 
   // Spotify owns playback. While a session is live, mirror what Spotify plays —
