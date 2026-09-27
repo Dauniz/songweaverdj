@@ -17,6 +17,7 @@ import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as AuthenticatedAdminBugsRouteImport } from './routes/_authenticated/admin.bugs'
+import { Route as AuthenticatedAdminMemoryRouteImport } from './routes/_authenticated/admin.memory'
 import { Route as AuthenticatedAdminNotepadRouteImport } from './routes/_authenticated/admin.notepad'
 import { Route as ApiPublicSpotifyCallbackRouteImport } from './routes/api/public/spotify/callback'
 
@@ -59,6 +60,12 @@ const AuthenticatedAdminBugsRoute = AuthenticatedAdminBugsRouteImport.update({
   path: '/admin/bugs',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminMemoryRoute =
+  AuthenticatedAdminMemoryRouteImport.update({
+    id: '/admin/memory',
+    path: '/admin/memory',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminNotepadRoute =
   AuthenticatedAdminNotepadRouteImport.update({
     id: '/admin/notepad',
@@ -80,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/admin/bugs': typeof AuthenticatedAdminBugsRoute
+  '/admin/memory': typeof AuthenticatedAdminMemoryRoute
   '/admin/notepad': typeof AuthenticatedAdminNotepadRoute
   '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
@@ -91,6 +99,7 @@ export interface FileRoutesByTo {
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/admin/bugs': typeof AuthenticatedAdminBugsRoute
+  '/admin/memory': typeof AuthenticatedAdminMemoryRoute
   '/admin/notepad': typeof AuthenticatedAdminNotepadRoute
   '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
@@ -104,6 +113,7 @@ export interface FileRoutesById {
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/_authenticated/admin/bugs': typeof AuthenticatedAdminBugsRoute
+  '/_authenticated/admin/memory': typeof AuthenticatedAdminMemoryRoute
   '/_authenticated/admin/notepad': typeof AuthenticatedAdminNotepadRoute
   '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/transcribe'
     | '/admin/bugs'
+    | '/admin/memory'
     | '/admin/notepad'
     | '/api/public/spotify/callback'
   fileRoutesByTo: FileRoutesByTo
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/transcribe'
     | '/admin/bugs'
+    | '/admin/memory'
     | '/admin/notepad'
     | '/api/public/spotify/callback'
   id:
@@ -140,6 +152,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/transcribe'
     | '/_authenticated/admin/bugs'
+    | '/_authenticated/admin/memory'
     | '/_authenticated/admin/notepad'
     | '/api/public/spotify/callback'
   fileRoutesById: FileRoutesById
@@ -212,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminBugsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/memory': {
+      id: '/_authenticated/admin/memory'
+      path: '/admin/memory'
+      fullPath: '/admin/memory'
+      preLoaderRoute: typeof AuthenticatedAdminMemoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/notepad': {
       id: '/_authenticated/admin/notepad'
       path: '/admin/notepad'
@@ -232,12 +252,14 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedStudioRoute: typeof AuthenticatedStudioRoute
   AuthenticatedAdminBugsRoute: typeof AuthenticatedAdminBugsRoute
+  AuthenticatedAdminMemoryRoute: typeof AuthenticatedAdminMemoryRoute
   AuthenticatedAdminNotepadRoute: typeof AuthenticatedAdminNotepadRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedStudioRoute: AuthenticatedStudioRoute,
   AuthenticatedAdminBugsRoute: AuthenticatedAdminBugsRoute,
+  AuthenticatedAdminMemoryRoute: AuthenticatedAdminMemoryRoute,
   AuthenticatedAdminNotepadRoute: AuthenticatedAdminNotepadRoute,
 }
 
