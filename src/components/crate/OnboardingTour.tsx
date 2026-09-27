@@ -151,7 +151,7 @@ export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
           <div className="absolute bg-background/75" style={{ top: rect.top - pad, left: 0, width: Math.max(0, rect.left - pad), height: rect.height + pad * 2 }} />
           <div className="absolute bg-background/75" style={{ top: rect.top - pad, left: rect.left + rect.width + pad, right: 0, height: rect.height + pad * 2 }} />
           <div
-            className="absolute rounded-lg border-2 border-primary shadow-[0_0_0_4px_color-mix(in_oklab,var(--primary)_18%,transparent)] transition-all duration-300"
+            className="absolute rounded-lg border-2 border-primary shadow-[0_0_0_4px_color-mix(in_oklab,var(--primary)_18%,transparent)] transition-all duration-300 motion-reduce:transition-none"
             style={{ top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }}
           />
         </>
@@ -162,7 +162,7 @@ export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
         role="dialog"
         aria-modal="false"
         aria-labelledby="onboarding-title"
-        className="pointer-events-auto absolute rounded-lg border bg-popover p-4 text-popover-foreground shadow-2xl transition-[top,left] duration-300"
+        className="pointer-events-auto absolute rounded-lg border bg-popover p-4 text-popover-foreground shadow-2xl transition-[top,left] duration-300 motion-reduce:transition-none"
         style={{ top: cardTop, left: cardLeft, width: cardWidth }}
       >
         <div className="flex items-start gap-3">
