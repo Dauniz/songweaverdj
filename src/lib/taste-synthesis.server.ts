@@ -254,10 +254,6 @@ ${notes.length ? `\nFeedbacker notes (their own words):\n${notes.join("\n")}` : 
     providerOptions: {
       openai: {
         store: false,
-        forceReasoning: true,
-        reasoningEffort: "low",
-        reasoningSummary: "auto",
-        include: ["reasoning.encrypted_content"],
       },
     },
   });

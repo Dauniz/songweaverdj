@@ -457,7 +457,7 @@ Pick the next song.`;
       system,
       messages: [{ role: "user", content: live }],
       stopWhen: stepCountIs(1),
-      providerOptions: { openai: { store: false, reasoningEffort: "low" } },
+      providerOptions: { openai: { store: false } },
       tools: {
         pick_next: tool({
           description: "Choose the next song.",

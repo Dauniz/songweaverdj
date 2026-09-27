@@ -165,10 +165,6 @@ DEEP CUTS IS ON: at least 5 of the picks must come from playlists dated 12+ mont
     providerOptions: {
       openai: {
         store: false,
-        forceReasoning: true,
-        reasoningEffort: "low",
-        reasoningSummary: "auto",
-        include: ["reasoning.encrypted_content"],
       },
     },
     tools: {
