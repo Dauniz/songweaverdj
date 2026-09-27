@@ -17,7 +17,7 @@
 - Radio picks one song at a time via `nextPathTrack` (src/lib/path.functions.ts) over a library merged by `spotify_id`; era road is plain code, vibe/mixed roads use AI; the client prefetches both the "played" and "skipped" branches. Why: instant skips and a maze-like path driven by listening.
 - Crate is Songweaver's AI companion; product-facing branding uses Songweaver while assistant and DJ language uses Crate. Why: the product and its AI have distinct identities.
 - Radio playback uses server-side Spotify Connect commands and observes the active Spotify device; Songweaver renders no audio player. Why: listening stays in Spotify while Crate controls the path without exposing OAuth tokens.
-- Playback sends [current, skip 1, skip 2, skip 3] together, then replaces it near song-end with the finish path. Why: skips need a complete buffer without mid-song re-sends.
+- Playback sends `[current, if-you-skip]`; a second early skip pauses and rebuilds. Finish handovers send the same pair. Why: polling cannot reconcile multi-skip buffers.
 - Side roads (src/lib/lenses.ts): single-select overlays; Wormhole = code pool filter, Scene/Wave/Texture = DJ prompt rule. Forgotten archive removed (dup of Deep cuts); one general tooltip in MoodChat. Why: paths without breaking the maze.
 
 - Onboarding runs once per account (flag in auth user metadata, cached per user in localStorage), anchored to live controls. Why: show it only on first Studio visit after signup or guest entry.

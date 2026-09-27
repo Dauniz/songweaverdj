@@ -51,6 +51,7 @@ export function SpotifyLogPanel() {
               {e.kind === "send" && (
                 <>
                   <span className="text-primary">SEND</span>
+                  {e.generation ? <span className="text-muted-foreground"> g{e.generation}{e.reason ? ` · ${e.reason}` : ""}</span> : null}
                   {e.positionMs ? <span className="text-muted-foreground"> @{(e.positionMs / 1000).toFixed(1)}s</span> : null}
                   <span className="text-muted-foreground">
                     {" "}→ {e.ackAt ? `${e.status} in ${e.ackAt - e.at} ms` : "waiting…"}
@@ -58,7 +59,7 @@ export function SpotifyLogPanel() {
                   <ol className="ml-4 list-decimal text-foreground/80">
                     {e.uris.map((u, i) => (
                       <li key={u.id + i}>
-                        <span className="text-muted-foreground">{["now", "skip 1", "skip 2", "skip 3"][i] ?? `#${i}`}:</span> {u.name}{" "}
+                        <span className="text-muted-foreground">{["now", "if you skip"][i] ?? `#${i}`}:</span> {u.name}{" "}
                         <span className="text-muted-foreground">spotify:track:{u.id}</span>
                       </li>
                     ))}
