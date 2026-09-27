@@ -19,18 +19,40 @@ export const Route = createFileRoute("/_authenticated/admin/notepad")({
   component: AdminNotepad,
 });
 
+type LoadedNotes =
+  | { admin: false }
+  | { admin: true; userId: string; row: { id: string; content: unknown } | null };
+
+async function loadNotes(): Promise<LoadedNotes> {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return { admin: false };
+  const { data: roles } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", u.user.id)
+    .eq("role", "admin");
+  if (!roles?.length) return { admin: false };
+  const { data: row } = await supabase
+    .from("admin_notes")
+    .select("id, content")
+    .eq("user_id", u.user.id)
+    .eq("title", "Songweaver roadmap")
+    .maybeSingle();
+  return { admin: true, userId: u.user.id, row };
+}
+
 function AdminNotepad() {
   const qc = useQueryClient();
   const [text, setText] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dataRef = useRef<Awaited<ReturnType<typeof loadNotes>> | undefined>(undefined拿来);
-  dataRef.current = data as never;
+  const dataRef = useRef<LoadedNotes | undefined>(undefined);
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-notepad"],
     queryFn: loadNotes,
   });
+  dataRef.current = data;
 
   useEffect(() => {
     if (!data || !data.admin || text !== null) return;
@@ -40,9 +62,9 @@ function AdminNotepad() {
 
   const persist = useCallback(
     async (next: string) => {
-      if (!dataRef.current || !dataRef.current.admin) return;
-      setSaveState("saving");
       const d = dataRef.current;
+      if (!d || !d.admin) return;
+      setSaveState("saving");
       const payload = { user_id: d.userId, title: "Songweaver roadmap", content: { text: next } };
       const { error } = d.row
         ? await supabase.from("admin_notes").update({ content: payload.content }).eq("id", d.row.id)
