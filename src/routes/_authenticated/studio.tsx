@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { LogOut } from "lucide-react";
 import {
   Tooltip,
@@ -15,6 +15,7 @@ import { MemoryInspector } from "@/components/crate/MemoryInspector";
 import { SessionControl } from "@/components/crate/SessionControl";
 import { cn } from "@/lib/utils";
 import { BugReportButton } from "@/components/BugReportButton";
+import { OnboardingTour } from "@/components/crate/OnboardingTour";
 import logo from "@/assets/crate-logo.jpg";
 
 export const Route = createFileRoute("/_authenticated/studio")({
@@ -65,6 +66,7 @@ function StudioLayout({
 }) {
   const { sessionLive, radio } = useRadio();
   const live = sessionLive || radio.active;
+  const showMemory = useCallback(() => onTab("memory"), [onTab]);
   return (
     <div className="flex h-screen flex-col bg-background">
       <header className="flex items-center gap-3 border-b px-4 py-2.5">
@@ -125,6 +127,7 @@ function StudioLayout({
           <MemoryInspector />
         </aside>
       </div>
+      <OnboardingTour showMemory={showMemory} />
     </div>
   );
 }

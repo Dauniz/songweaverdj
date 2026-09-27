@@ -320,6 +320,7 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
     return (
       <button
         type="button"
+        data-onboarding="feedbacker"
         onClick={() => setOpen(true)}
         className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"
       >
@@ -332,6 +333,7 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
     return (
       <button
         type="button"
+        data-onboarding="feedbacker"
         onClick={() => setOpen(true)}
         className="mt-3 flex w-full items-start gap-2.5 rounded-lg border border-border bg-surface p-2.5 text-left transition-colors hover:border-primary/60 hover:bg-primary/5"
       >

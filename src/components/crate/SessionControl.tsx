@@ -48,7 +48,7 @@ export function SessionControl() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button size="sm" className="ml-auto h-8 rounded-full px-4" disabled={syncing}>
+        <Button data-onboarding="session-start" size="sm" className="ml-auto h-8 rounded-full px-4" disabled={syncing}>
           {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
           {syncing ? "Syncing…" : "Start session"}
         </Button>

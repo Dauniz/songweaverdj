@@ -273,6 +273,7 @@ export function MoodChat() {
 
   const composer = (
     <div
+      data-onboarding="prompt"
       className={cn(
         "composer-reveal w-full bg-background/80 backdrop-blur",
         empty

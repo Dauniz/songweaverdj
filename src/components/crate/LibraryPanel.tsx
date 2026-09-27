@@ -122,8 +122,13 @@ export function LibraryPanel() {
       setCollapsed(false);
       void sync();
     };
+    const onOnboarding = () => setCollapsed(false);
     window.addEventListener("songweaver-sync", onSync);
-    return () => window.removeEventListener("songweaver-sync", onSync);
+    window.addEventListener("songweaver-onboarding-open-spotify", onOnboarding);
+    return () => {
+      window.removeEventListener("songweaver-sync", onSync);
+      window.removeEventListener("songweaver-onboarding-open-spotify", onOnboarding);
+    };
   });
 
   async function loadDemo() {
@@ -256,7 +261,7 @@ export function LibraryPanel() {
             </div>
           )}
           <div className="mt-2 flex gap-2">
-            <Button size="sm" onClick={sync} disabled={busy !== null}>
+            <Button data-onboarding="spotify-sync" size="sm" onClick={sync} disabled={busy !== null}>
               {busy === "sync" && <Loader2 className="h-3 w-3 animate-spin" />} Sync library
             </Button>
             <Button
@@ -272,7 +277,7 @@ export function LibraryPanel() {
           </div>
         </>
       ) : (
-        <Button size="sm" className="mt-2" onClick={connect} disabled={busy !== null}>
+        <Button data-onboarding="spotify-sync" size="sm" className="mt-2" onClick={connect} disabled={busy !== null}>
           Connect Spotify
         </Button>
       )}
