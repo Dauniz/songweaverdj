@@ -7,7 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { logListeningEvent } from "@/lib/radio.functions";
-import { nextPathTrack, pathReserves } from "@/lib/path.functions";
+import { nextPathTrack } from "@/lib/path.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
 import { pushSpotifyLog, ackSpotifySend, observeSpotify } from "@/lib/spotify-log";
@@ -124,7 +124,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [askSteer, setAskSteer] = useState(false);
   const logFn = useServerFn(logListeningEvent);
   const pathFn = useServerFn(nextPathTrack);
-  const reservesFn = useServerFn(pathReserves);
   const synthFn = useServerFn(synthesizeMemories);
   /** Songs logged this run — Crate reflects every few of them. */
   const logged = useRef(0);
@@ -171,24 +170,25 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const preSkip = useRef<{ forId: string; branch: Branch } | null>(null);
   const scoutAbort = useRef<AbortController | null>(null);
   const lensTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const preSkip2 = useRef<{ forId: string; branch: Branch } | null>(null);
   const upSkipRef = useRef<{ track: RadioTrack; road: Road } | null>(null);
   upSkipRef.current = upSkip;
   const sideSnap = useRef<{
     at: number; lens: LensId | null; deep: boolean; currentId: string | null | undefined; historyLen: number;
     branches: { key: string; played: Promise<Branch>; skipped: Promise<Branch> } | null;
     upNext: RadioTrack | null; upSkip: { track: RadioTrack; road: Road } | null;
-    preSkip: { forId: string; branch: Branch } | null; preSkip2: { forId: string; branch: Branch } | null;
+    preSkip: { forId: string; branch: Branch } | null;
   } | null>(null);
   const swapping = useRef("");
   /** Song ids last sent to Spotify, in order — lets Crate skip re-sending when the next door is already lined up. */
   const lineup = useRef<string[]>([]);
   /** Full song info for everything in `lineup`, so a skip onto any of them is followed exactly. */
   const lineupTracks = useRef<Map<string, RadioTrack>>(new Map());
-  /** Code-picked back-ups (no AI) sent behind the doors so fast skips never empty Spotify's list. */
-  const reserves = useRef<{ forId: string; tracks: RadioTrack[] }>({ forId: "", tracks: [] });
-  /** Times Spotify was seen changing song — used to spot skip spamming. */
-  const jumps = useRef<number[]>([]);
+  /** Monotonic Spotify list generation; stale scouting and replies cannot overwrite newer state. */
+  const listGeneration = useRef(0);
+  const acceptedGeneration = useRef(0);
+  const playbackWrite = useRef<Promise<void>>(Promise.resolve());
+  /** True after the first skip until that song's new authoritative pair is accepted. */
+  const awaitingSkipPair = useRef(false);
   /** After a song change Crate waits one quiet second before scouting, in case you skip again. */
   const settleUntil = useRef(0);
   const [settleTick, setSettleTick] = useState(0);
@@ -513,7 +513,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     setPlaybackIssue(null);
     door.current = null;
     preSkip.current = null;
-    preSkip2.current = null;
+    listGeneration.current += 1;
+    awaitingSkipPair.current = false;
     setSessionLive(false);
     setSpotifyIdle(false);
     setRadio(IDLE);
@@ -539,7 +540,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       branches.current = null;
       door.current = null;
       preSkip.current = null;
-    preSkip2.current = null;
+      listGeneration.current += 1;
+      awaitingSkipPair.current = false;
       noPlayFor.current = "";
       idleSince.current = 0;
       noDeviceSince.current = 0;
@@ -1464,7 +1466,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (s.active && nextDeep) log({ name: "deep cuts", artists: "" }, "steer", s);
       branches.current = null;
       preSkip.current = null;
-      preSkip2.current = null;
+      listGeneration.current += 1;
+      awaitingSkipPair.current = false;
       if (!s.active) return;
       setUpNext(null);
       setUpSkip(null);
