@@ -867,6 +867,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           setSpotifyIdle(false);
         }
         if (state.status === "ready" && state.spotifyId === current.spotify_id) {
+          // Spotify ran off the end of Crate's list and looped back to the first song.
+          if (previous.observed && previous.progressMs > state.progressMs + 8_000 && Date.now() - lastTransition.current > 3_000) {
+            await calmDown();
+            return;
+          }
           lastPlayback.current = {
             spotifyId: current.spotify_id,
             ratio: state.durationMs ? state.progressMs / state.durationMs : previous.ratio,
@@ -888,10 +893,40 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (!previous.observed && !(rapid && sinceMove > 2_500)) return;
         const outcome = previous.ratio >= 0.7 ? "played" : "skipped";
         if (state.status === "ready" && state.spotifyId) {
+          // Where Spotify landed in Crate's list says how many songs you skipped past.
+          const at = lineup.current.indexOf(current.spotify_id);
+          const landed = lineup.current.indexOf(state.spotifyId);
+          const steps = at >= 0 && landed > at ? landed - at : 0;
+          jumps.current = [...jumps.current.filter((t) => Date.now() - t < 3_000), Date.now()];
+          const bursts = jumps.current.length + Math.max(0, steps - 1);
+          if (bursts >= 4 || (steps >= 3 && sinceMove < 2_000)) {
+            await calmDown();
+            return;
+          }
           const q = door.current;
           if (q && q.forId === current.spotify_id && q.track.spotify_id === state.spotifyId) {
             // you skipped onto Crate's "if you skip" door
             acceptObserved(q.track, outcome, false, state.progressMs, state.durationMs);
+          } else if (steps >= 2) {
+            // Two or three skips in a heartbeat: log them all, then turn to a new angle.
+            const landedTrack: RadioTrack = {
+              id: `demo-ext-${state.spotifyId}`,
+              spotify_id: state.spotifyId,
+              name: state.name || "Unknown song",
+              artists: state.artists,
+              album: state.album,
+              image_url: state.imageUrl,
+              spotify_url: state.spotifyUrl,
+              source_name: "Spotify",
+            };
+            for (const id of lineup.current.slice(at + 1, landed)) {
+              played.current.push(id);
+              log({ name: "skipped door", artists: "" }, "early_skip", radioRef.current);
+            }
+            note("skip", `${steps} skips in a row → Crate turns to a new angle`);
+            acceptObserved(landedTrack, "skipped", false, state.progressMs, state.durationMs);
+            setRadio((s) => ({ ...s, consecutiveSkips: Math.max(2, steps), road: "mixed" }));
+            setAskSteer(true);
           } else if (rapid && outcome === "skipped") {
             // Skipped again before the next door was lined up: Spotify fell off the end of
             // the list. Keep up — follow the skip road instead of treating it as your own pick.
