@@ -378,7 +378,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    return prefetch(radio);
+    // One quiet second after a song change: if you skip again, no search is wasted.
+    const wait = settleUntil.current - Date.now();
+    if (wait > 0) {
+      const t = setTimeout(() => setSettleTick((n) => n + 1), wait + 50);
+      return () => clearTimeout(t);
+    }
+    prefetch(radio);
+    return undefined;
   }, [radio, prefetch, settleTick]);
 
   const startRadio = useCallback(
