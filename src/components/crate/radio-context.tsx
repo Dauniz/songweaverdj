@@ -974,6 +974,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             stopRadio(); // idle ~30 min: hand Spotify back
             return;
           }
+          // A paused Spotify player still reports its last track id. Never interpret that
+          // stale id as a skip: doing so makes Crate replace the line-up repeatedly while
+          // nothing is actually playing in Spotify.
+          return;
         } else {
           idleSince.current = 0;
           noDeviceSince.current = 0;
@@ -1076,7 +1080,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           }
           return;
         }
-        if (state.status === "idle" || (state.status === "ready" && !state.spotifyId)) {
+        if (state.status === "ready" && !state.spotifyId) {
           advancing.current = true;
           await next(outcome);
           advancing.current = false;
@@ -1132,9 +1136,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           spotify_url: state.spotifyUrl,
           source_name: "Spotify",
         };
-        noPlayFor.current = state.spotifyId;
+        // Adopt a genuinely playing track without restarting it. If Spotify only reports
+        // a paused last track, use it as the seed but let the normal playback effect start it.
+        noPlayFor.current = state.isPlaying ? state.spotifyId : "";
         lastPlayback.current = {
-          spotifyId: state.spotifyId, ratio: 0, observed: true,
+          spotifyId: state.spotifyId, ratio: 0, observed: state.isPlaying,
           progressMs: state.progressMs, durationMs: state.durationMs, at: Date.now(),
         };
         startRadio([track], "");
