@@ -20,4 +20,4 @@
 - Session playback sends Spotify a two-song list [current, "if you skip" door] instead of using the queue, and ~2.5s before the end replaces it with [finish pick, its skip door]. Why: the Spotify API cannot clear or remove queue items, but a new play list replaces the context cleanly.
 - Side roads (src/lib/lenses.ts): single-select overlays; Wormhole = code pool filter, Scene/Wave/Texture = DJ prompt rule. Forgotten archive removed (dup of Deep cuts); one general tooltip in MoodChat. Why: paths without breaking the maze.
 
-- Onboarding is device-local and anchored to live controls. Why: guide listeners without changing account data or playback.
+- Onboarding runs once per account (flag in auth user metadata, cached per user in localStorage), anchored to live controls. Why: show it only on first Studio visit after signup or guest entry.
