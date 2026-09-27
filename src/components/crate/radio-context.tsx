@@ -656,6 +656,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const nextState = advance(s, outcome);
       noPlayFor.current = track.spotify_id ?? "";
       lastTransition.current = Date.now();
+      settleUntil.current = Date.now() + 1_000; // one quiet second before Crate looks for new songs
       lastPlayback.current = { spotifyId: track.spotify_id ?? "", ratio: 0, observed: true, progressMs, durationMs, at: Date.now() };
       door.current = null;
       branches.current = null;
