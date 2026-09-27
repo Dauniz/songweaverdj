@@ -53,6 +53,8 @@ function suggestionFromMemory(memory: PromptMemory) {
 }
 
 const TODAY_FALLBACKS = ["Ease me into today", "Play something that fits right now"];
+// Keep the implementation ready for a future return, but hide voice input for every account.
+const VOICE_INPUT_ENABLED = false;
 
 async function transcribeVoice(file: File) {
   const { data } = await supabase.auth.getSession();
@@ -278,39 +280,43 @@ export function MoodChat() {
           />
           <PromptInputFooter className="flex items-center justify-between px-3 pb-3">
             <div className="flex items-center gap-2">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      variant={voiceState === "recording" ? "default" : "ghost"}
-                      size="icon-lg"
-                      onClick={() => void toggleVoice()}
-                      disabled={busy || voiceState === "transcribing"}
-                      aria-label={voiceState === "recording" ? "Stop and send voice prompt" : "Speak your prompt"}
-                      className={cn(
-                        "rounded-full",
-                        voiceState === "recording" && "animate-pulse",
-                      )}
-                    >
-                      {voiceState === "transcribing" ? (
-                        <LoaderCircle className="animate-spin" />
-                      ) : voiceState === "recording" ? (
-                        <Square className="fill-current" />
-                      ) : (
-                        <Mic />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    {voiceState === "recording" ? "Stop and send" : "Speak your prompt"}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              {voiceState !== "idle" && (
-                <span className="text-sm text-muted-foreground" aria-live="polite">
-                  {voiceState === "recording" ? "Listening… pause to send" : "Turning speech into your prompt…"}
-                </span>
+              {VOICE_INPUT_ENABLED && (
+                <>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant={voiceState === "recording" ? "default" : "ghost"}
+                          size="icon-lg"
+                          onClick={() => void toggleVoice()}
+                          disabled={busy || voiceState === "transcribing"}
+                          aria-label={voiceState === "recording" ? "Stop and send voice prompt" : "Speak your prompt"}
+                          className={cn(
+                            "rounded-full",
+                            voiceState === "recording" && "animate-pulse",
+                          )}
+                        >
+                          {voiceState === "transcribing" ? (
+                            <LoaderCircle className="animate-spin" />
+                          ) : voiceState === "recording" ? (
+                            <Square className="fill-current" />
+                          ) : (
+                            <Mic />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">
+                        {voiceState === "recording" ? "Stop and send" : "Speak your prompt"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  {voiceState !== "idle" && (
+                    <span className="text-sm text-muted-foreground" aria-live="polite">
+                      {voiceState === "recording" ? "Listening… pause to send" : "Turning speech into your prompt…"}
+                    </span>
+                  )}
+                </>
               )}
             </div>
             <PromptInputSubmit
