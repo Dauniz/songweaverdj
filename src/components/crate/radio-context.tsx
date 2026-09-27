@@ -8,6 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack, pathReserves } from "@/lib/path.functions";
+import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
 import { endSpotifySession, getSpotifyAuthUrl, getSpotifyPlayback, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
 import type { CardTrack } from "./TrackCard";
@@ -120,6 +121,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const logFn = useServerFn(logListeningEvent);
   const pathFn = useServerFn(nextPathTrack);
   const reservesFn = useServerFn(pathReserves);
+  const synthFn = useServerFn(synthesizeMemories);
+  /** Songs logged this run — Crate reflects every few of them. */
+  const logged = useRef(0);
+  const reflecting = useRef(false);
   const playFn = useServerFn(playSpotifyTrack);
   const pauseFn = useServerFn(pauseSpotifyPlayback);
   const playbackFn = useServerFn(getSpotifyPlayback);
@@ -268,6 +273,26 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const avoidArtists = () =>
     [...artistSkips.current.entries()].filter(([, n]) => n >= 2).map(([a]) => a);
 
+  /** Let Crate reflect on how this session was actually listened to. */
+  const reflect = useCallback(
+    (sessionId: string, scope: "session" | "history") => {
+      if (reflecting.current) return;
+      reflecting.current = true;
+      synthFn({ data: { sessionId: sessionId || null, scope, tzOffsetMin: new Date().getTimezoneOffset() } })
+        .then((r) => {
+          if (r?.saved) {
+            qc.invalidateQueries({ queryKey: ["memories"] });
+            for (const i of r.insights ?? []) note("pick", `Walrus memory written: ${i.content}`);
+          }
+        })
+        .catch(() => null)
+        .finally(() => {
+          reflecting.current = false;
+        });
+    },
+    [synthFn, qc, note],
+  );
+
   const log = useCallback(
     (track: { id?: string | null; name: string; artists: string } | null, event: string, s: RadioState) => {
       logFn({
@@ -284,8 +309,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (r?.learned?.length) qc.invalidateQueries({ queryKey: ["memories"] });
         })
         .catch(() => null);
+      // Every few songs Crate steps back and draws conclusions from the trace.
+      logged.current += 1;
+      if (logged.current % 7 === 0 && s.sessionId) reflect(s.sessionId, logged.current >= 21 ? "history" : "session");
     },
-    [logFn, qc],
+    [logFn, qc, reflect],
   );
 
   const fetchBranch = useCallback(
@@ -446,6 +474,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const stopRadio = useCallback((opts?: { keepSpotify?: boolean }) => {
     // Remember where in the maze Crate was, so the session can be resumed later.
     const s = radioRef.current;
+    // Closing thought: what did this session reveal about their taste?
+    if (s.sessionId && logged.current > 0) reflect(s.sessionId, "history");
     if (s.active && s.current) {
       localStorage.setItem(
         LAST_KEY,
@@ -470,7 +500,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(LIVE_KEY);
     // Hand Spotify back clean: pause and drop the songs Crate had lined up.
     if (!opts?.keepSpotify) void endSpotifySession().catch(() => undefined);
-  }, []);
+  }, [reflect]);
 
   const resumeLastSession = useCallback(() => {
     try {

@@ -70,8 +70,8 @@ function AdminMemory() {
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           ["Testers", data.users.length],
-          ["Spotify connected", data.users.filter((u) => u.spotifyConnected).length],
           ["Memories", total],
+          ["Crate insights", data.users.reduce((n, u) => n + u.memories.filter((m) => m.origin === "synthesis").length, 0)],
           ["Stored on Walrus", stored],
         ].map(([l, v]) => (
           <div key={l} className="rounded-lg border bg-card p-4">
@@ -102,17 +102,17 @@ function AdminMemory() {
                 </div>
               </div>
               <div className="text-xs text-muted-foreground">
-                {u.memories.length} memories · {u.plays} plays · {u.skips} skips
+                {u.memories.length} memories · {u.memories.filter((m) => m.origin === "synthesis").length} Crate insights · {u.plays} plays · {u.skips} skips
               </div>
             </button>
             {open === u.id && (
               <div className="border-t p-4">
                 {u.memories.length === 0 && <p className="text-sm text-muted-foreground">No memories yet.</p>}
                 <ul className="space-y-2">
-                  {u.memories.map((m) => (
-                    <li key={m.id} className="text-sm">
+                  {[...u.memories].sort((a, b) => Number(b.origin === "synthesis") - Number(a.origin === "synthesis")).map((m) => (
+                    <li key={m.id} className={m.origin === "synthesis" ? "rounded-md border border-chart-4/40 bg-chart-4/5 p-2 text-sm" : "p-2 text-sm"}>
                       <div className="text-xs text-muted-foreground">
-                        {new Date(m.created_at).toLocaleString()} · {m.kind} · {m.origin} ·{" "}
+                        {new Date(m.created_at).toLocaleString()} · {m.origin === "synthesis" ? <span className="font-semibold text-chart-4">Crate insight</span> : m.origin} · {m.kind} ·{" "}
                         <span className={m.status === "stored" ? "text-primary" : ""}>{m.status}</span>
                         {m.blob_id && !m.blob_id.startsWith("job:") && <span className="ml-1 font-mono">· {m.blob_id.slice(0, 16)}…</span>}
                       </div>

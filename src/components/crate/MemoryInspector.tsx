@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight, CircleHelp, Database, Info, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleHelp, Database, Info, Sparkle, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { getMemoryStatus, refreshMemories, resetMemoryLog } from "@/lib/memory.functions";
+import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { cn } from "@/lib/utils";
 import { PathMaze, CrateConsole } from "@/components/crate/PathMaze";
 
@@ -42,6 +43,7 @@ const KIND_STYLE: Record<string, string> = {
 
 
 function skillForMemory(kind: string, origin: string, content: string) {
+  if (origin === "synthesis") return "Crate insight";
   if (content.startsWith("Note on")) return "Feedbacker";
   if (content.startsWith("Often steers")) return "Steer";
   if (kind === "skipped") return "Skipped";
@@ -60,8 +62,11 @@ export function MemoryInspector() {
   const [resetOpen, setResetOpen] = useState(false);
   const [resetText, setResetText] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [reflecting, setReflecting] = useState(false);
+  const [reflectMsg, setReflectMsg] = useState<string | null>(null);
   const reset = useServerFn(resetMemoryLog);
   const refresh = useServerFn(refreshMemories);
+  const reflect = useServerFn(synthesizeMemories);
   const status = useServerFn(getMemoryStatus);
   const { data: cfg } = useQuery({ queryKey: ["memwal-status"], queryFn: () => status() });
   const { data: nodes = [] } = useQuery({
@@ -158,6 +163,28 @@ export function MemoryInspector() {
           {showLog ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           {showLog ? "Hide Walrus log" : "Show Walrus log"}
         </button>
+        <button
+          type="button"
+          disabled={reflecting}
+          onClick={async () => {
+            setReflecting(true);
+            try {
+              const r = await reflect({ data: { sessionId: null, scope: "history", tzOffsetMin: new Date().getTimezoneOffset() } });
+              setReflectMsg(r?.saved ? `${r.saved} new insight${r.saved > 1 ? "s" : ""} written to Walrus` : "Nothing new to conclude yet — listen a little more");
+              if (r?.saved) qc.invalidateQueries({ queryKey: ["memories"] });
+            } catch {
+              setReflectMsg("Couldn't reflect right now");
+            } finally {
+              setReflecting(false);
+              setTimeout(() => setReflectMsg(null), 6000);
+            }
+          }}
+          className="ml-3 mt-3 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 font-medium text-chart-4 hover:bg-accent disabled:opacity-60"
+        >
+          <Sparkle className="h-3.5 w-3.5" />
+          {reflecting ? "Crate is reflecting…" : "Let Crate reflect"}
+        </button>
+        {reflectMsg && <p className="mt-1.5 text-[11px] text-muted-foreground">{reflectMsg}</p>}
       </div>
       {showLog && !consoleOpen && !consoleAnimating && (
       <div className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto border-t px-4 py-3">
@@ -167,17 +194,32 @@ export function MemoryInspector() {
           </p>
         )}
         {nodes.map((n) => {
+          const insight = n.origin === "synthesis";
           return (
-            <div key={n.id} className="rounded-lg border bg-surface p-3">
+            <div key={n.id} className={cn("rounded-lg border bg-surface p-3", insight && "border-chart-4/50 bg-chart-4/5")}>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-muted-foreground">
                   {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
-                <span className="inline-flex rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                <span className={cn("inline-flex rounded-md border px-2 py-0.5 text-[10px] font-semibold", insight ? "border-chart-4/40 bg-chart-4/15 text-chart-4" : "border-primary/25 bg-primary/10 text-primary")}>
                   {skillForMemory(n.kind, n.origin, n.content)}
                 </span>
+                {insight && (
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" aria-label="What is a Crate insight?" className="rounded-full p-0.5 text-muted-foreground hover:text-foreground">
+                          <CircleHelp className="h-3 w-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[260px] text-left">
+                        A conclusion Crate drew on its own from how you listened — when you skipped, what you finished, the time of night, which playlists the songs came from.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </div>
-              <p className="mt-2 text-sm">{n.content}</p>
+              <p className={cn("mt-2 text-sm", insight && "font-medium")}>{n.content}</p>
               <div className="mt-2 flex justify-between gap-2 font-mono text-[10px] text-muted-foreground">
                 {n.blob_id && !n.blob_id.startsWith("job:") ? (() => {
                   const fullId: string = n.blob_id;
