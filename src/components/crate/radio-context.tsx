@@ -959,6 +959,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       try {
         const state = await playbackFn();
+        // The request may have started just before Crate began a hand-over or deliberate
+        // skip-spam pause. Discard that now-stale response instead of surfacing it as idle.
+        if (calmingRef.current || committing.current || swapping.current) {
+          idleSince.current = 0;
+          idlePolls.current = 0;
+          return;
+        }
         const previous = lastPlayback.current;
         // Spotify occasionally reports `is_playing: false` while progress is still moving.
         // Treat advancing progress as authoritative so a transient API snapshot never raises
