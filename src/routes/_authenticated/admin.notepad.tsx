@@ -140,7 +140,7 @@ function AdminNotepad() {
     const canvas = canvasRef.current;
     if (!node || !canvas) return;
     const rect = canvas.getBoundingClientRect();
-    dragRef.current = { id, dx: e.clientX - rect.left - node.x, dy: e.clientY - rect.top - node.y };
+    dragRef.current = { id, dx: e.clientX - rect.left - pan.x - node.x, dy: e.clientY - rect.top - pan.y - node.y };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }
   function onCanvasPointerDown(e: React.PointerEvent) {
@@ -243,11 +243,13 @@ function AdminNotepad() {
       <div
         ref={canvasRef}
         className="relative flex-1 overflow-hidden bg-background"
+        onPointerDown={onCanvasPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         style={{ touchAction: "none" }}
       >
-        <svg className="pointer-events-none absolute inset-0 h-full w-full">
+        <div className="absolute inset-0" style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}>
+        <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
           {map.nodes.map((n) => {
             if (!n.parentId) return null;
             const p = byId.get(n.parentId);
