@@ -1,4 +1,5 @@
 import type { RadioState, MazeEvent } from "@/components/crate/radio-context";
+import type { LensId } from "@/lib/lenses";
 
 export const LIVE_KEY = "songweaver-live-session";
 const LIVE_MAX_AGE = 30 * 60 * 1000;
@@ -7,6 +8,7 @@ type SavedSession = {
   played: string[]; artistSkips: [string, number][]; savedAt: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   upNext?: any; upSkip?: any; door?: any; branchKey?: string | null;
+  lens?: LensId | null; deepCuts?: boolean;
 };
 export function readLiveSession(): SavedSession | null {
   try {
