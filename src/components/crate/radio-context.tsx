@@ -556,7 +556,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const used = new Set([track.spotify_id, nextId, thenId].filter(Boolean) as string[]);
       const reserveIds = reserves.current.tracks
         .map((t) => t.spotify_id)
-        .filter((id): id is string => Boolean(id) && !used.has(id))
+        .filter((id): id is string => Boolean(id) && !used.has(id as string))
         .slice(0, Math.max(0, 4 - used.size));
       setRetrying(true);
       try {
