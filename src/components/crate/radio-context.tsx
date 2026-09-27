@@ -694,26 +694,32 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       } catch {
         /* keep the estimate */
       }
-      // Fire slightly before the last millisecond to cover the round-trip to Spotify
-      // (the final ~0.3 s of a track is almost always silence).
-      await new Promise((res) => setTimeout(res, Math.max(0, end - Date.now() - 350)));
+      // Fire a beat before the last millisecond: the round-trip to Spotify takes time, and
+      // sending while the track is in its final moments makes Spotify skip straight past the
+      // first song in the list. The final ~1 s of a track is almost always silence/fade.
+      await new Promise((res) => setTimeout(res, Math.max(0, end - Date.now() - 1_100)));
       const now = radioRef.current;
       if (now.sessionId !== s.sessionId || now.current?.spotify_id !== cur.spotify_id) {
         if (swapping.current === cur.spotify_id) swapping.current = "";
         return; // you moved on yourself
       }
       // Tell Spotify first; only move Crate forward once Spotify actually took the finish pick.
-      // Send the finish pick ALONE: if a door follows it in the same list while the old song is
-      // in its final moments, Spotify sometimes skips straight past it. The "if you skip" door is
-      // lined up a second later by the effect above, once the new song is playing steadily.
+      // Send the finish pick AND its "if you skip" door in the same call, so nothing has to be
+      // re-sent while the new song plays (a mid-song re-send makes Spotify re-buffer audibly).
       noPlayFor.current = finishB.track.spotify_id;
       committing.current = true;
       let ok = false;
       try {
-        ok = await startSpotifyPlayback(finishB.track, true, null);
+        ok = await startSpotifyPlayback(
+          finishB.track, true,
+          skipB?.track && isPlayable(skipB.track) ? skipB.track : null,
+          undefined,
+          thenB?.track && isPlayable(thenB.track) ? thenB.track : null,
+        );
       } finally {
         committing.current = false;
       }
+
 
       if (!ok) {
         noPlayFor.current = "";
