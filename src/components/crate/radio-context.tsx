@@ -542,12 +542,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
       const nextId = skipDoor?.spotify_id && isPlayable(skipDoor) ? skipDoor.spotify_id : undefined;
       const thenId = nextId && thenDoor?.spotify_id && isPlayable(thenDoor) ? thenDoor.spotify_id : undefined;
-      // Back-ups sit behind the doors: if you skip past everything, Spotify still has songs left.
-      const used = new Set([track.spotify_id, nextId, thenId]);
+      // Spotify always gets the same four-song list: [now, skip 1, skip 2, skip 3].
+      // Whatever Crate hasn't scouted yet is filled with instant code-picked back-ups.
+      const used = new Set([track.spotify_id, nextId, thenId].filter(Boolean) as string[]);
       const reserveIds = reserves.current.tracks
         .map((t) => t.spotify_id)
-        .filter((id): id is string => Boolean(id) && !used.has(id!))
-        .slice(0, 2);
+        .filter((id): id is string => Boolean(id) && !used.has(id))
+        .slice(0, Math.max(0, 4 - used.size));
       setRetrying(true);
       try {
         const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, thenId, reserveIds, positionMs } });
@@ -556,7 +557,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             track.spotify_id,
             ...(nextId ? [nextId] : []),
             ...(thenId ? [thenId] : []),
-            ...(nextId ? reserveIds : []),
+            ...reserveIds,
           ];
           setPlaybackIssue(null);
           door.current = nextId && skipDoor ? { forId: track.spotify_id, track: skipDoor } : null;
