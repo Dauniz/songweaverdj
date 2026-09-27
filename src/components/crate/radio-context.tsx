@@ -599,97 +599,65 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       quiet = false,
       skipDoor?: RadioTrack | null,
       positionMs?: number,
-      thenDoor?: RadioTrack | null,
+      reason = "start",
     ) => {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
       const nextId = skipDoor?.spotify_id && isPlayable(skipDoor) ? skipDoor.spotify_id : undefined;
-      const thenId = nextId && thenDoor?.spotify_id && isPlayable(thenDoor) ? thenDoor.spotify_id : undefined;
-      // Spotify always gets the same four-song list: [now, skip 1, skip 2, skip 3].
-      // A searched song becomes current before the reserve effect finishes, so fetch the
-      // back-ups here as part of startup instead of ever sending Spotify a one-song list.
-      const used = new Set([track.spotify_id, nextId, thenId].filter(Boolean) as string[]);
-      const reserveCount = Math.max(0, 4 - used.size);
-      let reserveTracks = reserves.current.forId === track.spotify_id
-        ? reserves.current.tracks.filter((candidate) => candidate.spotify_id && !used.has(candidate.spotify_id))
-        : [];
-      if (reserveTracks.length < reserveCount) {
-        try {
-          const result = await reservesFn({
-            data: {
-              seed: { spotifyId: track.spotify_id, name: track.name, artists: track.artists },
-              road: radioRef.current.road,
-              lens: lensRef.current,
-              deepCuts: deepCutsRef.current,
-              avoidArtists: avoidArtists(),
-              excludeSpotifyIds: [...played.current.slice(-500), ...used],
-              count: reserveCount,
-            },
-          });
-          reserveTracks = (result.tracks as RadioTrack[]).filter(
-            (candidate) => candidate.spotify_id && !used.has(candidate.spotify_id),
-          );
-          reserves.current = { forId: track.spotify_id, tracks: reserveTracks };
-        } catch {
-          // The playback request below will still surface connection errors.
-        }
-      }
-      const reserveIds = reserveTracks
-        .map((t) => t.spotify_id)
-        .filter((id): id is string => Boolean(id) && !used.has(id as string))
-        .slice(0, reserveCount);
-      if (new Set([track.spotify_id, nextId, thenId, ...reserveIds].filter(Boolean)).size < 4) {
+      if (!nextId || nextId === track.spotify_id) {
         if (!quiet) {
           setPlaybackIssue({
             status: "unavailable",
-            message: "Crate couldn't prepare the three skip tracks. Try starting the song again.",
+            message: "Crate couldn't prepare the skip track. Try starting the song again.",
           });
         }
         return false;
       }
+      const generation = ++listGeneration.current;
+      const priorWrite = playbackWrite.current;
+      let releaseWrite = () => undefined;
+      playbackWrite.current = new Promise<void>((resolve) => {
+        releaseWrite = resolve;
+      });
+      await priorWrite;
+      if (generation !== listGeneration.current) {
+        releaseWrite();
+        return false;
+      }
       setRetrying(true);
       try {
-        const nameOf = (id: string) =>
-          id === track.spotify_id ? track.name : id === nextId ? skipDoor?.name ?? id : id === thenId ? thenDoor?.name ?? id
-            : reserveTracks.find((t) => t.spotify_id === id)?.name ?? id;
         const logId = pushSpotifyLog({
           kind: "send",
           at: Date.now(),
+          generation,
+          reason,
           positionMs,
-          uris: [track.spotify_id, nextId, thenId, ...reserveIds].filter((x): x is string => Boolean(x)).map((id) => ({ id, name: nameOf(id) })),
+          uris: [
+            { id: track.spotify_id, name: track.name },
+            { id: nextId, name: skipDoor?.name ?? nextId },
+          ],
         });
-        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, thenId, reserveIds, positionMs } }).catch((err) => {
+        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, positionMs } }).catch((err) => {
           ackSpotifySend(logId, "error");
           throw err;
         });
         ackSpotifySend(logId, result.status);
-        if (result.status === "playing") {
-          lineup.current = [
-            track.spotify_id,
-            ...(nextId ? [nextId] : []),
-            ...(thenId ? [thenId] : []),
-            ...reserveIds,
-          ];
+        if (result.status === "playing" && generation === listGeneration.current) {
+          acceptedGeneration.current = generation;
+          lineup.current = [track.spotify_id, nextId];
           const m = new Map<string, RadioTrack>();
           m.set(track.spotify_id, track);
-          if (nextId && skipDoor) m.set(nextId, skipDoor);
-          if (thenId && thenDoor) m.set(thenId, thenDoor);
-          for (const t of reserveTracks) if (t.spotify_id && reserveIds.includes(t.spotify_id)) m.set(t.spotify_id, t);
+          if (skipDoor) m.set(nextId, skipDoor);
           lineupTracks.current = m;
-          // What's on screen must be what Spotify has queued: if no scouted skip door went
-          // with this call, show the back-up Spotify will actually land on.
-          if (!nextId && reserveIds[0] && !positionMs) {
-            const r = m.get(reserveIds[0]);
-            if (r) {
-              door.current = { forId: track.spotify_id, track: r };
-              setUpSkip({ track: r, road: advance(radioRef.current, "skipped").road });
-            }
-          }
           setPlaybackIssue(null);
           setForeignQueued((result as { foreignQueued?: number }).foreignQueued ?? 0);
           idleSince.current = 0;
           idlePolls.current = 0;
           setSpotifyIdle(false);
-          if (nextId && skipDoor) door.current = { forId: track.spotify_id, track: skipDoor };
+          if (skipDoor) {
+            door.current = { forId: track.spotify_id, track: skipDoor };
+            setUpSkip({ track: skipDoor, road: advance(radioRef.current, "skipped").road });
+          }
+          awaitingSkipPair.current = false;
           if (!positionMs) {
             lastTransition.current = Date.now();
             // The one-quiet-second rule is for SKIPS only. A fresh start you clicked gets it;
@@ -714,39 +682,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         return false;
       } finally {
         setRetrying(false);
+        releaseWrite();
       }
     },
-    [playFn, reservesFn],
+    [playFn],
   );
-
-  // Keep two instant back-up songs ready for the current song (plain code, no AI cost).
-  useEffect(() => {
-    const cur = radio.current;
-    if (!sessionLive || !cur?.spotify_id || !isPlayable(cur)) return;
-    if (reserves.current.forId === cur.spotify_id) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const r = await reservesFn({
-          data: {
-            seed: { spotifyId: cur.spotify_id!, name: cur.name, artists: cur.artists },
-            road: radioRef.current.road,
-            lens: lensRef.current,
-            deepCuts: deepCutsRef.current,
-            avoidArtists: avoidArtists(),
-            excludeSpotifyIds: played.current.slice(-500),
-            count: 3,
-          },
-        });
-        if (!cancelled) reserves.current = { forId: cur.spotify_id!, tracks: r.tracks as RadioTrack[] };
-      } catch {
-        /* back-ups are optional */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [sessionLive, radio.current?.spotify_id, reservesFn]);
 
   useEffect(() => {
     const current = radio.current;
@@ -782,22 +722,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       ]);
       if (cancelled || radioRef.current.current?.spotify_id !== current.spotify_id) return;
       const skip = branch?.track && isPlayable(branch.track) && branch.track.spotify_id !== current.spotify_id ? branch : null;
-      // Skip 2 = the skip door's own next step; skip 3 = a code-picked new-angle back-up.
-      let then: Branch = null;
       if (skip) {
-        const s0 = radioRef.current;
-        const onSkip = { ...advance(s0, "skipped"), current: skip.track, road: skip.road };
-        const finishId = upNextRef.current?.spotify_id;
-        then = await Promise.race([
-          fetchBranch(advance(onSkip, "skipped"), undefined, finishId ? [finishId, skip.track.spotify_id!] : [skip.track.spotify_id!]),
-          new Promise<Branch>((res) => setTimeout(() => res(null), 4_000)),
-        ]);
-        if (cancelled || radioRef.current.current?.spotify_id !== current.spotify_id) return;
-        if (then?.track.spotify_id === current.spotify_id) then = null;
         setUpSkip(skip);
-        if (then && skip.track.spotify_id) preSkip.current = { forId: skip.track.spotify_id, branch: then };
       }
-      await startSpotifyPlayback(current, false, skip?.track ?? null, undefined, then?.track ?? null);
+      await startSpotifyPlayback(current, false, skip?.track ?? null, undefined, "session start");
     })();
     return () => {
       cancelled = true;
