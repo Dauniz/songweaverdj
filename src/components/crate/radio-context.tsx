@@ -500,7 +500,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(LIVE_KEY);
     // Hand Spotify back clean: pause and drop the songs Crate had lined up.
     if (!opts?.keepSpotify) void endSpotifySession().catch(() => undefined);
-  }, []);
+  }, [reflect]);
 
   const resumeLastSession = useCallback(() => {
     try {
