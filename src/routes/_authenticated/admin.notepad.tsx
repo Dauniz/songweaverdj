@@ -66,6 +66,8 @@ function AdminNotepad() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const panRef = useRef<{ sx: number; sy: number; px: number; py: number } | null>(null);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapRef = useRef<Mindmap | null>(null);
@@ -141,13 +143,24 @@ function AdminNotepad() {
     dragRef.current = { id, dx: e.clientX - rect.left - node.x, dy: e.clientY - rect.top - node.y };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   }
+  function onCanvasPointerDown(e: React.PointerEvent) {
+    if (e.target !== e.currentTarget) return;
+    panRef.current = { sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }
   function onPointerMove(e: React.PointerEvent) {
-    const drag = dragRef.current;
     const canvas = canvasRef.current;
-    if (!drag || !canvas) return;
+    if (!canvas) return;
+    const panDrag = panRef.current;
+    if (panDrag) {
+      setPan({ x: panDrag.px + e.clientX - panDrag.sx, y: panDrag.py + e.clientY - panDrag.sy });
+      return;
+    }
+    const drag = dragRef.current;
+    if (!drag) return;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left - drag.dx;
-    const y = e.clientY - rect.top - drag.dy;
+    const x = e.clientX - rect.left - drag.dx - pan.x;
+    const y = e.clientY - rect.top - drag.dy - pan.y;
     setMap((prev) =>
       prev ? { nodes: prev.nodes.map((n) => (n.id === drag.id ? { ...n, x, y } : n)) } : prev,
     );
@@ -155,6 +168,7 @@ function AdminNotepad() {
   function onPointerUp() {
     if (dragRef.current && mapRef.current) scheduleSave(mapRef.current);
     dragRef.current = null;
+    panRef.current = null;
   }
 
   function addChild(parentId: string) {
