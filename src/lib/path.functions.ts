@@ -446,6 +446,16 @@ Other Walrus Memory relevant right now:
 ${walrus.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
 
 Pick the next song.`;
+
+    const provider = createOpenAI({
+      baseURL: "https://ai.gateway.lovable.dev/v1",
+      apiKey,
+      headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
+    });
+    const result = streamText({
+      model: provider.responses(MODEL),
+      system,
+      messages: [{ role: "user", content: live }],
       stopWhen: stepCountIs(1),
       providerOptions: { openai: { store: false, reasoningEffort: "low" } },
       tools: {
