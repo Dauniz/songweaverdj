@@ -786,7 +786,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       stopped = true;
       clearTimeout(timer);
     };
-  }, [sessionLive, radio.active, radio.sessionId, playbackIssue, playbackFn, next, acceptObserved, stopRadio, handOver]);
+  }, [sessionLive, radio.active, radio.sessionId, playbackIssue, playbackFn, next, acceptObserved, stopRadio, handOver, startSpotifyPlayback]);
 
   // "Open Spotify" issue: retry reconnecting every 5 s; only give up after ~5 min.
   useEffect(() => {
