@@ -8,6 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack, pathReserves } from "@/lib/path.functions";
+import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
 import { endSpotifySession, getSpotifyAuthUrl, getSpotifyPlayback, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
 import type { CardTrack } from "./TrackCard";
@@ -120,6 +121,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const logFn = useServerFn(logListeningEvent);
   const pathFn = useServerFn(nextPathTrack);
   const reservesFn = useServerFn(pathReserves);
+  const synthFn = useServerFn(synthesizeMemories);
+  /** Songs logged this run — Crate reflects every few of them. */
+  const logged = useRef(0);
+  const reflecting = useRef(false);
   const playFn = useServerFn(playSpotifyTrack);
   const pauseFn = useServerFn(pauseSpotifyPlayback);
   const playbackFn = useServerFn(getSpotifyPlayback);
