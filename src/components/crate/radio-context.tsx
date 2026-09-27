@@ -380,16 +380,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const playedB = fetchBranch(advance(s, "played"), ctrl.signal);
       const pre = preSkip.current?.forId === s.current.spotify_id ? preSkip.current : preSkip2.current;
       const skippedState = advance(s, "skipped");
+      // Finish and skip doors are scouted in parallel so the full line-up is ready fast.
+      const skipRaw = pre && pre.forId === s.current.spotify_id ? null : fetchBranch(skippedState, ctrl.signal);
       const skippedB: Promise<Branch> =
         pre && pre.forId === s.current.spotify_id
           ? Promise.resolve(pre.branch)
-          : playedB.then(async (finish) => {
+          : Promise.all([playedB, skipRaw!]).then(async ([finish, first]) => {
               // The skip door must never be the same song as the finish door.
               const finishId = finish?.track.spotify_id;
-              const first = await fetchBranch(skippedState, ctrl.signal, finishId ? [finishId] : []);
               if (first && finishId && first.track.spotify_id === finishId) {
-                // Defensive: server ignored the exclusion (e.g. tiny pool) — retry excluding it.
-                return fetchBranch(skippedState, ctrl.signal, [finishId, first.track.spotify_id]);
+                return fetchBranch(skippedState, ctrl.signal, [finishId]);
               }
               return first;
             });
