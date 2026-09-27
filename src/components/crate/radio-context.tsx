@@ -79,6 +79,8 @@ type RadioContextValue = {
   resumeLastSession: () => void;
   events: MazeEvent[];
   spotifyIdle: boolean;
+  /** Skip-spam cooldown: Spotify paused, Crate catching its breath. */
+  calming: boolean;
 };
 
 // Keep one context instance across hot reloads so provider and consumers never diverge.
