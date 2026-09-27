@@ -327,7 +327,7 @@ Favorites in memory are hints about taste, not a rotation list.
 Walrus Memory:
 ${recalled.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
 
-Candidates (code | title — artist [playlist period]):
+Candidates (code|title—artist [playlist yyyy-mm]):
 ${lines.join("\n")}
 
 Call pick_next exactly once with one code from the list.`;
