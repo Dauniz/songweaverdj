@@ -61,6 +61,7 @@ function AdminBugs() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold">Bug reports ({data.reports.length})</h1>
         <div className="flex gap-3 text-sm">
+          <Link to="/admin/memory" className="text-muted-foreground hover:text-foreground">Tester memory</Link>
           <Link to="/admin/notepad" className="text-muted-foreground hover:text-foreground">Notepad</Link>
           <Link to="/studio" className="text-muted-foreground hover:text-foreground">Back to Studio</Link>
         </div>
