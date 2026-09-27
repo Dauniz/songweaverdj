@@ -782,11 +782,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (pos > 6_000) {
         // Too late to line it up without a hiccup — if you skip in Spotify,
         // Crate follows from the poll and starts the door itself.
-        const at2 = lineup.current.indexOf(cur.spotify_id);
+        const at2 = lineup.current.indexOf(cur.spotify_id!);
         const queued = at2 >= 0 ? lineupTracks.current.get(lineup.current[at2 + 1] ?? "") : undefined;
         if (queued) {
           // Show the song Spotify will really play on a skip instead of a door it never got.
-          door.current = { forId: cur.spotify_id, track: queued };
+          door.current = { forId: cur.spotify_id!, track: queued };
           setUpSkip({ track: queued, road: skipRoad });
         } else door.current = null;
         return;
