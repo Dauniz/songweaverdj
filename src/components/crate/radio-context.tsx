@@ -6,7 +6,6 @@ const NO_DEVICE_GRACE = 5 * 60_000;
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack, pathReserves } from "@/lib/path.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
@@ -188,6 +187,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const eventsRef = useRef(events);
   eventsRef.current = events;
   const [spotifyIdle, setSpotifyIdle] = useState(false);
+  const [calming, setCalming] = useState(false);
   // When Spotify stopped reporting any active device (app closed).
   const noDeviceSince = useRef(0);
   // Last time we tried to wake Spotify back up after losing the device.
@@ -812,7 +812,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     cooldownUntil.current = Date.now() + 4_000;
     jumps.current = [];
     void pauseFn().catch(() => undefined);
-    toast("Cool your jets", { description: "Crate needs a moment to catch his breath." });
+    setCalming(true);
+    window.setTimeout(() => setCalming(false), 3_500);
     note("think", "Too many skips at once — pausing a beat, then weaving a fresh song");
     const s = radioRef.current;
     const fresh = upSkipRef.current?.track ?? reserves.current.tracks[0] ?? null;
@@ -1202,6 +1203,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
+      {calming && (
+        <div
+          role="status"
+          aria-live="assertive"
+          className="pointer-events-none fixed left-1/2 top-6 z-[100] -translate-x-1/2 animate-in fade-in slide-in-from-top-2 rounded-2xl border border-border bg-popover px-5 py-3 text-center shadow-2xl"
+        >
+          <p className="text-sm font-bold text-popover-foreground">Cool your jets</p>
+          <p className="text-xs text-muted-foreground">Crate needs a moment to catch his breath.</p>
+        </div>
+      )}
       {askSteer && (
         <SteerChips
           prompt
