@@ -1080,7 +1080,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           }
           return;
         }
-        if (state.status === "idle" || (state.status === "ready" && !state.spotifyId)) {
+        if (state.status === "ready" && !state.spotifyId) {
           advancing.current = true;
           await next(outcome);
           advancing.current = false;
