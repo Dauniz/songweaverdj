@@ -150,6 +150,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const lastSkipAsk = useRef(0);
   const lastPlayback = useRef({ spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 });
   const advancing = useRef(false);
+  const committing = useRef(false);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionLive, setSessionLive] = useState(false);
   // Track Spotify is already playing (user-chosen in Spotify) — don't restart it.
@@ -702,7 +703,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     if (!sessionLive || !radio.active || playbackIssue) return;
     const check = async () => {
       const current = radioRef.current.current;
-      if (!current?.spotify_id || advancing.current || swapping.current) return;
+      if (!current?.spotify_id || advancing.current || committing.current) return;
       try {
         const state = await playbackFn();
         const previous = lastPlayback.current;
@@ -752,6 +753,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           return;
         }
         if (previous.spotifyId !== current.spotify_id) return;
+        // Song ran out naturally while the end hand-over is lined up — let it finish the job.
+        if (swapping.current === current.spotify_id && previous.ratio >= 0.9) return;
         const sinceMove = Date.now() - lastTransition.current;
         const rapid = sinceMove < 15_000;
         // Not seen playing yet: only a rapid skip (after Spotify had time to start it) counts.
