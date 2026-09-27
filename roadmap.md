@@ -14,3 +14,4 @@
 - [x] Start fresh sessions with all side roads off and restore the saved road only when resuming
 - [x] Admin notepad: mindmap page for branches and future features, linked from bug reports
 - [x] Skip buffer: 4-track Spotify line-up with code-picked reserves, multi-skip detection and skip-spam guard with warning toast
+- [x] Fixed 4-track Spotify line-up (now, skip 1, skip 2, new angle), 1s settle before scouting, pause + warning on the 4th skip with resume once the new angle is ready
