@@ -556,8 +556,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       noPlayFor.current = "";
       return; // Spotify is already playing it
     }
-    void startSpotifyPlayback(current);
+    // Send the "if you skip" door in the very same call when it's already known:
+    // adding it later would make Spotify re-buffer mid-song (an audible hiccup).
+    const pre = preSkip.current?.forId === current.spotify_id ? preSkip.current.branch : null;
+    const ready = pre ?? (upSkipRef.current && radioRef.current.current?.spotify_id === current.spotify_id ? upSkipRef.current : null);
+    void startSpotifyPlayback(current, false, ready?.track ?? null);
   }, [sessionLive, radio.active, radio.current?.spotify_id, startSpotifyPlayback]);
+
 
   // Spotify owns playback. Observe its active track so skips and completions still steer Crate's path.
   /** Accept a song Spotify is already playing as the new current song. */
