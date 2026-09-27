@@ -81,6 +81,7 @@ type RadioContextValue = {
   spotifyIdle: boolean;
   /** Skip-spam cooldown: Spotify paused, Crate catching its breath. */
   calming: boolean;
+  foreignQueued: number;
 };
 
 // Keep one context instance across hot reloads so provider and consumers never diverge.
@@ -204,6 +205,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   eventsRef.current = events;
   const [spotifyIdle, setSpotifyIdle] = useState(false);
   const [calming, setCalming] = useState(false);
+  /** Songs in the listener's own Spotify "Next in queue" — they'd play before Crate's list. */
+  const [foreignQueued, setForeignQueued] = useState(0);
   // When Spotify stopped reporting any active device (app closed).
   const noDeviceSince = useRef(0);
   // Last time we tried to wake Spotify back up after losing the device.
@@ -666,6 +669,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             }
           }
           setPlaybackIssue(null);
+          setForeignQueued((result as { foreignQueued?: number }).foreignQueued ?? 0);
           idleSince.current = 0;
           idlePolls.current = 0;
           setSpotifyIdle(false);
@@ -742,18 +746,38 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       void startSpotifyPlayback(current, false, ready.track);
       return;
     }
-    // No skip door yet (e.g. a searched song): let Crate pick it first, so skip 1 in
-    // Spotify is Crate's own choice — never a back-up that later replaces it on screen.
+    // No skip door yet (e.g. a searched song): wait for the SAME scouting that fills the
+    // screen, so skip 1 in Spotify is exactly the "if you skip" door shown — one source.
     let cancelled = false;
     void (async () => {
+      const prefix = `${current.id}|`;
+      for (let i = 0; i < 20 && !branches.current?.key.startsWith(prefix); i++) {
+        await new Promise((res) => setTimeout(res, 100));
+        if (cancelled) return;
+      }
+      const b = branches.current?.key.startsWith(prefix) ? branches.current : null;
       const branch = await Promise.race([
-        fetchBranch(advance(radioRef.current, "skipped")).catch(() => null),
-        new Promise<Branch>((res) => setTimeout(() => res(null), 8_000)),
+        (b ? b.skipped : fetchBranch(advance(radioRef.current, "skipped"))).catch(() => null),
+        new Promise<Branch>((res) => setTimeout(() => res(null), 10_000)),
       ]);
       if (cancelled || radioRef.current.current?.spotify_id !== current.spotify_id) return;
       const skip = branch?.track && isPlayable(branch.track) && branch.track.spotify_id !== current.spotify_id ? branch : null;
-      if (skip) setUpSkip(skip);
-      await startSpotifyPlayback(current, false, skip?.track ?? null);
+      // Skip 2 = the skip door's own next step; skip 3 = a code-picked new-angle back-up.
+      let then: Branch = null;
+      if (skip) {
+        const s0 = radioRef.current;
+        const onSkip = { ...advance(s0, "skipped"), current: skip.track, road: skip.road };
+        const finishId = upNextRef.current?.spotify_id;
+        then = await Promise.race([
+          fetchBranch(advance(onSkip, "skipped"), undefined, finishId ? [finishId, skip.track.spotify_id!] : [skip.track.spotify_id!]),
+          new Promise<Branch>((res) => setTimeout(() => res(null), 4_000)),
+        ]);
+        if (cancelled || radioRef.current.current?.spotify_id !== current.spotify_id) return;
+        if (then?.track.spotify_id === current.spotify_id) then = null;
+        setUpSkip(skip);
+        if (then && skip.track.spotify_id) preSkip.current = { forId: skip.track.spotify_id, branch: then };
+      }
+      await startSpotifyPlayback(current, false, skip?.track ?? null, undefined, then?.track ?? null);
     })();
     return () => {
       cancelled = true;
@@ -1426,6 +1450,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         events,
         spotifyIdle,
         calming,
+        foreignQueued,
       }}
     >
       {children}
