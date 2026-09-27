@@ -993,14 +993,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           state.progressMs > previous.progressMs + 250;
         const playing = state.status === "ready" && (state.isPlaying || progressMoved);
         if (!playing) {
-          // Skipped past skip 3: Spotify ran out of Crate's list and stopped on its last song.
-          // That is a skip-through (not a pause by you) — pause, warn and rebuild.
-          const lastId = lineup.current[lineup.current.length - 1];
-          const recentSkip = Date.now() - lastTransition.current < 4_000 || jumps.current.some((t) => Date.now() - t < 4_000);
+          // A second skip runs the two-song context dry. Spotify commonly reports the skip
+          // door paused at its beginning; stop and rebuild rather than guessing another song.
+          const skipId = lineup.current[1];
           if (
-            state.status === "ready" && lineup.current.length >= 3 && lastId &&
-            state.spotifyId === lastId && lineup.current.includes(current.spotify_id) &&
-            recentSkip && state.progressMs < 2_000
+            awaitingSkipPair.current && state.status === "ready" && skipId &&
+            state.spotifyId === skipId && state.progressMs < 3_000
           ) {
             await calmDown();
             return;
@@ -1017,8 +1015,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
               void startSpotifyPlayback(
                 current,
                 true,
-                null,
+                door.current?.forId === current.spotify_id ? door.current.track : null,
                 lastPlayback.current.progressMs || undefined,
+                "device reconnect",
               );
             }
             if (Date.now() - noDeviceSince.current > NO_DEVICE_GRACE) {
@@ -1071,25 +1070,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (!previous.observed && !(rapid && sinceMove > 2_500)) return;
         const outcome = previous.ratio >= 0.7 ? "played" : "skipped";
         if (state.status === "ready" && state.spotifyId) {
-          // Where Spotify landed in Crate's list says how many songs you skipped past.
-          const at = lineup.current.indexOf(current.spotify_id);
           const landed = lineup.current.indexOf(state.spotifyId);
-          const steps = at >= 0 && landed > at ? landed - at : 0;
-          // Skipped past the whole chain (skip 1, 2 and 3): pause, warn, then restart clean
-          // once Crate has songs for the new angle ready.
-          // Also counts when the polls lagged behind fast clicks (Crate still thinks you're on
-          // skip 1 or 2) and Spotify is already past the list within ~2 s of the last skip.
-          const ranOff =
-            landed < 0 && lineup.current.length >= 3 && at >= 0 &&
-            (at === lineup.current.length - 1 || sinceMove < 2_500);
-          // A song outside Crate's line-up (and not a run-off) is the listener's own pick in
-          // Spotify — never count it as a skip burst, always re-root from it.
-          const manualPick = landed < 0 && !ranOff;
-          if (!manualPick) {
-            jumps.current = [...jumps.current.filter((t) => Date.now() - t < 3_000), Date.now()];
-          }
-          const bursts = jumps.current.length + Math.max(0, steps - 1);
-          if (!manualPick && (ranOff || bursts >= 4)) {
+          // Once the first skip has landed, any further change before its replacement pair is
+          // accepted is the second rapid skip. Polling cannot safely infer deeper positions.
+          if (awaitingSkipPair.current && state.spotifyId !== current.spotify_id) {
             await calmDown();
             return;
           }
@@ -1097,27 +1081,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (q && q.forId === current.spotify_id && q.track.spotify_id === state.spotifyId) {
             // you skipped onto Crate's "if you skip" door
             acceptObserved(q.track, outcome, false, state.progressMs, state.durationMs);
-          } else if (steps >= 2) {
-            // Two or three skips in a heartbeat: log them all, then turn to a new angle.
-            const landedTrack: RadioTrack = {
-              id: `demo-ext-${state.spotifyId}`,
-              spotify_id: state.spotifyId,
-              name: state.name || "Unknown song",
-              artists: state.artists,
-              album: state.album,
-              image_url: state.imageUrl,
-              spotify_url: state.spotifyUrl,
-              source_name: "Spotify",
-            };
-            for (const id of lineup.current.slice(at + 1, landed)) {
-              played.current.push(id);
-              log({ name: "skipped door", artists: "" }, "early_skip", radioRef.current);
-            }
-            note("skip", `${steps} skips in a row → Crate turns to a new angle`);
-            acceptObserved(landedTrack, "skipped", false, state.progressMs, state.durationMs);
-            setRadio((s) => ({ ...s, consecutiveSkips: Math.max(2, steps), road: "mixed" }));
-            setAskSteer(true);
-          } else if (!manualPick && landed >= 0 && lineupTracks.current.get(state.spotifyId)) {
+          } else if (landed >= 0 && lineupTracks.current.get(state.spotifyId)) {
             // Landed on a song Crate itself queued: follow exactly that song — never swap in
             // a different pick, or Spotify and the screen drift apart.
             acceptObserved(lineupTracks.current.get(state.spotifyId)!, outcome, false, state.progressMs, state.durationMs);
@@ -1171,7 +1135,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const t = setInterval(() => {
       const current = radioRef.current.current;
       if (current?.spotify_id) {
-        void startSpotifyPlayback(current, true, null, lastPlayback.current.progressMs || undefined);
+      void startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, lastPlayback.current.progressMs || undefined, "connection retry");
       }
       if (Date.now() - started > NO_DEVICE_GRACE) stopRadio({ keepSpotify: true });
     }, 5_000);
@@ -1212,7 +1176,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.data?.type !== "spotify-connected" || !event.data.ok) return;
-      void startSpotifyPlayback();
+      const current = radioRef.current.current;
+      void startSpotifyPlayback(current, false, current?.spotify_id === door.current?.forId ? door.current.track : null, undefined, "oauth connected");
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
@@ -1241,7 +1206,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     let attempts = 0;
     const retry = async () => {
       attempts += 1;
-      if (await startSpotifyPlayback(track, true)) return;
+      if (await startSpotifyPlayback(track, true, door.current?.forId === track.spotify_id ? door.current.track : null, undefined, "open Spotify retry")) return;
       if (attempts < 10) retryTimer.current = setTimeout(() => void retry(), 3_000);
     };
     retryTimer.current = setTimeout(() => void retry(), 2_000);
@@ -1310,7 +1275,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           at: Date.now(), lens: prevLens, deep: prevDeep, currentId: s.current?.spotify_id,
           historyLen: s.history.length, branches: branches.current,
           upNext: upNextRef.current, upSkip: upSkipRef.current,
-          preSkip: preSkip.current, preSkip2: preSkip2.current,
+          preSkip: preSkip.current,
         };
       }
       lensRef.current = nextLens;
@@ -1323,7 +1288,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         sideSnap.current = null;
         branches.current = snap.branches;
         preSkip.current = snap.preSkip;
-        preSkip2.current = snap.preSkip2;
         setUpNext(snap.upNext);
         setUpSkip(snap.upSkip);
         note("steer", "Side road toggled back → keeping the original doors");
