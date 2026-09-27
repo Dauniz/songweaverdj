@@ -182,6 +182,15 @@ export async function synthesizeTasteMemories(
     .limit(40);
   const known = (existing ?? []).map((m) => m.content);
 
+  // Feedbacker notes: the listener's own words about songs — ground truth for spotting patterns.
+  const { data: noteRows } = await supabase
+    .from("memory_nodes")
+    .select("content, created_at")
+    .like("content", "Note on%")
+    .order("created_at", { ascending: false })
+    .limit(30);
+  const notes = (noteRows ?? []).map((n) => `- ${hhmm(n.created_at, tz)} | ${n.content}`);
+
   const sessions = new Set(events.map((e) => e.session_id)).size;
   const skips = events.filter((e) => e.event === "early_skip").length;
   const plays = events.filter((e) => e.event === "play_through").length;
@@ -195,7 +204,8 @@ export async function synthesizeTasteMemories(
 - Lines marked UNATTENDED? sit inside a run of ${PASSIVE_STREAK}+ finished songs with zero interaction — the listener may simply have walked away or been deep in flow. Never build a conclusion on those alone; they only count as weak support next to an active signal (a deliberate skip, a manual search, a road change, a return in another session).
 - Be concrete: name real artists, songs or playlist months from the trace.
 - Third person, one or two sentences each, warm and specific, English.
-- Do not repeat or lightly reword an existing memory.`;
+- Do not repeat or lightly reword an existing memory.
+- Feedbacker notes are the listener's own words about specific songs. Treat them as strong evidence: connect them to the trace (e.g. a note praising warm bass + they always finish similar songs), but never just restate a note as a memory.`;
 
   const system = cross
     ? `You are Crate, a music companion who has followed ${who} across many separate listening sessions.
@@ -226,7 +236,8 @@ ${known.length ? known.map((c) => `- ${c}`).join("\n") : "- (none)"}`;
 
   const prompt = `Listening trace (${events.length} events across ${sessions} session(s); ${plays} played through, ${skips} skipped early). Local times.
 ${cross ? `\nSessions:\n${sessionLines(events, tz).join("\n")}\n` : ""}
-${traceLines(events, meta, tz).join("\n")}`;
+${traceLines(events, meta, tz).join("\n")}
+${notes.length ? `\nFeedbacker notes (their own words):\n${notes.join("\n")}` : ""}`;
 
   const runIdFetch = createLovableAiGatewayRunIdFetch();
   const provider = createOpenAI({

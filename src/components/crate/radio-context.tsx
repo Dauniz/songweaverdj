@@ -334,6 +334,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             chips: s.chips,
             lens: lensRef.current,
             deepCuts: deepCutsRef.current,
+            tzOffsetMin: new Date().getTimezoneOffset(),
             avoidArtists: avoidArtists(),
             excludeSpotifyIds: [
               ...played.current.slice(-500),
