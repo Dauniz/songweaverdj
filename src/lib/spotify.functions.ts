@@ -71,8 +71,23 @@ const playInput = z.object({ spotifyId: z.string().min(1).max(64) });
 const startInput = playInput.extend({
   nextId: z.string().min(1).max(64).optional(),
   thenId: z.string().min(1).max(64).optional(),
+  /** Code-picked back-ups behind the real doors, so fast skips never empty Spotify's list. */
+  reserveIds: z.array(z.string().min(1).max(64)).max(3).default([]),
   positionMs: z.number().int().min(0).max(3_600_000).optional(),
 });
+
+/** Pause Spotify — used when the listener skips so fast that Crate needs a breath. */
+export const pauseSpotifyPlayback = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const token = await spotifyAccess(context.userId);
+    if (!token) return { ok: false };
+    await fetch("https://api.spotify.com/v1/me/player/pause", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => undefined);
+    return { ok: true };
+  });
 
 /** Plays Crate's song as a fresh two-song list: [now, "if you skip"] — this replaces
  *  whatever album/playlist Spotify was running, so a skip lands on Crate's pick. */

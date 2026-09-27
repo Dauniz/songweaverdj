@@ -228,6 +228,57 @@ function buildShortlist(
   return out;
 }
 
+const reserveSchema = z.object({
+  seed: z.object({ spotifyId: z.string(), name: z.string(), artists: z.string() }),
+  road: z.enum(["vibe", "era", "mixed"]),
+  lens: z.enum(LENS_IDS).nullable().default(null),
+  deepCuts: z.boolean().default(false),
+  avoidArtists: z.array(z.string().max(300)).max(30).default([]),
+  excludeSpotifyIds: z.array(z.string()).max(600).default([]),
+  count: z.number().int().min(1).max(4).default(2),
+});
+
+/**
+ * Instant back-up songs for Spotify's line-up, chosen by plain code (no AI, no credits).
+ * They sit behind the real "if you skip" door so rapid skips never run Spotify out of songs.
+ */
+export const pathReserves = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => reserveSchema.parse(d))
+  .handler(async ({ data, context }) => {
+    const pool = await loadPool(context.supabase, context.userId);
+    const excluded = new Set([data.seed.spotifyId, ...data.excludeSpotifyIds]);
+    const avoid = new Set(data.avoidArtists);
+    const playableOnly = pool.some((s) => !s.spotify_id.startsWith("demo-") || s.preview_url);
+    const unlensed = pool.filter(
+      (s) =>
+        !excluded.has(s.spotify_id) &&
+        !avoid.has(s.artists) &&
+        !s.spotify_id.startsWith("demo-") &&
+        (!playableOnly || !s.spotify_id.startsWith("demo-") || s.preview_url),
+    );
+    const available = data.deepCuts ? applyDeepCuts(unlensed) : applyCodeLens(data.lens, unlensed);
+    if (!available.length) return { tracks: [] };
+    const anchor = pool.find((s) => s.spotify_id === data.seed.spotifyId);
+    const shortlist = buildShortlist(data.road, anchor, available, new Set([data.seed.artists]));
+    const picks = shuffle(shortlist.slice(0, 80)).slice(0, data.count);
+    return {
+      tracks: picks.map((s) => ({
+        id: s.id,
+        spotify_id: s.spotify_id,
+        name: s.name,
+        artists: s.artists,
+        album: s.album,
+        image_url: s.image_url,
+        preview_url: s.preview_url,
+        spotify_url: s.spotify_url,
+        source_name: s.source_name,
+        source_type: s.source_type,
+        period_label: fmtPeriod(s.source_period),
+      })),
+    };
+  });
+
 
 const inputSchema = z.object({
   seed: z.object({ spotifyId: z.string(), name: z.string(), artists: z.string() }),
