@@ -799,7 +799,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     cooldownUntil.current = Date.now() + 4_000;
     jumps.current = [];
     void pauseFn().catch(() => undefined);
-    toast("Skip the skipping", { description: "Crate needs a second to catch its breath." });
+    toast("Cool your jets", { description: "Crate needs a moment to catch his breath." });
     note("think", "Too many skips at once — pausing a beat, then weaving a fresh song");
     const s = radioRef.current;
     const fresh = upSkipRef.current?.track ?? reserves.current.tracks[0] ?? null;
