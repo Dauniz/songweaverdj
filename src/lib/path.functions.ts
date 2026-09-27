@@ -21,6 +21,18 @@ function applyCodeLens<T extends { sources: { name: string; type: string; period
   return pool;
 }
 
+/** Deep cuts: songs saved in at most one place, last added 12+ months ago (forgotten, not staples). */
+function applyDeepCuts<T extends { sources: { period: string | null }[] }>(pool: T[]): T[] {
+  const now = new Date();
+  const cutoff = now.getUTCFullYear() * 12 + now.getUTCMonth() - 12;
+  const deep = pool.filter((s) => {
+    if (s.sources.length > 1) return false;
+    const months = s.sources.map((x) => monthIndex(x.period)).filter((m): m is number => m !== null);
+    return months.length > 0 && Math.max(...months) <= cutoff;
+  });
+  return deep.length >= 15 ? deep : pool;
+}
+
 function lensRule(lens: LensId | null, step: number) {
   switch (lens) {
     case "wormhole":
@@ -234,6 +246,7 @@ const inputSchema = z.object({
   road: z.enum(["vibe", "era", "mixed"]),
   chips: z.array(z.string().max(40)).max(10).default([]),
   lens: z.enum(LENS_IDS).nullable().default(null),
+  deepCuts: z.boolean().default(false),
   avoidArtists: z.array(z.string().max(300)).max(30).default([]),
   excludeSpotifyIds: z.array(z.string()).max(600).default([]),
 });
@@ -255,8 +268,8 @@ export const nextPathTrack = createServerFn({ method: "POST" })
         !avoid.has(s.artists) &&
         (!playableOnly || !s.spotify_id.startsWith("demo-") || s.preview_url),
     );
-    const available = applyCodeLens(data.lens, unlensed);
-    const lensLabel = lensName(data.lens);
+    const available = data.deepCuts ? applyDeepCuts(unlensed) : applyCodeLens(data.lens, unlensed);
+    const lensLabel = data.deepCuts ? "Deep cuts" : lensName(data.lens);
     const withLens = (why: string) => (lensLabel ? `${lensLabel} · ${why}` : why);
     const aiLens = data.lens === "scene" || data.lens === "wave" || data.lens === "texture";
     if (!available.length) return { track: null, road: data.road, why: "Library exhausted" };
