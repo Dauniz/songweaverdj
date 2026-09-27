@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRadio } from "./radio-context";
+import { supabase } from "@/integrations/supabase/client";
 
 const SETUP_KEY = "songweaver-onboarding-setup-v1";
 const FEEDBACK_KEY = "songweaver-onboarding-feedback-v1";
@@ -49,20 +50,40 @@ const FEEDBACK_STEP: Step = {
   body: "Feedbacker turns a few words about the current song into a Walrus taste memory. That feeling can shape future picks.",
 };
 
-function readDone(key: string) {
+type Flags = Record<string, boolean>;
+
+// Onboarding is shown once per account (Spotify or guest), stored on the account itself.
+async function readAccountFlags(): Promise<{ userId: string; flags: Flags } | null> {
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) return null;
+  const meta = (data.user.user_metadata ?? {}) as { onboarding?: Flags };
+  return { userId: data.user.id, flags: meta.onboarding ?? {} };
+}
+
+function cacheKey(userId: string, key: string) {
+  return `${key}:${userId}`;
+}
+
+function readCached(userId: string | null, key: string) {
+  if (!userId) return true;
   try {
-    return window.localStorage.getItem(key) === "1";
+    return window.localStorage.getItem(cacheKey(userId, key)) === "1";
   } catch {
     return false;
   }
 }
 
-function markDone(key: string) {
+function markDone(userId: string | null, key: string) {
+  if (!userId) return;
   try {
-    window.localStorage.setItem(key, "1");
+    window.localStorage.setItem(cacheKey(userId, key), "1");
   } catch {
-    // Private browsing can block storage; dismiss for this mount regardless.
+    // Storage can be blocked; the account flag below still records it.
   }
+  void (async () => {
+    const current = await readAccountFlags();
+    await supabase.auth.updateUser({ data: { onboarding: { ...(current?.flags ?? {}), [key]: true } } });
+  })();
 }
 
 export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
@@ -70,20 +91,38 @@ export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
   const [setupStep, setSetupStep] = useState<number | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [rect, setRect] = useState<TargetRect | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [flags, setFlags] = useState<Flags | null>(null);
 
   useEffect(() => {
-    if (readDone(SETUP_KEY)) return;
+    let cancelled = false;
+    void readAccountFlags().then((res) => {
+      if (cancelled || !res) return;
+      setUserId(res.userId);
+      setFlags(res.flags);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const isDone = (key: string) => !flags || !!flags[key] || readCached(userId, key);
+
+  useEffect(() => {
+    if (!flags || isDone(SETUP_KEY)) return;
     window.dispatchEvent(new Event("songweaver-onboarding-open-spotify"));
     const timer = window.setTimeout(() => setSetupStep(0), 550);
     return () => window.clearTimeout(timer);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flags]);
 
   useEffect(() => {
-    if (!sessionLive || !radio.active || !radio.current || setupStep !== null || readDone(FEEDBACK_KEY)) return;
+    if (!sessionLive || !radio.active || !radio.current || setupStep !== null || isDone(FEEDBACK_KEY)) return;
     showMemory();
     const timer = window.setTimeout(() => setFeedbackOpen(true), 650);
     return () => window.clearTimeout(timer);
-  }, [radio.active, radio.current, sessionLive, setupStep, showMemory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [radio.active, radio.current, sessionLive, setupStep, showMemory, flags]);
 
   const step = useMemo(
     () => (feedbackOpen ? FEEDBACK_STEP : setupStep === null ? null : SETUP_STEPS[setupStep]),
@@ -112,11 +151,13 @@ export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
   }, [locate, step]);
 
   const finishSetup = () => {
-    markDone(SETUP_KEY);
+    markDone(userId, SETUP_KEY);
+    setFlags((f) => ({ ...(f ?? {}), [SETUP_KEY]: true }));
     setSetupStep(null);
   };
   const dismissFeedback = () => {
-    markDone(FEEDBACK_KEY);
+    markDone(userId, FEEDBACK_KEY);
+    setFlags((f) => ({ ...(f ?? {}), [FEEDBACK_KEY]: true }));
     setFeedbackOpen(false);
   };
   useEffect(() => {
