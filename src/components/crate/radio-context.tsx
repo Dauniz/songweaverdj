@@ -967,6 +967,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       if (skipB) preSkip.current = { forId: finishB.track.spotify_id, branch: skipB };
       if (thenB && skipB?.track.spotify_id) preSkip2.current = { forId: skipB.track.spotify_id, branch: thenB };
+      // The finish song starts with its skip door ALREADY queued in Spotify (sent in the
+      // hand-over call). Point the screen and the door guard at that exact song right away —
+      // otherwise the previous song's stale skip door triggers a mid-song re-send (the glitch).
+      if (skipB?.track.spotify_id) {
+        door.current = { forId: finishB.track.spotify_id, track: skipB.track };
+        setUpSkip(skipB);
+      } else {
+        setUpSkip(null);
+      }
       log(cur, "play_through", s);
       played.current.push(cur.spotify_id);
       branches.current = null;
