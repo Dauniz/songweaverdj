@@ -178,6 +178,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const reserves = useRef<{ forId: string; tracks: RadioTrack[] }>({ forId: "", tracks: [] });
   /** Times Spotify was seen changing song — used to spot skip spamming. */
   const jumps = useRef<number[]>([]);
+  /** After a song change Crate waits one quiet second before scouting, in case you skip again. */
+  const settleUntil = useRef(0);
+  const [settleTick, setSettleTick] = useState(0);
   /** While set, Crate stops reacting to Spotify: the listener is being asked to slow down. */
   const cooldownUntil = useRef(0);
   const calmingRef = useRef(false);
