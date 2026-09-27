@@ -38,10 +38,10 @@ export function SessionControl() {
         data-onboarding="session-start"
         variant="outline"
         size="sm"
-        className="ml-auto h-8 rounded-full px-4"
+        className="h-8 rounded-full px-2.5 sm:px-4"
         onClick={endSession}
       >
-        <Square className="h-3.5 w-3.5" /> End session
+        <Square className="h-3.5 w-3.5" /> <span className="hidden sm:inline">End session</span>
       </Button>
     );
   }
@@ -49,9 +49,9 @@ export function SessionControl() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button data-onboarding="session-start" size="sm" className="ml-auto h-8 rounded-full px-4" disabled={syncing}>
+        <Button data-onboarding="session-start" size="sm" className="h-8 rounded-full px-2.5 sm:px-4" disabled={syncing}>
           {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-          {syncing ? "Syncing…" : "Start session"}
+          <span className="hidden sm:inline">{syncing ? "Syncing…" : "Start session"}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-64 space-y-2 p-3">

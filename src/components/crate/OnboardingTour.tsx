@@ -183,11 +183,12 @@ export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
     ? Math.max(16, Math.min(vw - cardWidth - 16, rect.left + rect.width / 2 - cardWidth / 2))
     : Math.max(16, (vw - cardWidth) / 2);
   const placeBelow = rect ? rect.top + rect.height + 190 < vh : false;
-  const cardTop = rect
+  const preferredTop = rect
     ? placeBelow
       ? rect.top + rect.height + 18
       : Math.max(16, rect.top - 190)
     : Math.max(16, vh / 2 - 95);
+  const cardTop = Math.max(16, Math.min(preferredTop, Math.max(16, vh - 336)));
 
   return (
     <div className="fixed inset-0 z-[90] pointer-events-none" aria-live="polite">
@@ -209,8 +210,8 @@ export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
         role="dialog"
         aria-modal="false"
         aria-labelledby="onboarding-title"
-        className="pointer-events-auto absolute rounded-lg border bg-popover p-4 text-popover-foreground shadow-2xl transition-[top,left] duration-300 motion-reduce:transition-none"
-        style={{ top: cardTop, left: cardLeft, width: cardWidth }}
+        className="scrollbar-thin pointer-events-auto absolute overflow-y-auto rounded-lg border bg-popover p-4 text-popover-foreground shadow-2xl transition-[top,left] duration-300 motion-reduce:transition-none"
+        style={{ top: cardTop, left: cardLeft, width: cardWidth, maxHeight: Math.max(240, vh - 32) }}
       >
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
