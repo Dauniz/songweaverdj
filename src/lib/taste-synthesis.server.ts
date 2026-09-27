@@ -1,0 +1,197 @@
+import { createOpenAI } from "@ai-sdk/openai";
+import { streamText } from "ai";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
+import { createLovableAiGatewayRunIdFetch } from "./ai/run-id.server";
+import { submitMemory, type MemoryKind } from "./memwal.server";
+
+const MODEL = "openai/gpt-6-astra";
+const KINDS: MemoryKind[] = ["taste", "genre", "mood_trigger", "skipped", "session", "favorite"];
+
+type Db = SupabaseClient<Database>;
+
+type EventRow = {
+  event: string;
+  track_name: string | null;
+  artists: string | null;
+  mode: string | null;
+  session_id: string | null;
+  created_at: string;
+};
+
+function hhmm(iso: string, tzOffsetMin: number) {
+  const d = new Date(new Date(iso).getTime() - tzOffsetMin * 60_000);
+  const day = d.toUTCString().slice(0, 3);
+  return `${day} ${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+function period(p: string | null) {
+  if (!p) return "";
+  const d = new Date(`${p}T00:00:00Z`);
+  return d.toLocaleString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+}
+
+/** Build a dense, human-readable trace of how the user actually listened. */
+function traceLines(events: EventRow[], meta: Map<string, { source: string; period: string | null; album: string | null }>, tzOffsetMin: number) {
+  const lines: string[] = [];
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]!;
+    const next = events[i + 1];
+    // Dwell = time until the next event in the same session (how long they stayed).
+    const dwell =
+      next && next.session_id === e.session_id
+        ? Math.round((new Date(next.created_at).getTime() - new Date(e.created_at).getTime()) / 1000)
+        : null;
+    const key = `${e.track_name}|${e.artists}`.toLowerCase();
+    const m = meta.get(key);
+    const verdict =
+      e.event === "early_skip"
+        ? `skipped${dwell !== null && dwell < 600 ? ` after ${dwell}s` : ""}`
+        : e.event === "play_through"
+          ? "played to the end"
+          : e.event;
+    lines.push(
+      `${hhmm(e.created_at, tzOffsetMin)} | ${verdict} | ${e.track_name} — ${e.artists}` +
+        (m?.source ? ` | from "${m.source}"${m.period ? ` (${period(m.period)})` : ""}` : "") +
+        (e.mode ? ` | road ${e.mode}` : ""),
+    );
+  }
+  return lines;
+}
+
+export type Insight = { kind: MemoryKind; content: string };
+
+function parseInsights(text: string): Insight[] {
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+  if (start < 0 || end <= start) return [];
+  try {
+    const raw = JSON.parse(text.slice(start, end + 1)) as unknown;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((r) => r as { kind?: string; content?: string })
+      .filter((r) => typeof r.content === "string" && r.content.trim().length > 25)
+      .map((r) => ({
+        kind: (KINDS.includes(r.kind as MemoryKind) ? r.kind : "taste") as MemoryKind,
+        content: r.content!.trim().slice(0, 400),
+      }))
+      .slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Crate reflects on how the user listened — not on what genres they own — and
+ * writes 1–2 nuanced taste conclusions to Walrus Memory.
+ */
+export async function synthesizeTasteMemories(
+  supabase: Db,
+  userId: string,
+  opts: { sessionId?: string | null; tzOffsetMin?: number; scope: "session" | "history"; displayName?: string | null },
+) {
+  const apiKey = process.env["LOVABLE_API_KEY"];
+  if (!apiKey) return { saved: 0, insights: [] as Insight[], reason: "not_configured" };
+  const tz = opts.tzOffsetMin ?? 0;
+
+  let q = supabase
+    .from("listening_events")
+    .select("event, track_name, artists, mode, session_id, created_at")
+    .order("created_at", { ascending: false })
+    .limit(opts.scope === "session" ? 60 : 300);
+  if (opts.scope === "session" && opts.sessionId) q = q.eq("session_id", opts.sessionId);
+  const { data: rows } = await q;
+  const events = (rows ?? []).reverse() as EventRow[];
+  if (events.length < 5) return { saved: 0, insights: [] as Insight[], reason: "too_little_data" };
+
+  // Playlist provenance for the tracks involved — where in their library each song lives.
+  const names = [...new Set(events.map((e) => e.track_name).filter(Boolean))] as string[];
+  const { data: lib } = await supabase
+    .from("library_tracks")
+    .select("name, artists, album, source_name, source_period")
+    .in("name", names.slice(0, 200));
+  const meta = new Map<string, { source: string; period: string | null; album: string | null }>();
+  for (const t of lib ?? [])
+    meta.set(`${t.name}|${t.artists}`.toLowerCase(), {
+      source: t.source_name,
+      period: t.source_period,
+      album: t.album,
+    });
+
+  const { data: existing } = await supabase
+    .from("memory_nodes")
+    .select("content")
+    .order("created_at", { ascending: false })
+    .limit(40);
+  const known = (existing ?? []).map((m) => m.content);
+
+  const sessions = new Set(events.map((e) => e.session_id)).size;
+  const skips = events.filter((e) => e.event === "early_skip").length;
+  const plays = events.filter((e) => e.event === "play_through").length;
+
+  const who = opts.displayName?.trim() || "The listener";
+  const system = `You are Crate, a music companion who has been sitting next to ${who} watching exactly when their finger hits skip.
+
+Write 1–2 memories about their taste that ONLY someone observing this listening trace could know.
+
+Hard rules:
+- NEVER state something obvious from their playlists ("loves R&B", "listens to hip hop"). That is banned.
+- Look for: contradictions inside a genre (loves X but skips the sub-style Y), production texture (drums, bass, reverb, vocals vs instrumental), patience patterns (how many seconds before a skip, which songs they always finish), time-of-day rituals (late night vs afternoon behaviour), nostalgia vs exploration (old playlist months vs recent), artists they seem to have outgrown, and songs they protect and return to.
+- Be concrete: name real artists, songs or playlist months from the trace.
+- Third person, one or two sentences each, warm and specific, English.
+- Do not repeat or lightly reword an existing memory.
+
+Return ONLY a JSON array, no prose:
+[{"kind":"taste","content":"..."}]
+kind is one of: taste, genre, mood_trigger, skipped, session, favorite.
+
+Existing memories (do not repeat):
+${known.length ? known.map((c) => `- ${c}`).join("\n") : "- (none)"}`;
+
+  const prompt = `Listening trace (${events.length} events across ${sessions} session(s); ${plays} played through, ${skips} skipped early). Local times.
+
+${traceLines(events, meta, tz).join("\n")}`;
+
+  const runIdFetch = createLovableAiGatewayRunIdFetch();
+  const provider = createOpenAI({
+    baseURL: "https://ai.gateway.lovable.dev/v1",
+    apiKey,
+    headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
+    fetch: runIdFetch.fetch,
+  });
+
+  const result = streamText({
+    model: provider.responses(MODEL),
+    system,
+    prompt,
+    providerOptions: {
+      openai: {
+        store: false,
+        forceReasoning: true,
+        reasoningEffort: "low",
+        reasoningSummary: "auto",
+        include: ["reasoning.encrypted_content"],
+      },
+    },
+  });
+  const text = await result.text;
+  const insights = parseInsights(text);
+
+  let saved = 0;
+  for (const ins of insights) {
+    // Skip near-duplicates of what Crate already knows.
+    const head = ins.content.slice(0, 45).toLowerCase();
+    if (known.some((k) => k.slice(0, 45).toLowerCase() === head)) continue;
+    const { jobId, error } = await submitMemory(userId, ins.kind, ins.content);
+    const { error: dbErr } = await supabase.from("memory_nodes").insert({
+      user_id: userId,
+      kind: ins.kind,
+      content: ins.content,
+      origin: "synthesis",
+      blob_id: jobId ? `job:${jobId}` : null,
+      status: jobId ? "pending" : error === "not_configured" ? "local" : "failed",
+    });
+    if (!dbErr) saved++;
+  }
+  return { saved, insights };
+}
