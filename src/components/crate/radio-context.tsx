@@ -285,7 +285,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   );
 
   const fetchBranch = useCallback(
-    async (s: RadioState, signal?: AbortSignal): Promise<Branch> => {
+    async (s: RadioState, signal?: AbortSignal, extraExclude: string[] = []): Promise<Branch> => {
       if (!s.seed) return null;
       try {
         const r = await pathFn({
@@ -306,6 +306,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             excludeSpotifyIds: [
               ...played.current.slice(-500),
               ...(s.current?.spotify_id ? [s.current.spotify_id] : []),
+              ...extraExclude,
             ],
           },
         });
