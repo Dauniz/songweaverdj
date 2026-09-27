@@ -690,7 +690,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (nextId && skipDoor) door.current = { forId: track.spotify_id, track: skipDoor };
           if (!positionMs) {
             lastTransition.current = Date.now();
-            settleUntil.current = Date.now() + 1_000; // let the clicking settle before scouting
+            // The one-quiet-second rule is for SKIPS only. A fresh start you clicked gets it;
+            // a finish hand-over (quiet) already carries its full line-up, so scouting for the
+            // new song's finish door can start right away.
+            if (!quiet) settleUntil.current = Date.now() + 1_000;
           }
           lastPlayback.current = {
             spotifyId: track.spotify_id,
@@ -967,6 +970,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       if (skipB) preSkip.current = { forId: finishB.track.spotify_id, branch: skipB };
       if (thenB && skipB?.track.spotify_id) preSkip2.current = { forId: skipB.track.spotify_id, branch: thenB };
+      // The finish song starts with its skip door ALREADY queued in Spotify (sent in the
+      // hand-over call). Point the screen and the door guard at that exact song right away —
+      // otherwise the previous song's stale skip door triggers a mid-song re-send (the glitch).
+      if (skipB?.track.spotify_id) {
+        door.current = { forId: finishB.track.spotify_id, track: skipB.track };
+        setUpSkip(skipB);
+      } else {
+        setUpSkip(null);
+      }
       log(cur, "play_through", s);
       played.current.push(cur.spotify_id);
       branches.current = null;
