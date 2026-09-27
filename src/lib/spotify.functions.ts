@@ -141,7 +141,22 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
       if (!verify?.ok || verify.status === 204) continue;
       const playback = (await verify.json()) as { is_playing?: boolean; item?: { id?: string | null } | null };
       if (playback.is_playing && playback.item?.id === data.spotifyId) {
-        return { status: "playing" as const, deviceName: device.name };
+        // Spotify's API cannot clear the listener's own "Next in queue", and those songs
+        // play before Crate's list. Count them so Songweaver can ask the listener to clear it.
+        let foreignQueued = 0;
+        try {
+          const q = await fetch("https://api.spotify.com/v1/me/player/queue", { headers });
+          if (q.ok) {
+            const body = (await q.json()) as { queue?: { id?: string | null }[] };
+            const ids = (body.queue ?? []).map((i) => i.id ?? "");
+            const ours = new Set(uris.slice(1).map((u) => u.replace("spotify:track:", "")));
+            const firstOurs = ids.findIndex((id) => ours.has(id));
+            foreignQueued = firstOurs > 0 ? firstOurs : 0;
+          }
+        } catch {
+          /* optional check */
+        }
+        return { status: "playing" as const, deviceName: device.name, foreignQueued };
       }
     }
     return {

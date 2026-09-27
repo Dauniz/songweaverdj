@@ -24,7 +24,7 @@ function Art({ src, alt, className }: { src: string | null | undefined; alt: str
 
 /** Visual "maze solver": the path walked so far, and the two doors ahead. */
 export function PathMaze() {
-  const { radio, upNext, upSkip, spotifyIdle, sessionLive, calming } = useRadio();
+  const { radio, upNext, upSkip, spotifyIdle, sessionLive, calming, foreignQueued } = useRadio();
 
   return (
     <div className="border-b px-4 py-4">
@@ -48,6 +48,15 @@ export function PathMaze() {
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
               <span>
                 Spotify isn't playing — open Spotify and press play. The maze waits until music is on.
+              </span>
+            </div>
+          )}
+          {foreignQueued > 0 && !calming && (
+            <div className="mb-3 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+              <span>
+                You have {foreignQueued} song{foreignQueued === 1 ? "" : "s"} in Spotify's "Next in queue" — they
+                play before Crate's picks. Clear the queue in Spotify so skips follow the maze.
               </span>
             </div>
           )}
