@@ -70,8 +70,8 @@ function AdminMemory() {
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           ["Testers", data.users.length],
-          ["Spotify connected", data.users.filter((u) => u.spotifyConnected).length],
           ["Memories", total],
+          ["Crate insights", data.users.reduce((n, u) => n + u.memories.filter((m) => m.origin === "synthesis").length, 0)],
           ["Stored on Walrus", stored],
         ].map(([l, v]) => (
           <div key={l} className="rounded-lg border bg-card p-4">
