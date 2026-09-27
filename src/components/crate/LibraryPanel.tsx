@@ -56,6 +56,7 @@ export function LibraryPanel() {
   const { data: status } = useQuery({ queryKey: ["spotify-status"], queryFn: () => statusFn() });
   const { data: tracks = [] } = useQuery({
     queryKey: ["library"],
+    staleTime: 10 * 60_000,
     queryFn: async () => {
       const all = [];
       for (let from = 0; ; from += 1000) {
