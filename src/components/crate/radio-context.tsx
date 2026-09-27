@@ -570,7 +570,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           ];
           setPlaybackIssue(null);
           door.current = nextId && skipDoor ? { forId: track.spotify_id, track: skipDoor } : null;
-          if (!positionMs) lastTransition.current = Date.now();
+          if (!positionMs) {
+            lastTransition.current = Date.now();
+            settleUntil.current = Date.now() + 1_000; // let the clicking settle before scouting
+          }
           lastPlayback.current = {
             spotifyId: track.spotify_id,
             ratio: 0,
