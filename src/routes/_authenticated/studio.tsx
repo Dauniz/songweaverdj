@@ -75,7 +75,7 @@ function StudioLayout({
           <img src={logo} alt="Songweaver" width={32} height={32} className="h-8 w-8 shrink-0 rounded-lg" />
           <span className="hidden truncate font-display text-lg font-bold sm:block">Songweaver</span>
         </div>
-        <nav className="flex min-w-0 justify-center gap-1 xl:hidden">
+        <nav className="col-start-2 flex min-w-0 justify-center gap-1 xl:hidden">
           {(["chat", "memory"] as const).map((t) => (
             <Button
               key={t}
@@ -91,7 +91,7 @@ function StudioLayout({
             </Button>
           ))}
         </nav>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="col-start-3 flex shrink-0 items-center gap-1">
           <SessionControl />
           <TooltipProvider>
             <Tooltip>
