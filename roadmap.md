@@ -19,4 +19,4 @@
 - Memory depth: unattended-run filter (12+ untouched finishes discounted), two-tier synthesis (session observation vs cross-session anchor needing 3+ sessions), badges in inspector + /admin/memory, detailed explanation on /crate-info
 - [x] Running-cost cuts: cache-friendly AI prompts, lighter reflections, library indexes/caching (keep Crate as smart)
 
-- [ ] Responsive audit: fix Studio clipping and oversized content at 1960x1080 and smaller screens
+- [x] Responsive audit: fix Studio clipping and oversized content at 1960x1080 and smaller screens

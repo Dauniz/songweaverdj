@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { BugReportButton } from "@/components/BugReportButton";
 import { OnboardingTour } from "@/components/crate/OnboardingTour";
 import logo from "@/assets/crate-logo.jpg";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/_authenticated/studio")({
   head: () => ({
@@ -68,60 +69,62 @@ function StudioLayout({
   const live = sessionLive || radio.active;
   const showMemory = useCallback(() => onTab("memory"), [onTab]);
   return (
-    <div className="flex h-screen flex-col bg-background">
-      <header className="flex items-center gap-3 border-b px-4 py-2.5">
-        <img src={logo} alt="Songweaver" width={32} height={32} className="h-8 w-8 rounded-lg" />
-        <span className="font-display text-lg font-bold">Songweaver</span>
-        <nav className="ml-4 flex gap-1 lg:hidden">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background">
+      <header className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b px-3 py-2.5 sm:px-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <img src={logo} alt="Songweaver" width={32} height={32} className="h-8 w-8 shrink-0 rounded-lg" />
+          <span className="hidden truncate font-display text-lg font-bold sm:block">Songweaver</span>
+        </div>
+        <nav className="flex min-w-0 justify-center gap-1 xl:hidden">
           {(["chat", "memory"] as const).map((t) => (
-            <button
+            <Button
               key={t}
               onClick={() => onTab(t)}
+              variant="ghost"
+              size="xs"
               className={cn(
-                "rounded-full px-3 py-1 text-xs capitalize",
+                "rounded-full px-2.5 text-xs capitalize sm:px-3",
                 mobileTab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground",
               )}
             >
               {t}
-            </button>
+            </Button>
           ))}
         </nav>
-        <SessionControl />
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                onClick={onSignOut}
-                aria-label="Log out"
-                className="ml-2 rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Log out</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div className="flex shrink-0 items-center gap-1">
+          <SessionControl />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button onClick={onSignOut} aria-label="Log out" variant="ghost" size="icon-sm" className="text-muted-foreground">
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">Log out</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </header>
       <div className="flex min-h-0 flex-1">
         <LibraryPanel />
         <main
           className={cn(
-            "min-w-0 overflow-hidden bg-glow lg:flex-none lg:transition-[width] lg:duration-500 lg:ease-in-out",
-            mobileTab === "chat" ? "block" : "hidden lg:block",
+            "min-w-0 overflow-hidden bg-glow xl:flex-none xl:transition-[width] xl:duration-500 xl:ease-in-out",
+            mobileTab === "chat" ? "block" : "hidden xl:block",
             live
-              ? "w-full lg:w-2/3"
-              : "w-full lg:w-[calc(100%-20rem)]",
+              ? "w-full xl:w-2/3"
+              : "w-full xl:w-[calc(100%-20rem)]",
           )}
         >
           <MoodChat />
         </main>
         <aside
           className={cn(
-            "w-full min-h-0 overflow-hidden border-l bg-sidebar lg:flex-none lg:transition-[width] lg:duration-500 lg:ease-in-out",
-            mobileTab === "memory" ? "block" : "hidden lg:block",
+            "w-full min-h-0 overflow-hidden border-l bg-sidebar xl:flex-none xl:transition-[width] xl:duration-500 xl:ease-in-out",
+            mobileTab === "memory" ? "block" : "hidden xl:block",
             live
-              ? "lg:w-1/3"
-              : "lg:w-80",
+              ? "xl:w-1/3"
+              : "xl:w-80",
           )}
         >
           <MemoryInspector />

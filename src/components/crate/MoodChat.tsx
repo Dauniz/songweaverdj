@@ -384,7 +384,7 @@ export function MoodChat() {
               </TooltipTrigger>
               <TooltipContent
                 side="right"
-                className="max-w-[300px] border border-border bg-background text-foreground shadow-lg"
+                className="max-w-[calc(100vw-2rem)] border border-border bg-background text-foreground shadow-lg sm:max-w-[300px]"
               >
                 <p>
                   Side roads bend whichever road is active (Vibe, Era or New angle). Only one can be
@@ -410,19 +410,19 @@ export function MoodChat() {
 
   if (empty) {
     return (
-      <div className="chat-enter flex h-full flex-col items-center justify-center px-6 pb-24">
+      <div className="chat-enter scrollbar-thin flex h-full flex-col items-center justify-start overflow-y-auto px-4 pb-10 pt-32 sm:px-6 sm:pb-16 sm:pt-36 xl:justify-center xl:pb-24 xl:pt-0 [@media(max-height:800px)]:justify-start [@media(max-height:800px)]:pb-8 [@media(max-height:800px)]:pt-7">
         <div className="flex flex-col items-center text-center">
           <img
             src={logo}
             alt="Crate"
             width={80}
             height={80}
-            className="h-20 w-20 rounded-2xl"
+            className="h-16 w-16 rounded-2xl sm:h-20 sm:w-20 [@media(max-height:800px)]:h-14 [@media(max-height:800px)]:w-14"
           />
-          <h2 className="mt-6 max-w-full text-4xl font-bold leading-tight">
+          <h2 className="mt-5 max-w-full text-3xl font-bold leading-tight sm:mt-6 sm:text-4xl [@media(max-height:800px)]:mt-3 [@media(max-height:800px)]:text-3xl">
             What does today sound like?
           </h2>
-          <p className="mt-3 max-w-lg text-lg leading-7 text-muted-foreground">
+          <p className="mt-3 max-w-lg text-base leading-6 text-muted-foreground sm:text-lg sm:leading-7 [@media(max-height:800px)]:text-base [@media(max-height:800px)]:leading-6">
             Describe your mood, where you are, what you're doing. I'll dig up tracks you already
             love from your past playlists.
           </p>
