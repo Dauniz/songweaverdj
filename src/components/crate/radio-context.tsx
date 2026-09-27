@@ -384,8 +384,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    prefetch(radio);
-  }, [radio, prefetch]);
+    return prefetch(radio);
+  }, [radio, prefetch, settleTick]);
 
   const startRadio = useCallback(
     (tracks: CardTrack[], seedPrompt: string, startAt = 0) => {
