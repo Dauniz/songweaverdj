@@ -614,7 +614,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       const generation = ++listGeneration.current;
       const priorWrite = playbackWrite.current;
-      let releaseWrite = () => undefined;
+      let releaseWrite: () => void = () => {};
       playbackWrite.current = new Promise<void>((resolve) => {
         releaseWrite = resolve;
       });
@@ -675,7 +675,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           };
           return true;
         }
-        if (!quiet) setPlaybackIssue({ status: result.status, message: result.message });
+        if (!quiet && result.status !== "playing") setPlaybackIssue({ status: result.status, message: result.message });
         return false;
       } catch {
         if (!quiet) setPlaybackIssue({ status: "unavailable", message: "Spotify playback is temporarily unavailable." });
@@ -1177,7 +1177,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.data?.type !== "spotify-connected" || !event.data.ok) return;
       const current = radioRef.current.current;
-      void startSpotifyPlayback(current, false, current?.spotify_id === door.current?.forId ? door.current.track : null, undefined, "oauth connected");
+      const queuedDoor = door.current;
+      void startSpotifyPlayback(current, false, current?.spotify_id === queuedDoor?.forId ? queuedDoor.track : null, undefined, "oauth connected");
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
@@ -1206,7 +1207,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     let attempts = 0;
     const retry = async () => {
       attempts += 1;
-      if (await startSpotifyPlayback(track, true, door.current?.forId === track.spotify_id ? door.current.track : null, undefined, "open Spotify retry")) return;
+      const queuedDoor = door.current;
+      if (await startSpotifyPlayback(track, true, queuedDoor?.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry")) return;
       if (attempts < 10) retryTimer.current = setTimeout(() => void retry(), 3_000);
     };
     retryTimer.current = setTimeout(() => void retry(), 2_000);
@@ -1363,7 +1365,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         onDismiss={() => setPlaybackIssue(null)}
         onOpenSpotify={openSpotify}
         onConnect={() => void connectSpotify()}
-        onRetry={() => void startSpotifyPlayback()}
+        onRetry={() => {
+          const current = radioRef.current.current;
+          const queuedDoor = door.current;
+          void startSpotifyPlayback(current, false, current?.spotify_id === queuedDoor?.forId ? queuedDoor.track : null, undefined, "manual retry");
+        }}
       />
     </RadioContext.Provider>
   );
