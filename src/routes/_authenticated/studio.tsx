@@ -14,6 +14,7 @@ import { LibraryPanel } from "@/components/crate/LibraryPanel";
 import { MemoryInspector } from "@/components/crate/MemoryInspector";
 import { SessionControl } from "@/components/crate/SessionControl";
 import { cn } from "@/lib/utils";
+import { BugReportButton } from "@/components/BugReportButton";
 import logo from "@/assets/crate-logo.jpg";
 
 export const Route = createFileRoute("/_authenticated/studio")({
@@ -47,6 +48,7 @@ function Studio() {
   return (
     <RadioProvider>
       <StudioLayout mobileTab={mobileTab} onTab={setMobileTab} onSignOut={signOut} />
+      <BugReportButton />
     </RadioProvider>
   );
 }
