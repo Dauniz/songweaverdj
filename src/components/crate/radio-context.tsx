@@ -161,6 +161,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const scoutAbort = useRef<AbortController | null>(null);
   const lensTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const preSkip2 = useRef<{ forId: string; branch: Branch } | null>(null);
+  const upSkipRef = useRef<{ track: RadioTrack; road: Road } | null>(null);
+  const sideSnap = useRef<{
+    at: number; lens: LensId | null; deep: boolean; currentId: string | undefined; historyLen: number;
+    branches: { key: string; played: Promise<Branch>; skipped: Promise<Branch> } | null;
+    upNext: RadioTrack | null; upSkip: { track: RadioTrack; road: Road } | null;
+    preSkip: { forId: string; branch: Branch } | null; preSkip2: { forId: string; branch: Branch } | null;
+  } | null>(null);
   const swapping = useRef("");
   /** Song ids last sent to Spotify, in order — lets Crate skip re-sending when the next door is already lined up. */
   const lineup = useRef<string[]>([]);
@@ -284,6 +291,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             road: s.road,
             chips: s.chips,
             lens: lensRef.current,
+            deepCuts: deepCutsRef.current,
             avoidArtists: avoidArtists(),
             excludeSpotifyIds: [
               ...played.current.slice(-500),
@@ -304,7 +312,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const prefetch = useCallback(
     (s: RadioState) => {
       if (!s.active || !s.current) return;
-      const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}|${lensRef.current ?? ""}`;
+      const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
       if (branches.current?.key === key) return;
       scoutAbort.current?.abort(); // drop any scouting still running for an old key
       const ctrl = new AbortController();
@@ -965,27 +973,52 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [log, note],
   );
 
-  const setLens = useCallback(
-    (next: LensId | null) => {
-      if (next) {
-        deepCutsRef.current = false;
-        setDeepCutsState(false);
-      }
-      lensRef.current = next;
-      setLensState(next);
+  /** One entry point for side roads (lenses + deep cuts). Toggling back within 10s restores the old doors. */
+  const applySideRoad = useCallback(
+    (nextLens: LensId | null, nextDeep: boolean) => {
       const s = radioRef.current;
-      if (next && s.active) log({ name: `lens:${next}`, artists: "" }, "steer", s);
-      // Lens bends both paths: stop the old scouting now and wipe its doors instantly.
+      const prevLens = lensRef.current;
+      const prevDeep = deepCutsRef.current;
+      if (prevLens === nextLens && prevDeep === nextDeep) return;
+      const snap = sideSnap.current;
+      const canRestore =
+        s.active && snap && Date.now() - snap.at < 10_000 && snap.currentId === s.current?.spotify_id &&
+        snap.lens === nextLens && snap.deep === nextDeep && snap.historyLen === s.history.length;
+      // Remember the doors we are leaving, unless we're already inside a revert window.
+      if (s.active && !(snap && Date.now() - snap.at < 10_000 && snap.currentId === s.current?.spotify_id)) {
+        sideSnap.current = {
+          at: Date.now(), lens: prevLens, deep: prevDeep, currentId: s.current?.spotify_id,
+          historyLen: s.history.length, branches: branches.current,
+          upNext: upNextRef.current, upSkip: upSkipRef.current,
+          preSkip: preSkip.current, preSkip2: preSkip2.current,
+        };
+      }
+      lensRef.current = nextLens;
+      setLensState(nextLens);
+      deepCutsRef.current = nextDeep;
+      setDeepCutsState(nextDeep);
+      if (lensTimer.current) clearTimeout(lensTimer.current);
       scoutAbort.current?.abort();
+      if (canRestore && snap) {
+        sideSnap.current = null;
+        branches.current = snap.branches;
+        preSkip.current = snap.preSkip;
+        preSkip2.current = snap.preSkip2;
+        setUpNext(snap.upNext);
+        setUpSkip(snap.upSkip);
+        note("steer", "Side road toggled back → keeping the original doors");
+        return;
+      }
+      if (s.active && nextLens) log({ name: `lens:${nextLens}`, artists: "" }, "steer", s);
+      if (s.active && nextDeep) log({ name: "deep cuts", artists: "" }, "steer", s);
       branches.current = null;
       preSkip.current = null;
       preSkip2.current = null;
       if (!s.active) return;
       setUpNext(null);
       setUpSkip(null);
-      note("steer", next ? `Side road ${next} on → re-scouting both doors` : "Side road off → back to the main roads");
-      // Settle briefly so rapid toggling only scouts for the final choice.
-      if (lensTimer.current) clearTimeout(lensTimer.current);
+      const label = nextLens ?? (nextDeep ? "deep cuts" : null);
+      note("steer", label ? `Side road ${label} on → re-scouting both doors` : "Side road off → back to the main roads");
       lensTimer.current = setTimeout(() => {
         lensTimer.current = null;
         setRadio({ ...radioRef.current });
@@ -994,14 +1027,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [log, note],
   );
 
-  const setDeepCuts = useCallback((enabled: boolean) => {
-    deepCutsRef.current = enabled;
-    setDeepCutsState(enabled);
-    if (enabled) {
-      lensRef.current = null;
-      setLensState(null);
-    }
-  }, []);
+  const setLens = useCallback((next: LensId | null) => applySideRoad(next, false), [applySideRoad]);
+  const setDeepCuts = useCallback(
+    (enabled: boolean) => applySideRoad(enabled ? null : lensRef.current, enabled),
+    [applySideRoad],
+  );
 
   return (
     <RadioContext.Provider
