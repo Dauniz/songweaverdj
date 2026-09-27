@@ -105,28 +105,11 @@ async function transcribeVoice(file: File) {
 export function MoodChat() {
   const qc = useQueryClient();
   const [text, setText] = useState("");
-  const [deepCuts, setDeepCuts] = useState(true);
-  useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem("songweaver-deep-cuts");
-      if (saved === "0") setDeepCuts(false);
-    } catch { /* ignore */ }
-  }, []);
-  const toggleDeepCuts = (on: boolean) => {
-    setDeepCuts(on);
-    try {
-      window.localStorage.setItem("songweaver-deep-cuts", on ? "1" : "0");
-    } catch { /* ignore */ }
-  };
   const [voiceState, setVoiceState] = useState<"idle" | "recording" | "transcribing">("idle");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recordingRef = useRef<VoiceRecording | null>(null);
   const stoppingRef = useRef(false);
-  const { startRadio, lens, setLens } = useRadio();
-  // Deep cuts and side roads are mutually exclusive; a saved side road wins on load.
-  useEffect(() => {
-    if (lens) setDeepCuts(false);
-  }, [lens]);
+  const { startRadio, lens, setLens, deepCuts, setDeepCuts } = useRadio();
   const lastUserText = useRef("");
   const { data: promptMemories = [] } = useQuery({
     queryKey: ["prompt-memories"],
@@ -352,8 +335,7 @@ export function MoodChat() {
                 id="deep-cuts"
                 checked={deepCuts}
                 onCheckedChange={(checked) => {
-                  if (checked === true) setLens(null);
-                  toggleDeepCuts(checked === true);
+                  setDeepCuts(checked === true);
                 }}
                 aria-label="Enable Deep cuts"
                 className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
@@ -373,7 +355,6 @@ export function MoodChat() {
                     id={`lens-${l.id}`}
                     checked={on}
                     onCheckedChange={(checked) => {
-                      if (checked === true) toggleDeepCuts(false);
                       setLens(checked === true ? l.id : null);
                     }}
                     aria-label={`Enable ${l.name}`}

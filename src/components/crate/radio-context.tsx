@@ -69,6 +69,8 @@ type RadioContextValue = {
   toggleChip: (chip: string) => void;
   lens: LensId | null;
   setLens: (lens: LensId | null) => void;
+  deepCuts: boolean;
+  setDeepCuts: (enabled: boolean) => void;
   sessionLive: boolean;
   startSession: () => Promise<void>;
   endSession: () => void;
@@ -126,16 +128,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   const radioRef = useRef(radio);
   radioRef.current = radio;
-  // Second-class branch (lens): one at a time, remembered on this device.
+  // Second-class branch: one at a time. It is restored only with a live/saved session.
   const [lens, setLensState] = useState<LensId | null>(null);
   const lensRef = useRef<LensId | null>(null);
   lensRef.current = lens;
-  useEffect(() => {
-    try {
-      const v = window.localStorage.getItem("songweaver-lens");
-      if (v && (LENS_IDS as string[]).includes(v)) setLensState(v as LensId);
-    } catch { /* ignore */ }
-  }, []);
+  const [deepCuts, setDeepCutsState] = useState(false);
+  const deepCutsRef = useRef(false);
+  deepCutsRef.current = deepCuts;
   const artistSkips = useRef<Map<string, number>>(new Map());
   const played = useRef<string[]>([]);
   // Two prefetched branches per song: one assuming you finish it, one assuming you skip it.
@@ -204,6 +203,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       setUpSkip(saved.upSkip ?? null);
     }
     if (saved.door) door.current = saved.door;
+    const savedLens = saved.lens && (LENS_IDS as string[]).includes(saved.lens) ? saved.lens : null;
+    lensRef.current = savedLens;
+    setLensState(savedLens);
+    const savedDeepCuts = savedLens ? false : Boolean(saved.deepCuts);
+    deepCutsRef.current = savedDeepCuts;
+    setDeepCutsState(savedDeepCuts);
     setRadio(saved.radio);
     setSessionLive(saved.sessionLive);
   }, []);
@@ -219,9 +224,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         radio, sessionLive, events, played: played.current,
         artistSkips: [...artistSkips.current], savedAt: Date.now(),
         upNext, upSkip, door: door.current, branchKey: branches.current?.key ?? null,
+        lens: lensRef.current, deepCuts: deepCutsRef.current,
       }),
     );
-  }, [restored, radio, sessionLive, events, upNext, upSkip]);
+  }, [restored, radio, sessionLive, events, upNext, upSkip, lens, deepCuts]);
   const note = useCallback((kind: MazeEvent["kind"], text: string) => {
     setEvents((e) => [...e, { at: Date.now(), kind, text }].slice(-80));
   }, []);
@@ -400,14 +406,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     if (s.active && s.current) {
       localStorage.setItem(
         LAST_KEY,
-        JSON.stringify({ radio: s, events: eventsRef.current, played: played.current, artistSkips: [...artistSkips.current], lens: lensRef.current, savedAt: Date.now() }),
+        JSON.stringify({ radio: s, events: eventsRef.current, played: played.current, artistSkips: [...artistSkips.current], lens: lensRef.current, deepCuts: deepCutsRef.current, savedAt: Date.now() }),
       );
       setHasLastSession(true);
     }
     // A brand new session starts clean: no side road carried over.
     lensRef.current = null;
     setLensState(null);
-    localStorage.removeItem("songweaver-lens");
+    deepCutsRef.current = false;
+    setDeepCutsState(false);
     branches.current = null;
     setAskSteer(false);
     setPlaybackIssue(null);
@@ -426,13 +433,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(LAST_KEY);
       if (!raw) return;
-      const saved = JSON.parse(raw) as { radio: RadioState; events: MazeEvent[]; played: string[]; artistSkips: [string, number][]; lens?: LensId | null };
+      const saved = JSON.parse(raw) as { radio: RadioState; events: MazeEvent[]; played: string[]; artistSkips: [string, number][]; lens?: LensId | null; deepCuts?: boolean };
       played.current = saved.played ?? [];
       // Bring back the side road the session was on.
       const savedLens = saved.lens && (LENS_IDS as string[]).includes(saved.lens) ? saved.lens : null;
       lensRef.current = savedLens;
       setLensState(savedLens);
-      if (savedLens) localStorage.setItem("songweaver-lens", savedLens);
+      const savedDeepCuts = savedLens ? false : Boolean(saved.deepCuts);
+      deepCutsRef.current = savedDeepCuts;
+      setDeepCutsState(savedDeepCuts);
       artistSkips.current = new Map(saved.artistSkips ?? []);
       branches.current = null;
       door.current = null;
@@ -940,11 +949,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   const setLens = useCallback(
     (next: LensId | null) => {
+      if (next) {
+        deepCutsRef.current = false;
+        setDeepCutsState(false);
+      }
       lensRef.current = next;
       setLensState(next);
-      try {
-        window.localStorage.setItem("songweaver-lens", next ?? "");
-      } catch { /* ignore */ }
       const s = radioRef.current;
       if (next && s.active) log({ name: `lens:${next}`, artists: "" }, "steer", s);
       // Lens bends both paths: stop the old scouting now and wipe its doors instantly.
@@ -966,6 +976,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [log, note],
   );
 
+  const setDeepCuts = useCallback((enabled: boolean) => {
+    deepCutsRef.current = enabled;
+    setDeepCutsState(enabled);
+    if (enabled) {
+      lensRef.current = null;
+      setLensState(null);
+    }
+  }, []);
+
   return (
     <RadioContext.Provider
       value={{
@@ -982,6 +1001,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         toggleChip,
         lens,
         setLens,
+        deepCuts,
+        setDeepCuts,
         sessionLive,
         startSession,
         endSession: () => stopRadio(),

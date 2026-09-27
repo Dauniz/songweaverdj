@@ -9,5 +9,6 @@
 - [x] Reset the center chat on studio entry, preserve Walrus Memory, and refine the composer
 - [x] Add auto-send voice prompts to the studio chat
 - [x] Rename the product to Songweaver while keeping Crate as the AI companion
-- [ ] Add first-time Studio onboarding for Spotify sync, session start, and prompting
-- [ ] Add first-session Feedbacker onboarding with per-device completion
+- [x] Add first-time Studio onboarding for Spotify sync, session start, and prompting
+- [x] Add first-session Feedbacker onboarding with per-device completion
+- [x] Start fresh sessions with all side roads off and restore the saved road only when resuming
