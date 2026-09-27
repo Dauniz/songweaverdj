@@ -34,7 +34,7 @@ type Mindmap = { nodes: MindNode[] };
 const BRANCH_COLORS = ["#8ab4f8", "#7ee0a3", "#f6c177", "#e5a1e0", "#f28b82", "#9adbe8"];
 
 function seedMap(): Mindmap {
-  const root: MindNode = { id: "root", parentId: null, text: "Songweaver", x: 560, y: 340 };
+  const root: MindNode = { id: "root", parentId: null, text: "Songweaver", x: 660, y: 420 };
   const branches: Array<[string, string[]]> = [
     ["Uppspelning & Radio", ["Flervägs-dörrar (3+ val)", "Offline-läge / caching", "Bättre skip-detektering", "Blanda era + vibe automatiskt"]],
     ["Crate & AI", ["Röst-svar från Crate", "Djupare smakprofiler via Walrus", "Förklara varje val i konsolen", "Humör-detektering från lyssning"]],
@@ -46,14 +46,14 @@ function seedMap(): Mindmap {
   const nodes: MindNode[] = [root];
   branches.forEach(([title, children], i) => {
     const angle = (i / branches.length) * Math.PI * 2 - Math.PI / 2;
-    const bx = root.x + Math.cos(angle) * 320;
-    const by = root.y + Math.sin(angle) * 240;
+    const bx = root.x + Math.cos(angle) * 400;
+    const by = root.y + Math.sin(angle) * 300;
     const bid = `b${i}`;
     nodes.push({ id: bid, parentId: "root", text: title, x: bx, y: by, color: BRANCH_COLORS[i % BRANCH_COLORS.length] });
     children.forEach((c, j) => {
-      const spread = (j - (children.length - 1) / 2) * 70;
-      const cx = bx + Math.cos(angle) * 210 + Math.cos(angle + Math.PI / 2) * spread;
-      const cy = by + Math.sin(angle) * 210 + Math.sin(angle + Math.PI / 2) * spread;
+      const spread = (j - (children.length - 1) / 2) * 95;
+      const cx = bx + Math.cos(angle) * 250 + Math.cos(angle + Math.PI / 2) * spread;
+      const cy = by + Math.sin(angle) * 250 + Math.sin(angle + Math.PI / 2) * spread;
       nodes.push({ id: `${bid}c${j}`, parentId: bid, text: c, x: cx, y: cy, color: BRANCH_COLORS[i % BRANCH_COLORS.length] });
     });
   });
