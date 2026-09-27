@@ -168,17 +168,32 @@ export function MemoryInspector() {
           </p>
         )}
         {nodes.map((n) => {
+          const insight = n.origin === "synthesis";
           return (
-            <div key={n.id} className="rounded-lg border bg-surface p-3">
+            <div key={n.id} className={cn("rounded-lg border bg-surface p-3", insight && "border-chart-4/50 bg-chart-4/5")}>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-muted-foreground">
                   {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
-                <span className="inline-flex rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                <span className={cn("inline-flex rounded-md border px-2 py-0.5 text-[10px] font-semibold", insight ? "border-chart-4/40 bg-chart-4/15 text-chart-4" : "border-primary/25 bg-primary/10 text-primary")}>
                   {skillForMemory(n.kind, n.origin, n.content)}
                 </span>
+                {insight && (
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" aria-label="What is a Crate insight?" className="rounded-full p-0.5 text-muted-foreground hover:text-foreground">
+                          <CircleHelp className="h-3 w-3" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-[260px] text-left">
+                        A conclusion Crate drew on its own from how you listened — when you skipped, what you finished, the time of night, which playlists the songs came from.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </div>
-              <p className="mt-2 text-sm">{n.content}</p>
+              <p className={cn("mt-2 text-sm", insight && "font-medium")}>{n.content}</p>
               <div className="mt-2 flex justify-between gap-2 font-mono text-[10px] text-muted-foreground">
                 {n.blob_id && !n.blob_id.startsWith("job:") ? (() => {
                   const fullId: string = n.blob_id;
