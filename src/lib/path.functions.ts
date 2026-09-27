@@ -145,13 +145,64 @@ function eraCandidates(anchor: Song, pool: Song[]) {
     .map((x) => x.s);
 }
 
+/** Compact one-line candidate: title—artist [playlist yy-mm]. Fewer tokens, same musical signal. */
 function describe(s: Song) {
-  const src = s.sources
-    .slice(0, 2)
-    .map((x) => `${x.name}${x.period ? ` ${fmtPeriod(x.period)}` : ""}`)
-    .join("; ");
-  return `${s.name} — ${s.artists} [${src}]`;
+  const src = s.sources[0];
+  const period = src?.period ? ` ${src.period.slice(0, 7)}` : "";
+  const tag = src ? ` [${src.name.slice(0, 28)}${period}]` : "";
+  return `${s.name}—${s.artists}${tag}`;
 }
+
+/** Pick up to n items from a list, skipping ones already chosen. */
+function take<T extends { spotify_id: string }>(from: T[], n: number, seen: Set<string>) {
+  const out: T[] = [];
+  for (const s of from) {
+    if (out.length >= n) break;
+    if (seen.has(s.spotify_id)) continue;
+    seen.add(s.spotify_id);
+    out.push(s);
+  }
+  return out;
+}
+
+/**
+ * Layered candidate pool (~140 songs instead of ~700 random ones).
+ * Same musical reach — artist web, playlist neighbours, era, wildcards — at a
+ * quarter of the prompt size, so Crate reasons over signal instead of noise.
+ */
+function buildShortlist(
+  road: "vibe" | "era" | "mixed",
+  anchor: Song | undefined,
+  available: Song[],
+  likedArtists: Set<string>,
+): Song[] {
+  const seen = new Set<string>();
+  const out: Song[] = [];
+  const shuffled = shuffle(available);
+
+  // 1. Artist web — the artists that are working in this session.
+  out.push(...take(shuffled.filter((s) => likedArtists.has(s.artists)), 25, seen));
+
+  // 2. Playlist neighbours — songs sharing a playlist with the anchor.
+  if (anchor) {
+    const playlists = new Set(
+      anchor.sources.filter((x) => x.type === "playlist").map((x) => x.name),
+    );
+    const neighbours = shuffled.filter((s) =>
+      s.sources.some((x) => x.type === "playlist" && playlists.has(x.name)),
+    );
+    out.push(...take(neighbours, road === "era" ? 50 : 40, seen));
+  }
+
+  // 3. Era / nearby months around the anchor.
+  if (anchor) out.push(...take(eraCandidates(anchor, available), road === "era" ? 45 : 35, seen));
+
+  // 4. Wildcards — keeps the maze surprising and deep cuts reachable.
+  out.push(...take(shuffled, road === "vibe" ? 50 : 40, seen));
+
+  return out;
+}
+
 
 const inputSchema = z.object({
   seed: z.object({ spotifyId: z.string(), name: z.string(), artists: z.string() }),
@@ -244,21 +295,13 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const skipped = data.history.filter((h) => h.outcome === "skipped").slice(-6);
     const likedArtists = new Set([data.seed.artists, ...liked.map((h) => h.artists)]);
 
-    let shortlist: Song[];
-    if (data.road === "vibe") {
-      const sameArtists = available.filter((s) => likedArtists.has(s.artists)).slice(0, 40);
-      shortlist = [...sameArtists, ...shuffle(available).slice(0, 700)];
-    } else {
-      const era = anchor ? eraCandidates(anchor, available).slice(0, 250) : [];
-      shortlist = [...era, ...shuffle(available).slice(0, 450)];
-    }
-    const seen = new Set<string>();
-    shortlist = shortlist.filter((s) => (seen.has(s.spotify_id) ? false : (seen.add(s.spotify_id), true)));
+    const shortlist = buildShortlist(data.road, anchor, available, likedArtists);
     const index = new Map<string, Song>();
     const lines = shortlist.map((s, i) => {
       index.set(`T${i}`, s);
-      return `T${i} | ${describe(s)}`;
+      return `T${i}|${describe(s)}`;
     });
+
 
     const recalled = await recallMemories(
       userId,
@@ -284,7 +327,7 @@ Favorites in memory are hints about taste, not a rotation list.
 Walrus Memory:
 ${recalled.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
 
-Candidates (code | title — artist [playlist period]):
+Candidates (code|title—artist [playlist yyyy-mm]):
 ${lines.join("\n")}
 
 Call pick_next exactly once with one code from the list.`;
