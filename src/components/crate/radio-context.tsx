@@ -6,10 +6,11 @@ const NO_DEVICE_GRACE = 5 * 60_000;
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { logListeningEvent } from "@/lib/radio.functions";
-import { nextPathTrack } from "@/lib/path.functions";
+import { nextPathTrack, pathReserves } from "@/lib/path.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
-import { endSpotifySession, getSpotifyAuthUrl, getSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
+import { endSpotifySession, getSpotifyAuthUrl, getSpotifyPlayback, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
 import { SteerChips } from "./SteerChips";
@@ -119,7 +120,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [askSteer, setAskSteer] = useState(false);
   const logFn = useServerFn(logListeningEvent);
   const pathFn = useServerFn(nextPathTrack);
+  const reservesFn = useServerFn(pathReserves);
   const playFn = useServerFn(playSpotifyTrack);
+  const pauseFn = useServerFn(pauseSpotifyPlayback);
   const playbackFn = useServerFn(getSpotifyPlayback);
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const qc = useQueryClient();
@@ -172,6 +175,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const swapping = useRef("");
   /** Song ids last sent to Spotify, in order — lets Crate skip re-sending when the next door is already lined up. */
   const lineup = useRef<string[]>([]);
+  /** Code-picked back-ups (no AI) sent behind the doors so fast skips never empty Spotify's list. */
+  const reserves = useRef<{ forId: string; tracks: RadioTrack[] }>({ forId: "", tracks: [] });
+  /** Times Spotify was seen changing song — used to spot skip spamming. */
+  const jumps = useRef<number[]>([]);
+  /** While set, Crate stops reacting to Spotify: the listener is being asked to slow down. */
+  const cooldownUntil = useRef(0);
   // When Crate last moved to a new song — rapid skips right after this are followed, not re-rooted.
   const lastTransition = useRef(0);
   const idleSince = useRef(0);
@@ -518,11 +527,22 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
       const nextId = skipDoor?.spotify_id && isPlayable(skipDoor) ? skipDoor.spotify_id : undefined;
       const thenId = nextId && thenDoor?.spotify_id && isPlayable(thenDoor) ? thenDoor.spotify_id : undefined;
+      // Back-ups sit behind the doors: if you skip past everything, Spotify still has songs left.
+      const used = new Set([track.spotify_id, nextId, thenId]);
+      const reserveIds = reserves.current.tracks
+        .map((t) => t.spotify_id)
+        .filter((id): id is string => Boolean(id) && !used.has(id!))
+        .slice(0, 2);
       setRetrying(true);
       try {
-        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, thenId, positionMs } });
+        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, thenId, reserveIds, positionMs } });
         if (result.status === "playing") {
-          lineup.current = [track.spotify_id, ...(nextId ? [nextId] : []), ...(thenId ? [thenId] : [])];
+          lineup.current = [
+            track.spotify_id,
+            ...(nextId ? [nextId] : []),
+            ...(thenId ? [thenId] : []),
+            ...(nextId ? reserveIds : []),
+          ];
           setPlaybackIssue(null);
           door.current = nextId && skipDoor ? { forId: track.spotify_id, track: skipDoor } : null;
           if (!positionMs) lastTransition.current = Date.now();
@@ -547,6 +567,35 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     },
     [playFn],
   );
+
+  // Keep two instant back-up songs ready for the current song (plain code, no AI cost).
+  useEffect(() => {
+    const cur = radio.current;
+    if (!sessionLive || !cur?.spotify_id || !isPlayable(cur)) return;
+    if (reserves.current.forId === cur.spotify_id) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await reservesFn({
+          data: {
+            seed: { spotifyId: cur.spotify_id!, name: cur.name, artists: cur.artists },
+            road: radioRef.current.road,
+            lens: lensRef.current,
+            deepCuts: deepCutsRef.current,
+            avoidArtists: avoidArtists(),
+            excludeSpotifyIds: played.current.slice(-500),
+            count: 2,
+          },
+        });
+        if (!cancelled) reserves.current = { forId: cur.spotify_id!, tracks: r.tracks as RadioTrack[] };
+      } catch {
+        /* back-ups are optional */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionLive, radio.current?.spotify_id, reservesFn]);
 
   useEffect(() => {
     const current = radio.current;
@@ -744,6 +793,36 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [fetchBranch, log, note, startSpotifyPlayback, noteMove, playbackFn],
   );
 
+  /** Skip spamming (many skips in a second): pause, warn, then restart clean. */
+  const calmDown = useCallback(async () => {
+    if (Date.now() < cooldownUntil.current) return;
+    cooldownUntil.current = Date.now() + 4_000;
+    jumps.current = [];
+    void pauseFn().catch(() => undefined);
+    toast("Skip the skipping", { description: "Crate needs a second to catch its breath." });
+    note("think", "Too many skips at once — pausing a beat, then weaving a fresh song");
+    const s = radioRef.current;
+    const fresh = upSkipRef.current?.track ?? reserves.current.tracks[0] ?? null;
+    await new Promise((res) => setTimeout(res, 2_500));
+    const now = radioRef.current;
+    if (now.sessionId !== s.sessionId || !now.current) {
+      cooldownUntil.current = 0;
+      return;
+    }
+    door.current = null;
+    branches.current = null;
+    lineup.current = [];
+    if (fresh?.spotify_id && isPlayable(fresh)) {
+      noPlayFor.current = fresh.spotify_id;
+      if (await startSpotifyPlayback(fresh, true, null)) {
+        if (now.current.spotify_id) played.current.push(now.current.spotify_id);
+        setRadio({ ...advance(now, "skipped"), current: fresh });
+        note("pick", `Picking up again: "${fresh.name}" by ${fresh.artists}`);
+      }
+    }
+    cooldownUntil.current = Date.now() + 600;
+  }, [pauseFn, startSpotifyPlayback, note]);
+
   // Spotify owns playback. While a session is live, mirror what Spotify plays —
   // skips, finishes and songs you pick yourself inside the Spotify app.
   useEffect(() => {
@@ -751,6 +830,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const check = async () => {
       const current = radioRef.current.current;
       if (!current?.spotify_id || advancing.current || committing.current) return;
+      if (Date.now() < cooldownUntil.current) return; // catching our breath
       try {
         const state = await playbackFn();
         const previous = lastPlayback.current;
@@ -787,6 +867,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           setSpotifyIdle(false);
         }
         if (state.status === "ready" && state.spotifyId === current.spotify_id) {
+          // Spotify ran off the end of Crate's list and looped back to the first song.
+          if (previous.observed && previous.progressMs > state.progressMs + 8_000 && Date.now() - lastTransition.current > 3_000) {
+            await calmDown();
+            return;
+          }
           lastPlayback.current = {
             spotifyId: current.spotify_id,
             ratio: state.durationMs ? state.progressMs / state.durationMs : previous.ratio,
@@ -808,10 +893,40 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (!previous.observed && !(rapid && sinceMove > 2_500)) return;
         const outcome = previous.ratio >= 0.7 ? "played" : "skipped";
         if (state.status === "ready" && state.spotifyId) {
+          // Where Spotify landed in Crate's list says how many songs you skipped past.
+          const at = lineup.current.indexOf(current.spotify_id);
+          const landed = lineup.current.indexOf(state.spotifyId);
+          const steps = at >= 0 && landed > at ? landed - at : 0;
+          jumps.current = [...jumps.current.filter((t) => Date.now() - t < 3_000), Date.now()];
+          const bursts = jumps.current.length + Math.max(0, steps - 1);
+          if (bursts >= 4 || (steps >= 3 && sinceMove < 2_000)) {
+            await calmDown();
+            return;
+          }
           const q = door.current;
           if (q && q.forId === current.spotify_id && q.track.spotify_id === state.spotifyId) {
             // you skipped onto Crate's "if you skip" door
             acceptObserved(q.track, outcome, false, state.progressMs, state.durationMs);
+          } else if (steps >= 2) {
+            // Two or three skips in a heartbeat: log them all, then turn to a new angle.
+            const landedTrack: RadioTrack = {
+              id: `demo-ext-${state.spotifyId}`,
+              spotify_id: state.spotifyId,
+              name: state.name || "Unknown song",
+              artists: state.artists,
+              album: state.album,
+              image_url: state.imageUrl,
+              spotify_url: state.spotifyUrl,
+              source_name: "Spotify",
+            };
+            for (const id of lineup.current.slice(at + 1, landed)) {
+              played.current.push(id);
+              log({ name: "skipped door", artists: "" }, "early_skip", radioRef.current);
+            }
+            note("skip", `${steps} skips in a row → Crate turns to a new angle`);
+            acceptObserved(landedTrack, "skipped", false, state.progressMs, state.durationMs);
+            setRadio((s) => ({ ...s, consecutiveSkips: Math.max(2, steps), road: "mixed" }));
+            setAskSteer(true);
           } else if (rapid && outcome === "skipped") {
             // Skipped again before the next door was lined up: Spotify fell off the end of
             // the list. Keep up — follow the skip road instead of treating it as your own pick.
@@ -862,7 +977,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       stopped = true;
       clearTimeout(timer);
     };
-  }, [sessionLive, radio.active, radio.sessionId, playbackIssue, playbackFn, next, acceptObserved, stopRadio, handOver, startSpotifyPlayback]);
+  }, [sessionLive, radio.active, radio.sessionId, playbackIssue, playbackFn, next, acceptObserved, stopRadio, handOver, startSpotifyPlayback, calmDown, log, note]);
 
   // "Open Spotify" issue: retry reconnecting every 5 s; only give up after ~5 min.
   useEffect(() => {
