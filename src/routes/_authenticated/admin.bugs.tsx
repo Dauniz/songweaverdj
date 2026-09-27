@@ -60,7 +60,10 @@ function AdminBugs() {
     <div className="mx-auto max-w-4xl p-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold">Bug reports ({data.reports.length})</h1>
-        <Link to="/studio" className="text-sm text-muted-foreground hover:text-foreground">Back to Studio</Link>
+        <div className="flex gap-3 text-sm">
+          <Link to="/admin/notepad" className="text-muted-foreground hover:text-foreground">Notepad</Link>
+          <Link to="/studio" className="text-muted-foreground hover:text-foreground">Back to Studio</Link>
+        </div>
       </div>
       {data.reports.length === 0 && <p className="text-muted-foreground">No bug reports yet.</p>}
       <ul className="space-y-3">
