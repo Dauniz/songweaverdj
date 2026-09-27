@@ -662,6 +662,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const cur = radio.current;
     const skip = upSkip?.track;
     if (!sessionLive || !cur?.spotify_id || !skip?.spotify_id || !isPlayable(skip)) return;
+    if (calmingRef.current) return; // hands off Spotify while Crate waits out the clicking
     if (door.current?.forId === cur.spotify_id && door.current.track.spotify_id === skip.spotify_id) return;
     if (lastPlayback.current.spotifyId !== cur.spotify_id) return;
     // Already lined up behind this song in Spotify (sent one step ahead) — no re-send, no glitch.
