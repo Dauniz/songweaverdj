@@ -662,7 +662,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           new Promise<Branch>((res) => setTimeout(() => res(null), Math.max(0, deadline - Date.now() - 3_000))),
         ]);
       }
-      await new Promise((res) => setTimeout(res, Math.max(0, deadline - Date.now() - 2_500)));
+      // Let the song play out fully — only swap the line-up once it has actually ended.
+      await new Promise((res) => setTimeout(res, Math.max(0, deadline - Date.now() + 400)));
       const now = radioRef.current;
       if (now.sessionId !== s.sessionId || now.current?.spotify_id !== cur.spotify_id) return; // you moved on yourself
       // Tell Spotify first; only move Crate forward once Spotify actually took the finish pick.
@@ -693,7 +694,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     if (!sessionLive || !radio.active || playbackIssue) return;
     const check = async () => {
       const current = radioRef.current.current;
-      if (!current?.spotify_id || advancing.current) return;
+      if (!current?.spotify_id || advancing.current || swapping.current) return;
       try {
         const state = await playbackFn();
         const previous = lastPlayback.current;
