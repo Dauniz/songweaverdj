@@ -967,8 +967,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           const steps = at >= 0 && landed > at ? landed - at : 0;
           jumps.current = [...jumps.current.filter((t) => Date.now() - t < 3_000), Date.now()];
           const bursts = jumps.current.length + Math.max(0, steps - 1);
-          // Skipped past the whole chain (skip 1, 2 and 3): pause, warn, restart clean.
-          if (bursts >= 4 || (landed < 0 && jumps.current.length >= 3)) {
+          // Skipped past the whole chain (skip 1, 2 and 3): pause, warn, then restart clean
+          // once Crate has songs for the new angle ready.
+          const ranOff =
+            landed < 0 && lineup.current.length >= 3 && at >= 0 && at === lineup.current.length - 1;
+          if (ranOff || bursts >= 4 || (landed < 0 && jumps.current.length >= 3)) {
             await calmDown();
             return;
           }
