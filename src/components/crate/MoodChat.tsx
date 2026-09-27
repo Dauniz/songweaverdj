@@ -383,7 +383,8 @@ export function MoodChat() {
                 </Button>
               </TooltipTrigger>
               <TooltipContent
-                side="right"
+                side="top"
+                align="center"
                 className="max-w-[calc(100vw-2rem)] border border-border bg-background text-foreground shadow-lg sm:max-w-[300px]"
               >
                 <p>
