@@ -324,6 +324,7 @@ function AdminNotepad() {
             </div>
           );
         })}
+        </div>
         <div className="pointer-events-none absolute bottom-3 left-4 text-xs text-muted-foreground">
           Dra noder för att flytta · dubbelklicka för att redigera · håll muspekaren över en nod för att lägga till eller ta bort grenar
         </div>
