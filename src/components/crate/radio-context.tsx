@@ -616,6 +616,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const current = radio.current;
     // Crate only touches Spotify playback while a session is live.
     if (!sessionLive || !radio.active || !current?.spotify_id || current.spotify_id.startsWith("demo-")) return;
+    if (calmingRef.current) return;
     if (noPlayFor.current === current.spotify_id) {
       noPlayFor.current = "";
       return; // Spotify is already playing it
