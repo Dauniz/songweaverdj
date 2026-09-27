@@ -685,7 +685,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           // Spotify reports no open device at all → Spotify is closed; end the session.
           if (state.status === "idle" || state.status === "no_device") {
             if (!noDeviceSince.current) noDeviceSince.current = Date.now();
-            else if (Date.now() - noDeviceSince.current > NO_DEVICE_GRACE) {
+            // Try to wake Spotify back up every 5 s instead of giving up right away.
+            if (Date.now() - lastReconnectTry.current > 5_000) {
+              lastReconnectTry.current = Date.now();
+              void startSpotifyPlayback(
+                current,
+                true,
+                null,
+                lastPlayback.current.progressMs || undefined,
+              );
+            }
+            if (Date.now() - noDeviceSince.current > NO_DEVICE_GRACE) {
               noDeviceSince.current = 0;
               stopRadio({ keepSpotify: true });
               return;
@@ -778,12 +788,19 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     };
   }, [sessionLive, radio.active, radio.sessionId, playbackIssue, playbackFn, next, acceptObserved, stopRadio, handOver]);
 
-  // "Open Spotify" issue left unresolved for a minute → Spotify isn't coming; end the session.
+  // "Open Spotify" issue: retry reconnecting every 5 s; only give up after ~5 min.
   useEffect(() => {
     if (!sessionLive || playbackIssue?.status !== "no_device") return;
-    const t = setTimeout(() => stopRadio({ keepSpotify: true }), 60_000);
-    return () => clearTimeout(t);
-  }, [sessionLive, playbackIssue, stopRadio]);
+    const started = Date.now();
+    const t = setInterval(() => {
+      const current = radioRef.current.current;
+      if (current?.spotify_id) {
+        void startSpotifyPlayback(current, true, null, lastPlayback.current.progressMs || undefined);
+      }
+      if (Date.now() - started > NO_DEVICE_GRACE) stopRadio({ keepSpotify: true });
+    }, 5_000);
+    return () => clearInterval(t);
+  }, [sessionLive, playbackIssue, stopRadio, startSpotifyPlayback]);
 
   const startSession = useCallback(async () => {
     setSessionLive(true);
