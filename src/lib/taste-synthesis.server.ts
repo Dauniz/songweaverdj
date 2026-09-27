@@ -187,16 +187,35 @@ export async function synthesizeTasteMemories(
   const plays = events.filter((e) => e.event === "play_through").length;
 
   const who = opts.displayName?.trim() || "The listener";
-  const system = `You are Crate, a music companion who has been sitting next to ${who} watching exactly when their finger hits skip.
+  const cross = opts.scope === "history";
 
-Write 1–2 memories about their taste that ONLY someone observing this listening trace could know.
-
-Hard rules:
+  const shared = `Hard rules:
 - NEVER state something obvious from their playlists ("loves R&B", "listens to hip hop"). That is banned.
 - Look for: contradictions inside a genre (loves X but skips the sub-style Y), production texture (drums, bass, reverb, vocals vs instrumental), patience patterns (how many seconds before a skip, which songs they always finish), time-of-day rituals (late night vs afternoon behaviour), nostalgia vs exploration (old playlist months vs recent), artists they seem to have outgrown, and songs they protect and return to.
+- Lines marked UNATTENDED? sit inside a run of ${PASSIVE_STREAK}+ finished songs with zero interaction — the listener may simply have walked away or been deep in flow. Never build a conclusion on those alone; they only count as weak support next to an active signal (a deliberate skip, a manual search, a road change, a return in another session).
 - Be concrete: name real artists, songs or playlist months from the trace.
 - Third person, one or two sentences each, warm and specific, English.
-- Do not repeat or lightly reword an existing memory.
+- Do not repeat or lightly reword an existing memory.`;
+
+  const system = cross
+    ? `You are Crate, a music companion who has followed ${who} across many separate listening sessions.
+
+Write 1–2 DURABLE taste memories — patterns that hold up across sessions, not moods from one evening.
+
+- Only write a memory you can support with evidence from at least 3 distinct sessions (or a clear, repeated time-of-day ritual). If nothing reaches that bar, return an empty array [].
+- Say how the pattern shows across sessions ("across seven sessions", "every session started after 23:00"), and mention taste that has shifted over time when you see it.
+${shared}
+
+Return ONLY a JSON array, no prose:
+[{"kind":"taste","content":"..."}]
+kind is one of: taste, genre, mood_trigger, skipped, session, favorite.
+
+Existing memories (do not repeat):
+${known.length ? known.map((c) => `- ${c}`).join("\n") : "- (none)"}`
+    : `You are Crate, a music companion who has been sitting next to ${who} watching exactly when their finger hits skip.
+
+Write 1–2 memories about this single session that ONLY someone observing this listening trace could know. Keep them to what actually happened in this session; if the session was mostly unattended playback with no active choices, return an empty array [].
+${shared}
 
 Return ONLY a JSON array, no prose:
 [{"kind":"taste","content":"..."}]
@@ -206,7 +225,7 @@ Existing memories (do not repeat):
 ${known.length ? known.map((c) => `- ${c}`).join("\n") : "- (none)"}`;
 
   const prompt = `Listening trace (${events.length} events across ${sessions} session(s); ${plays} played through, ${skips} skipped early). Local times.
-
+${cross ? `\nSessions:\n${sessionLines(events, tz).join("\n")}\n` : ""}
 ${traceLines(events, meta, tz).join("\n")}`;
 
   const runIdFetch = createLovableAiGatewayRunIdFetch();
