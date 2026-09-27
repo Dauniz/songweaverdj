@@ -599,12 +599,38 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const nextId = skipDoor?.spotify_id && isPlayable(skipDoor) ? skipDoor.spotify_id : undefined;
       const thenId = nextId && thenDoor?.spotify_id && isPlayable(thenDoor) ? thenDoor.spotify_id : undefined;
       // Spotify always gets the same four-song list: [now, skip 1, skip 2, skip 3].
-      // Whatever Crate hasn't scouted yet is filled with instant code-picked back-ups.
+      // A searched song becomes current before the reserve effect finishes, so fetch the
+      // back-ups here as part of startup instead of ever sending Spotify a one-song list.
       const used = new Set([track.spotify_id, nextId, thenId].filter(Boolean) as string[]);
-      const reserveIds = reserves.current.tracks
+      const reserveCount = Math.max(0, 4 - used.size);
+      let reserveTracks = reserves.current.forId === track.spotify_id
+        ? reserves.current.tracks.filter((candidate) => candidate.spotify_id && !used.has(candidate.spotify_id))
+        : [];
+      if (reserveTracks.length < reserveCount) {
+        try {
+          const result = await reservesFn({
+            data: {
+              seed: { spotifyId: track.spotify_id, name: track.name, artists: track.artists },
+              road: radioRef.current.road,
+              lens: lensRef.current,
+              deepCuts: deepCutsRef.current,
+              avoidArtists: avoidArtists(),
+              excludeSpotifyIds: [...played.current.slice(-500), ...used],
+              count: reserveCount,
+            },
+          });
+          reserveTracks = (result.tracks as RadioTrack[]).filter(
+            (candidate) => candidate.spotify_id && !used.has(candidate.spotify_id),
+          );
+          reserves.current = { forId: track.spotify_id, tracks: reserveTracks };
+        } catch {
+          // The playback request below will still surface connection errors.
+        }
+      }
+      const reserveIds = reserveTracks
         .map((t) => t.spotify_id)
         .filter((id): id is string => Boolean(id) && !used.has(id as string))
-        .slice(0, Math.max(0, 4 - used.size));
+        .slice(0, reserveCount);
       setRetrying(true);
       try {
         const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, thenId, reserveIds, positionMs } });
@@ -619,7 +645,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           m.set(track.spotify_id, track);
           if (nextId && skipDoor) m.set(nextId, skipDoor);
           if (thenId && thenDoor) m.set(thenId, thenDoor);
-          for (const t of reserves.current.tracks) if (t.spotify_id && reserveIds.includes(t.spotify_id)) m.set(t.spotify_id, t);
+          for (const t of reserveTracks) if (t.spotify_id && reserveIds.includes(t.spotify_id)) m.set(t.spotify_id, t);
           lineupTracks.current = m;
           // What's on screen must be what Spotify has queued: if no scouted skip door went
           // with this call, show the back-up Spotify will actually land on.
@@ -658,7 +684,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         setRetrying(false);
       }
     },
-    [playFn],
+    [playFn, reservesFn],
   );
 
   // Keep two instant back-up songs ready for the current song (plain code, no AI cost).
