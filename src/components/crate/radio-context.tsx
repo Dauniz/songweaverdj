@@ -597,8 +597,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     void (async () => {
       // Keep trying until the "if you skip" door is really lined up in Spotify.
       for (let attempt = 0; attempt < 6 && !cancelled; attempt++) {
-        // Wait a beat so rapid steering changes only re-send Spotify's line-up once.
-        await new Promise((res) => setTimeout(res, attempt === 0 ? 700 : 3_000));
+        // Wait a beat so rapid steering changes only re-send Spotify's line-up once,
+        // and so a song that just started is playing steadily before a door is added.
+        await new Promise((res) => setTimeout(res, attempt === 0 ? 1_500 : 3_000));
+
         if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) return;
         if (swapping.current === cur.spotify_id) return; // end-of-song hand-over owns the line-up now
         // Scout one step further (the skip door's own skip door) so the next skip needs no re-send.
