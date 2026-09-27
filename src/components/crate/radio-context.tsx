@@ -922,6 +922,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         fetchBranch(advance(afterState, "skipped")),
         new Promise<Branch>((res) => setTimeout(() => res(null), Math.max(0, deadline - Date.now() - 4_000))),
       ]);
+      // One step ahead: the finish song's skip door gets its own skip song in the same list.
+      const aheadB = skipB?.track && isPlayable(skipB.track)
+        ? await scoutAhead(afterState, skipB, [cur.spotify_id], Math.max(0, deadline - Date.now() - 3_000))
+        : null;
       // Get close to the end, then re-read Spotify's real position so the swap lands
       // right as the song ends — not seconds early, and not after the skip door has started.
       let end = deadline;
@@ -955,6 +959,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           skipB?.track && isPlayable(skipB.track) ? skipB.track : null,
           undefined,
           "finish handover",
+          aheadB?.track ?? null,
         );
       } finally {
         committing.current = false;
