@@ -295,21 +295,13 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const skipped = data.history.filter((h) => h.outcome === "skipped").slice(-6);
     const likedArtists = new Set([data.seed.artists, ...liked.map((h) => h.artists)]);
 
-    let shortlist: Song[];
-    if (data.road === "vibe") {
-      const sameArtists = available.filter((s) => likedArtists.has(s.artists)).slice(0, 40);
-      shortlist = [...sameArtists, ...shuffle(available).slice(0, 700)];
-    } else {
-      const era = anchor ? eraCandidates(anchor, available).slice(0, 250) : [];
-      shortlist = [...era, ...shuffle(available).slice(0, 450)];
-    }
-    const seen = new Set<string>();
-    shortlist = shortlist.filter((s) => (seen.has(s.spotify_id) ? false : (seen.add(s.spotify_id), true)));
+    const shortlist = buildShortlist(data.road, anchor, available, likedArtists);
     const index = new Map<string, Song>();
     const lines = shortlist.map((s, i) => {
       index.set(`T${i}`, s);
-      return `T${i} | ${describe(s)}`;
+      return `T${i}|${describe(s)}`;
     });
+
 
     const recalled = await recallMemories(
       userId,
