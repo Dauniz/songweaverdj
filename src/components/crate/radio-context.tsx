@@ -666,8 +666,21 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           new Promise<Branch>((res) => setTimeout(() => res(null), Math.max(0, deadline - Date.now() - 3_000))),
         ]);
       }
-      // Let the song play out fully — only swap the line-up once it has actually ended.
-      await new Promise((res) => setTimeout(res, Math.max(0, deadline - Date.now() + 400)));
+      // Get close to the end, then re-read Spotify's real position so the swap lands
+      // right as the song ends — not seconds early, and not after the skip door has started.
+      let end = deadline;
+      await new Promise((res) => setTimeout(res, Math.max(0, end - Date.now() - 2_500)));
+      try {
+        const st = await playbackFn();
+        if (st.status === "ready" && st.spotifyId === cur.spotify_id && st.durationMs) {
+          end = Date.now() + Math.max(0, st.durationMs - st.progressMs);
+        }
+      } catch {
+        /* keep the estimate */
+      }
+      // Fire slightly before the last millisecond to cover the round-trip to Spotify
+      // (the final ~0.3 s of a track is almost always silence).
+      await new Promise((res) => setTimeout(res, Math.max(0, end - Date.now() - 350)));
       const now = radioRef.current;
       if (now.sessionId !== s.sessionId || now.current?.spotify_id !== cur.spotify_id) {
         if (swapping.current === cur.spotify_id) swapping.current = "";
