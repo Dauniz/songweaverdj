@@ -631,6 +631,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         .map((t) => t.spotify_id)
         .filter((id): id is string => Boolean(id) && !used.has(id as string))
         .slice(0, reserveCount);
+      if (new Set([track.spotify_id, nextId, thenId, ...reserveIds].filter(Boolean)).size < 4) {
+        if (!quiet) {
+          setPlaybackIssue({
+            status: "unavailable",
+            message: "Crate couldn't prepare the three skip tracks. Try starting the song again.",
+          });
+        }
+        return false;
+      }
       setRetrying(true);
       try {
         const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, thenId, reserveIds, positionMs } });
@@ -660,7 +669,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           idleSince.current = 0;
           idlePolls.current = 0;
           setSpotifyIdle(false);
-          door.current = nextId && skipDoor ? { forId: track.spotify_id, track: skipDoor } : null;
+          if (nextId && skipDoor) door.current = { forId: track.spotify_id, track: skipDoor };
           if (!positionMs) {
             lastTransition.current = Date.now();
             settleUntil.current = Date.now() + 1_000; // let the clicking settle before scouting
