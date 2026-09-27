@@ -382,7 +382,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const ctrl = new AbortController();
       scoutAbort.current = ctrl;
       const playedB = fetchBranch(advance(s, "played"), ctrl.signal);
-      const pre = preSkip.current?.forId === s.current.spotify_id ? preSkip.current : preSkip2.current;
+      const pre = preSkip.current?.forId === s.current.spotify_id ? preSkip.current : null;
       const skippedState = advance(s, "skipped");
       // Finish and skip doors are scouted in parallel so the full line-up is ready fast.
       const skipRaw = pre && pre.forId === s.current.spotify_id ? null : fetchBranch(skippedState, ctrl.signal);
@@ -779,12 +779,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     }
     let cancelled = false;
     void (async () => {
-      // Send the new line-up the moment skip 1 is ready — no extra settle, no waiting on a
-      // deeper scout. Skip 2/3 come from an already-scouted branch or fast library reserves.
+      // Send the new authoritative pair the moment the skip door is ready.
       if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) return;
       if (swapping.current === cur.spotify_id) return; // end-of-song hand-over owns the line-up now
-      const pre = preSkip.current?.forId === skip.spotify_id ? preSkip.current!.branch : null;
-      const then = pre?.track && pre.track.spotify_id !== skip.spotify_id ? pre : null;
       // Read Spotify's exact position right before sending so the resume point is seamless:
       // one single call, early in the song, starting at the precise millisecond.
       let pos: number | null = null;
@@ -804,7 +801,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       // Never fall back to the old queued songs: Spotify's "Next up" must mirror the screen.
       noPlayFor.current = "";
-      const ok = await startSpotifyPlayback(cur, true, skip, Math.max(1, Math.round(pos)), then?.track ?? null);
+      const ok = await startSpotifyPlayback(cur, true, skip, Math.max(1, Math.round(pos)), "skip rebuild");
       const curId = cur.spotify_id;
       if (!ok && curId && !cancelled && radioRef.current.current?.spotify_id === curId) {
         // Spotify didn't take the new list: show the song it will really play on a skip.
@@ -846,14 +843,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         fetchBranch(advance(afterState, "skipped")),
         new Promise<Branch>((res) => setTimeout(() => res(null), Math.max(0, deadline - Date.now() - 4_000))),
       ]);
-      let thenB: Branch = null;
-      if (skipB?.track.spotify_id) {
-        const onSkip = { ...advance(afterState, "skipped"), current: skipB.track, road: skipB.road };
-        thenB = await Promise.race([
-          fetchBranch(advance(onSkip, "skipped")),
-          new Promise<Branch>((res) => setTimeout(() => res(null), Math.max(0, deadline - Date.now() - 3_000))),
-        ]);
-      }
       // Get close to the end, then re-read Spotify's real position so the swap lands
       // right as the song ends — not seconds early, and not after the skip door has started.
       let end = deadline;
@@ -886,7 +875,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           finishB.track, true,
           skipB?.track && isPlayable(skipB.track) ? skipB.track : null,
           undefined,
-          thenB?.track && isPlayable(thenB.track) ? thenB.track : null,
+          "finish handover",
         );
       } finally {
         committing.current = false;
@@ -900,7 +889,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         return;
       }
       if (skipB) preSkip.current = { forId: finishB.track.spotify_id, branch: skipB };
-      if (thenB && skipB?.track.spotify_id) preSkip2.current = { forId: skipB.track.spotify_id, branch: thenB };
       // The finish song starts with its skip door ALREADY queued in Spotify (sent in the
       // hand-over call). Point the screen and the door guard at that exact song right away —
       // otherwise the previous song's stale skip door triggers a mid-song re-send (the glitch).
