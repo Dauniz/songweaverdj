@@ -994,7 +994,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (!idleSince.current) idleSince.current = Date.now();
           idlePolls.current += 1;
           if (idlePolls.current >= 5 && Date.now() - idleSince.current > 15_000) setSpotifyIdle(true);
-          else if (Date.now() - idleSince.current > 30 * 60_000) {
+          if (Date.now() - idleSince.current > 30 * 60_000) {
             stopRadio(); // idle ~30 min: hand Spotify back
             return;
           }
