@@ -330,12 +330,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (calmingRef.current) return; // wait for the clicking to stop before looking for songs
       const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
       if (branches.current?.key === key) return;
-      // One quiet second after a song change: if you skip again, no search is wasted.
-      const wait = settleUntil.current - Date.now();
-      if (wait > 0) {
-        const t = setTimeout(() => setSettleTick((n) => n + 1), wait + 50);
-        return () => clearTimeout(t);
-      }
       scoutAbort.current?.abort(); // drop any scouting still running for an old key
       const ctrl = new AbortController();
       scoutAbort.current = ctrl;
