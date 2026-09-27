@@ -745,6 +745,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         artistSkips.current.set(s.current.artists, (artistSkips.current.get(s.current.artists) ?? 0) + 1);
       }
       const nextState = advance(s, outcome);
+      listGeneration.current += 1;
+      scoutAbort.current?.abort();
+      awaitingSkipPair.current = outcome === "skipped" && !reroot;
       noPlayFor.current = track.spotify_id ?? "";
       lastTransition.current = Date.now();
       settleUntil.current = Date.now() + 1_000; // one quiet second before Crate looks for new songs
@@ -913,97 +916,45 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [fetchBranch, log, note, startSpotifyPlayback, noteMove, playbackFn],
   );
 
-  /** Skip spamming (many skips in a second): pause, warn, then restart clean. */
+  /** A second skip before the first skip's new pair is accepted: pause and rebuild cleanly. */
   const calmDown = useCallback(async () => {
     if (calmingRef.current || Date.now() < cooldownUntil.current) return;
     calmingRef.current = true;
     cooldownUntil.current = Date.now() + 60_000; // held until the clicking stops
-    jumps.current = [];
-    // Skip 3 (the last song in Crate's list) is where the path picks up again after the break.
-    const lastId = lineup.current[lineup.current.length - 1];
-    const skip3 = lastId ? lineupTracks.current.get(lastId) ?? null : null;
-    // Stop any song scouting that is running: nothing is picked while you keep clicking.
+    listGeneration.current += 1;
     scoutAbort.current?.abort();
     branches.current = null;
     door.current = null;
     lineup.current = [];
-    void pauseFn().catch(() => undefined);
-    pushSpotifyLog({ kind: "event", at: Date.now(), text: "PAUSE — skipped past the buffer, Crate catching its breath" });
+    await pauseFn().catch(() => undefined);
+    pushSpotifyLog({ kind: "event", at: Date.now(), text: "PAUSE — second rapid skip, Crate catching its breath" });
     setCalming(true);
-    note("think", "Too many skips at once — pausing until the clicking stops, then weaving a fresh song");
+    note("think", "A second quick skip — pausing while Crate rebuilds one clean path");
     const s = radioRef.current;
     try {
-      // Wait for one quiet second: every further skip (even while paused) restarts the wait.
-      const started = Date.now();
-      let quietSince = Date.now();
-      let seen = "";
-      try {
-        const st = await playbackFn();
-        seen = st.spotifyId ?? "";
-      } catch {
-        /* keep waiting anyway */
-      }
-      while (Date.now() - quietSince < 1_000 && Date.now() - started < 20_000) {
-        await new Promise((res) => setTimeout(res, 300));
-        if (radioRef.current.sessionId !== s.sessionId) return;
-        try {
-          const st = await playbackFn();
-          const id = st.spotifyId ?? "";
-          if (id && id !== seen) {
-            seen = id;
-            quietSince = Date.now(); // still clicking — keep waiting
-            void pauseFn().catch(() => undefined);
-          }
-        } catch {
-          /* ignore a hiccup and keep waiting */
-        }
-      }
+      await new Promise((res) => setTimeout(res, 1_000));
       const now = radioRef.current;
       if (now.sessionId !== s.sessionId || !now.current) return;
-      // The clicking stopped: Crate picks up from skip 3 and builds a full line-up from it
-      // ("if you skip" door + its next step; the "if you finish" pick is scouted as usual).
-      // The warning stays up and Spotify stays paused until the new songs are ready.
-      const angle: RadioState = { ...advance(now, "skipped"), consecutiveSkips: 2, road: "mixed" };
-      let fresh: RadioTrack | null = skip3 && isPlayable(skip3) ? skip3 : null;
-      let road: RadioState["road"] = "mixed";
-      if (!fresh) {
-        const freshB = (await fetchBranch(angle)) ?? null;
-        fresh = freshB?.track ?? reserves.current.tracks.find(isPlayable) ?? null;
-        road = freshB?.road ?? "mixed";
-      }
-      if (radioRef.current.sessionId !== s.sessionId) return;
-      if (fresh?.spotify_id && isPlayable(fresh)) {
-        const base: RadioState = { ...angle, current: fresh, road };
-        const doorB = await Promise.race([
-          fetchBranch(advance(base, "skipped")),
-          new Promise<Branch>((res) => setTimeout(() => res(null), 6_000)),
-        ]);
-        let thenB: Branch = null;
-        if (doorB?.track.spotify_id && doorB.track.spotify_id !== fresh.spotify_id) {
-          thenB = await Promise.race([
-            fetchBranch(advance({ ...advance(base, "skipped"), current: doorB.track, road: doorB.road }, "skipped"), undefined, [fresh.spotify_id, doorB.track.spotify_id]),
-            new Promise<Branch>((res) => setTimeout(() => res(null), 4_000)),
-          ]);
-          if (thenB?.track.spotify_id === fresh.spotify_id) thenB = null;
-        }
-        if (radioRef.current.sessionId !== s.sessionId) return;
-        noPlayFor.current = fresh.spotify_id;
-        calmingRef.current = false; // scouting may resume now that the path picks up again
-        if (await startSpotifyPlayback(fresh, true, doorB?.track ?? null, undefined, thenB?.track ?? null)) {
-          if (now.current.spotify_id && now.current.spotify_id !== fresh.spotify_id) played.current.push(now.current.spotify_id);
-          if (thenB && doorB?.track.spotify_id) preSkip.current = { forId: doorB.track.spotify_id, branch: thenB };
-          setRadio(base);
-          setUpSkip(doorB ?? null);
-          pushSpotifyLog({ kind: "event", at: Date.now(), text: `RESUME — picking up from skip 3 "${fresh.name}"` });
-          note("pick", `Picking up again from "${fresh.name}" by ${fresh.artists}`);
-        }
+      const fresh = now.current;
+      const doorB = await Promise.race([
+        fetchBranch(advance(now, "skipped")),
+        new Promise<Branch>((res) => setTimeout(() => res(null), 8_000)),
+      ]);
+      if (!doorB?.track.spotify_id || radioRef.current.sessionId !== s.sessionId) return;
+      calmingRef.current = false;
+      if (await startSpotifyPlayback(fresh, true, doorB.track, undefined, "cooldown resume")) {
+        setUpSkip(doorB);
+        awaitingSkipPair.current = false;
+        pushSpotifyLog({ kind: "event", at: Date.now(), text: `RESUME — rebuilt from "${fresh.name}"` });
+        note("pick", `Picking up again from "${fresh.name}" by ${fresh.artists}`);
+        setRadio({ ...radioRef.current });
       }
     } finally {
       setCalming(false);
       calmingRef.current = false;
       cooldownUntil.current = Date.now() + 600;
     }
-  }, [pauseFn, playbackFn, fetchBranch, startSpotifyPlayback, note]);
+  }, [pauseFn, fetchBranch, startSpotifyPlayback, note]);
 
   // Spotify owns playback. While a session is live, mirror what Spotify plays —
   // skips, finishes and songs you pick yourself inside the Spotify app.
