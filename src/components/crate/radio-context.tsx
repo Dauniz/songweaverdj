@@ -1178,7 +1178,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (event.origin !== window.location.origin || event.data?.type !== "spotify-connected" || !event.data.ok) return;
       const current = radioRef.current.current;
       const queuedDoor = door.current;
-      void startSpotifyPlayback(current, false, current?.spotify_id === queuedDoor?.forId ? queuedDoor.track : null, undefined, "oauth connected");
+      void startSpotifyPlayback(current, false, queuedDoor && current?.spotify_id === queuedDoor.forId ? queuedDoor.track : null, undefined, "oauth connected");
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
@@ -1208,7 +1208,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const retry = async () => {
       attempts += 1;
       const queuedDoor = door.current;
-      if (await startSpotifyPlayback(track, true, queuedDoor?.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry")) return;
+      if (await startSpotifyPlayback(track, true, queuedDoor && queuedDoor.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry")) return;
       if (attempts < 10) retryTimer.current = setTimeout(() => void retry(), 3_000);
     };
     retryTimer.current = setTimeout(() => void retry(), 2_000);
@@ -1368,7 +1368,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         onRetry={() => {
           const current = radioRef.current.current;
           const queuedDoor = door.current;
-          void startSpotifyPlayback(current, false, current?.spotify_id === queuedDoor?.forId ? queuedDoor.track : null, undefined, "manual retry");
+          void startSpotifyPlayback(current, false, queuedDoor && current?.spotify_id === queuedDoor.forId ? queuedDoor.track : null, undefined, "manual retry");
         }}
       />
     </RadioContext.Provider>
