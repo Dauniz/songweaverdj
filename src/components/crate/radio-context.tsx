@@ -598,6 +598,20 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [log, fetchBranch, noteMove],
   );
 
+  /** One step ahead: the "if you skip" door's own "if you skip" song. */
+  const scoutAhead = useCallback(
+    async (s: RadioState, skip: Branch, exclude: (string | undefined | null)[] = [], ms = 6_000): Promise<Branch> => {
+      if (!skip?.track.spotify_id) return null;
+      const onSkip = { ...advance(s, "skipped"), current: skip.track, road: skip.road };
+      const b = await Promise.race([
+        fetchBranch(advance(onSkip, "skipped"), undefined, [s.current?.spotify_id, ...exclude].filter(Boolean) as string[]),
+        new Promise<Branch>((res) => setTimeout(() => res(null), ms)),
+      ]);
+      return b?.track.spotify_id && isPlayable(b.track) && b.track.spotify_id !== skip.track.spotify_id ? b : null;
+    },
+    [fetchBranch],
+  );
+
   const startSpotifyPlayback = useCallback(
     async (
       track = radioRef.current.current,
@@ -605,6 +619,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       skipDoor?: RadioTrack | null,
       positionMs?: number,
       reason = "start",
+      aheadDoor?: RadioTrack | null,
     ) => {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
       const nextId = skipDoor?.spotify_id && isPlayable(skipDoor) ? skipDoor.spotify_id : undefined;
@@ -617,6 +632,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         }
         return false;
       }
+      const aheadId =
+        aheadDoor?.spotify_id && isPlayable(aheadDoor) && aheadDoor.spotify_id !== nextId && aheadDoor.spotify_id !== track.spotify_id
+          ? aheadDoor.spotify_id
+          : undefined;
       const generation = ++listGeneration.current;
       const priorWrite = playbackWrite.current;
       let releaseWrite: () => void = () => {};
@@ -639,20 +658,24 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           uris: [
             { id: track.spotify_id, name: track.name },
             { id: nextId, name: skipDoor?.name ?? nextId },
+            ...(aheadId ? [{ id: aheadId, name: aheadDoor?.name ?? aheadId }] : []),
           ],
         });
-        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, positionMs } }).catch((err) => {
+        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, aheadId, positionMs } }).catch((err) => {
           ackSpotifySend(logId, "error");
           throw err;
         });
         ackSpotifySend(logId, result.status);
         if (result.status === "playing" && generation === listGeneration.current) {
           acceptedGeneration.current = generation;
-          lineup.current = [track.spotify_id, nextId];
+          lineup.current = aheadId ? [track.spotify_id, nextId, aheadId] : [track.spotify_id, nextId];
           const m = new Map<string, RadioTrack>();
           m.set(track.spotify_id, track);
           if (skipDoor) m.set(nextId, skipDoor);
+          if (aheadId && aheadDoor) m.set(aheadId, aheadDoor);
           lineupTracks.current = m;
+          landingPlan.current = null;
+          quickSkipUntil.current = 0;
           setPlaybackIssue(null);
           setForeignQueued((result as { foreignQueued?: number }).foreignQueued ?? 0);
           idleSince.current = 0;
