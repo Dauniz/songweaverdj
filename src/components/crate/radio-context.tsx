@@ -977,6 +977,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     calmingRef.current = true;
     cooldownUntil.current = Date.now() + 60_000; // held until the clicking stops
     jumps.current = [];
+    // Skip 3 (the last song in Crate's list) is where the path picks up again after the break.
+    const lastId = lineup.current[lineup.current.length - 1];
+    const skip3 = lastId ? lineupTracks.current.get(lastId) ?? null : null;
     // Stop any song scouting that is running: nothing is picked while you keep clicking.
     scoutAbort.current?.abort();
     branches.current = null;
@@ -1015,26 +1018,42 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       const now = radioRef.current;
       if (now.sessionId !== s.sessionId || !now.current) return;
-      // The clicking stopped: Crate now searches the new angle and rebuilds a clean line-up.
+      // The clicking stopped: Crate picks up from skip 3 and builds a full line-up from it
+      // ("if you skip" door + its next step; the "if you finish" pick is scouted as usual).
       // The warning stays up and Spotify stays paused until the new songs are ready.
       const angle: RadioState = { ...advance(now, "skipped"), consecutiveSkips: 2, road: "mixed" };
-      const freshB = (await fetchBranch(angle)) ?? null;
-      const fresh = freshB?.track ?? reserves.current.tracks.find(isPlayable) ?? null;
+      let fresh: RadioTrack | null = skip3 && isPlayable(skip3) ? skip3 : null;
+      let road: RadioState["road"] = "mixed";
+      if (!fresh) {
+        const freshB = (await fetchBranch(angle)) ?? null;
+        fresh = freshB?.track ?? reserves.current.tracks.find(isPlayable) ?? null;
+        road = freshB?.road ?? "mixed";
+      }
       if (radioRef.current.sessionId !== s.sessionId) return;
       if (fresh?.spotify_id && isPlayable(fresh)) {
-        // Scout its own "if you skip" door too, so the restart is a full line-up.
+        const base: RadioState = { ...angle, current: fresh, road };
         const doorB = await Promise.race([
-          fetchBranch({ ...angle, current: fresh, road: freshB?.road ?? "mixed" }),
-          new Promise<Branch>((res) => setTimeout(() => res(null), 4_000)),
+          fetchBranch(advance(base, "skipped")),
+          new Promise<Branch>((res) => setTimeout(() => res(null), 6_000)),
         ]);
+        let thenB: Branch = null;
+        if (doorB?.track.spotify_id && doorB.track.spotify_id !== fresh.spotify_id) {
+          thenB = await Promise.race([
+            fetchBranch(advance({ ...advance(base, "skipped"), current: doorB.track, road: doorB.road }, "skipped"), undefined, [fresh.spotify_id, doorB.track.spotify_id]),
+            new Promise<Branch>((res) => setTimeout(() => res(null), 4_000)),
+          ]);
+          if (thenB?.track.spotify_id === fresh.spotify_id) thenB = null;
+        }
         if (radioRef.current.sessionId !== s.sessionId) return;
         noPlayFor.current = fresh.spotify_id;
-        calmingRef.current = false; // scouting may resume now that a fresh song is starting
-        if (await startSpotifyPlayback(fresh, true, doorB?.track ?? null)) {
-          if (now.current.spotify_id) played.current.push(now.current.spotify_id);
-          setRadio({ ...angle, current: fresh, road: freshB?.road ?? "mixed" });
+        calmingRef.current = false; // scouting may resume now that the path picks up again
+        if (await startSpotifyPlayback(fresh, true, doorB?.track ?? null, undefined, thenB?.track ?? null)) {
+          if (now.current.spotify_id && now.current.spotify_id !== fresh.spotify_id) played.current.push(now.current.spotify_id);
+          if (thenB && doorB?.track.spotify_id) preSkip.current = { forId: doorB.track.spotify_id, branch: thenB };
+          setRadio(base);
           setUpSkip(doorB ?? null);
-          note("pick", `Picking up again on a new angle: "${fresh.name}" by ${fresh.artists}`);
+          pushSpotifyLog({ kind: "event", at: Date.now(), text: `RESUME — picking up from skip 3 "${fresh.name}"` });
+          note("pick", `Picking up again from "${fresh.name}" by ${fresh.artists}`);
         }
       }
     } finally {
