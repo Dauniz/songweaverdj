@@ -26,7 +26,7 @@ type MindNode = {
   text: string;
   x: number;
   y: number;
-  color?: string;
+  color?: string | undefined;
 };
 
 type Mindmap = { nodes: MindNode[] };
