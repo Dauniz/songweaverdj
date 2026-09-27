@@ -527,11 +527,22 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
       const nextId = skipDoor?.spotify_id && isPlayable(skipDoor) ? skipDoor.spotify_id : undefined;
       const thenId = nextId && thenDoor?.spotify_id && isPlayable(thenDoor) ? thenDoor.spotify_id : undefined;
+      // Back-ups sit behind the doors: if you skip past everything, Spotify still has songs left.
+      const used = new Set([track.spotify_id, nextId, thenId]);
+      const reserveIds = reserves.current.tracks
+        .map((t) => t.spotify_id)
+        .filter((id): id is string => Boolean(id) && !used.has(id!))
+        .slice(0, 2);
       setRetrying(true);
       try {
-        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, thenId, positionMs } });
+        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, thenId, reserveIds, positionMs } });
         if (result.status === "playing") {
-          lineup.current = [track.spotify_id, ...(nextId ? [nextId] : []), ...(thenId ? [thenId] : [])];
+          lineup.current = [
+            track.spotify_id,
+            ...(nextId ? [nextId] : []),
+            ...(thenId ? [thenId] : []),
+            ...(nextId ? reserveIds : []),
+          ];
           setPlaybackIssue(null);
           door.current = nextId && skipDoor ? { forId: track.spotify_id, track: skipDoor } : null;
           if (!positionMs) lastTransition.current = Date.now();
@@ -556,6 +567,35 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     },
     [playFn],
   );
+
+  // Keep two instant back-up songs ready for the current song (plain code, no AI cost).
+  useEffect(() => {
+    const cur = radio.current;
+    if (!sessionLive || !cur?.spotify_id || !isPlayable(cur)) return;
+    if (reserves.current.forId === cur.spotify_id) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await reservesFn({
+          data: {
+            seed: { spotifyId: cur.spotify_id!, name: cur.name, artists: cur.artists },
+            road: radioRef.current.road,
+            lens: lensRef.current,
+            deepCuts: deepCutsRef.current,
+            avoidArtists: avoidArtists(),
+            excludeSpotifyIds: played.current.slice(-500),
+            count: 2,
+          },
+        });
+        if (!cancelled) reserves.current = { forId: cur.spotify_id!, tracks: r.tracks as RadioTrack[] };
+      } catch {
+        /* back-ups are optional */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionLive, radio.current?.spotify_id, reservesFn]);
 
   useEffect(() => {
     const current = radio.current;
