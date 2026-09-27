@@ -275,8 +275,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   /** Let Crate reflect on how this session was actually listened to. */
   const reflect = useCallback(
-    (sessionId: string, scope: "session" | "history") => {
+    (sessionId: string, requested: "session" | "history") => {
       if (reflecting.current) return;
+      // The big cross-session pass reads up to 600 events; patterns across sessions
+      // don't change minute to minute, so run it at most every 12 h per device.
+      let scope = requested;
+      if (scope === "history") {
+        const last = Number(localStorage.getItem("sw-history-reflect-at") ?? 0);
+        if (Date.now() - last < 12 * 3600_000) scope = "session";
+        else localStorage.setItem("sw-history-reflect-at", String(Date.now()));
+      }
       reflecting.current = true;
       synthFn({ data: { sessionId: sessionId || null, scope, tzOffsetMin: new Date().getTimezoneOffset() } })
         .then((r) => {
@@ -311,7 +319,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         .catch(() => null);
       // Every few songs Crate steps back and draws conclusions from the trace.
       logged.current += 1;
-      if (logged.current % 7 === 0 && s.sessionId) reflect(s.sessionId, logged.current >= 21 ? "history" : "session");
+      if (logged.current % 10 === 0 && s.sessionId) reflect(s.sessionId, logged.current >= 30 ? "history" : "session");
     },
     [logFn, qc, reflect],
   );
