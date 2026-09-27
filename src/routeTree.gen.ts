@@ -17,6 +17,7 @@ import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as AuthenticatedAdminBugsRouteImport } from './routes/_authenticated/admin.bugs'
+import { Route as AuthenticatedAdminNotepadRouteImport } from './routes/_authenticated/admin.notepad'
 import { Route as ApiPublicSpotifyCallbackRouteImport } from './routes/api/public/spotify/callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -58,6 +59,12 @@ const AuthenticatedAdminBugsRoute = AuthenticatedAdminBugsRouteImport.update({
   path: '/admin/bugs',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminNotepadRoute =
+  AuthenticatedAdminNotepadRouteImport.update({
+    id: '/admin/notepad',
+    path: '/admin/notepad',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const ApiPublicSpotifyCallbackRoute =
   ApiPublicSpotifyCallbackRouteImport.update({
     id: '/api/public/spotify/callback',
@@ -73,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/admin/bugs': typeof AuthenticatedAdminBugsRoute
+  '/admin/notepad': typeof AuthenticatedAdminNotepadRoute
   '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -83,6 +91,7 @@ export interface FileRoutesByTo {
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/admin/bugs': typeof AuthenticatedAdminBugsRoute
+  '/admin/notepad': typeof AuthenticatedAdminNotepadRoute
   '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
 export interface FileRoutesById {
@@ -95,6 +104,7 @@ export interface FileRoutesById {
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/_authenticated/admin/bugs': typeof AuthenticatedAdminBugsRoute
+  '/_authenticated/admin/notepad': typeof AuthenticatedAdminNotepadRoute
   '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
 export interface FileRouteTypes {
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/transcribe'
     | '/admin/bugs'
+    | '/admin/notepad'
     | '/api/public/spotify/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/transcribe'
     | '/admin/bugs'
+    | '/admin/notepad'
     | '/api/public/spotify/callback'
   id:
     | '__root__'
@@ -128,6 +140,7 @@ export interface FileRouteTypes {
     | '/api/chat'
     | '/api/transcribe'
     | '/_authenticated/admin/bugs'
+    | '/_authenticated/admin/notepad'
     | '/api/public/spotify/callback'
   fileRoutesById: FileRoutesById
 }
@@ -199,6 +212,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminBugsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/notepad': {
+      id: '/_authenticated/admin/notepad'
+      path: '/admin/notepad'
+      fullPath: '/admin/notepad'
+      preLoaderRoute: typeof AuthenticatedAdminNotepadRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/api/public/spotify/callback': {
       id: '/api/public/spotify/callback'
       path: '/api/public/spotify/callback'
@@ -212,11 +232,13 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedStudioRoute: typeof AuthenticatedStudioRoute
   AuthenticatedAdminBugsRoute: typeof AuthenticatedAdminBugsRoute
+  AuthenticatedAdminNotepadRoute: typeof AuthenticatedAdminNotepadRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedStudioRoute: AuthenticatedStudioRoute,
   AuthenticatedAdminBugsRoute: AuthenticatedAdminBugsRoute,
+  AuthenticatedAdminNotepadRoute: AuthenticatedAdminNotepadRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

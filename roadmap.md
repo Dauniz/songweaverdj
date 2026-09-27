@@ -12,3 +12,4 @@
 - [x] Add first-time Studio onboarding for Spotify sync, session start, and prompting
 - [x] Add first-session Feedbacker onboarding with per-device completion
 - [x] Start fresh sessions with all side roads off and restore the saved road only when resuming
+- [x] Admin notepad: mindmap page for branches and future features, linked from bug reports
