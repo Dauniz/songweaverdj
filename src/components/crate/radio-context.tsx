@@ -474,6 +474,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const stopRadio = useCallback((opts?: { keepSpotify?: boolean }) => {
     // Remember where in the maze Crate was, so the session can be resumed later.
     const s = radioRef.current;
+    // Closing thought: what did this session reveal about their taste?
+    if (s.sessionId && logged.current > 0) reflect(s.sessionId, "history");
     if (s.active && s.current) {
       localStorage.setItem(
         LAST_KEY,
