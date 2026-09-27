@@ -738,8 +738,27 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     // adding it later would make Spotify re-buffer mid-song (an audible hiccup).
     const pre = preSkip.current?.forId === current.spotify_id ? preSkip.current.branch : null;
     const ready = pre ?? (upSkipRef.current && radioRef.current.current?.spotify_id === current.spotify_id ? upSkipRef.current : null);
-    void startSpotifyPlayback(current, false, ready?.track ?? null);
-  }, [sessionLive, radio.active, radio.current?.spotify_id, startSpotifyPlayback]);
+    if (ready?.track && isPlayable(ready.track)) {
+      void startSpotifyPlayback(current, false, ready.track);
+      return;
+    }
+    // No skip door yet (e.g. a searched song): let Crate pick it first, so skip 1 in
+    // Spotify is Crate's own choice — never a back-up that later replaces it on screen.
+    let cancelled = false;
+    void (async () => {
+      const branch = await Promise.race([
+        fetchBranch(advance(radioRef.current, "skipped")).catch(() => null),
+        new Promise<Branch>((res) => setTimeout(() => res(null), 8_000)),
+      ]);
+      if (cancelled || radioRef.current.current?.spotify_id !== current.spotify_id) return;
+      const skip = branch?.track && isPlayable(branch.track) && branch.track.spotify_id !== current.spotify_id ? branch : null;
+      if (skip) setUpSkip(skip);
+      await startSpotifyPlayback(current, false, skip?.track ?? null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionLive, radio.active, radio.current?.spotify_id, startSpotifyPlayback, fetchBranch]);
 
 
   // Spotify owns playback. Observe its active track so skips and completions still steer Crate's path.
