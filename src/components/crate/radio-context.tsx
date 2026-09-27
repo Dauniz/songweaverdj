@@ -740,7 +740,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     }
     // Send the "if you skip" door in the very same call when it's already known:
     // adding it later would make Spotify re-buffer mid-song (an audible hiccup).
-    const pre = preSkip.current?.forId === current.spotify_id ? preSkip.current.branch : null;
+    const pre = preSkip.current?.forId === current.spotify_id ? preSkip.current!.branch : null;
     const ready = pre ?? (upSkipRef.current && radioRef.current.current?.spotify_id === current.spotify_id ? upSkipRef.current : null);
     if (ready?.track && isPlayable(ready.track)) {
       void startSpotifyPlayback(current, false, ready.track);
@@ -829,28 +829,23 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       door.current = { forId: cur.spotify_id, track: skip };
       return;
     }
-    const skipRoad = upSkip!.road;
     let cancelled = false;
     void (async () => {
-      // Small settle so rapid steering changes only send Spotify one line-up.
-      await new Promise((res) => setTimeout(res, 400));
+      // Send the new line-up the moment skip 1 is ready — no extra settle, no waiting on a
+      // deeper scout. Skip 2/3 come from an already-scouted branch or fast library reserves.
       if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) return;
       if (swapping.current === cur.spotify_id) return; // end-of-song hand-over owns the line-up now
-      // Scout one step further (the skip door's own skip door) so the next skip needs no re-send.
-      const s0 = radioRef.current;
-      const onSkip = { ...advance(s0, "skipped"), current: skip, road: skipRoad };
-      const then = await Promise.race([
-        fetchBranch(advance(onSkip, "skipped")),
-        new Promise<Branch>((res) => setTimeout(() => res(null), 2_000)),
-      ]);
-      if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) return;
-      if (then) preSkip.current = { forId: skip.spotify_id!, branch: then };
-      // Read Spotify's real position: re-sending the line-up restarts the audio buffer,
-      // which is audible. Only do it while the song has barely started.
+      const pre = preSkip.current?.forId === skip.spotify_id ? preSkip.current!.branch : null;
+      const then = pre?.track && pre.track.spotify_id !== skip.spotify_id ? pre : null;
+      // Read Spotify's exact position right before sending so the resume point is seamless:
+      // one single call, early in the song, starting at the precise millisecond.
       let pos: number | null = null;
       try {
+        const t0 = Date.now();
         const st = await playbackFn();
-        if (st.status === "ready" && st.spotifyId === cur.spotify_id) pos = st.progressMs + 250;
+        if (st.status === "ready" && st.spotifyId === cur.spotify_id) {
+          pos = st.progressMs + Math.round((Date.now() - t0) / 2) + 150;
+        }
       } catch {
         /* fall back to estimate */
       }
@@ -859,18 +854,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const lp = lastPlayback.current;
         pos = Math.max(0, lp.progressMs + (Date.now() - lp.at));
       }
-      if (pos > 6_000) {
-        // Too late to line it up without a hiccup — if you skip in Spotify,
-        // Crate follows from the poll and starts the door itself.
-        const at2 = lineup.current.indexOf(cur.spotify_id!);
-        const queued = at2 >= 0 ? lineupTracks.current.get(lineup.current[at2 + 1] ?? "") : undefined;
-        if (queued) {
-          // Show the song Spotify will really play on a skip instead of a door it never got.
-          door.current = { forId: cur.spotify_id!, track: queued };
-          setUpSkip({ track: queued, road: skipRoad });
-        } else door.current = null;
-        return;
-      }
+      // Never fall back to the old queued songs: Spotify's "Next up" must mirror the screen.
       noPlayFor.current = "";
       await startSpotifyPlayback(cur, true, skip, Math.max(1, Math.round(pos)), then?.track ?? null);
     })();
