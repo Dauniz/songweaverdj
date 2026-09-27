@@ -145,6 +145,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const upNextRef = useRef<RadioTrack | null>(null);
   upNextRef.current = upNext;
   const [upSkip, setUpSkip] = useState<{ track: RadioTrack; road: Road } | null>(null);
+  upSkipRef.current = upSkip;
   const lastSteerAsk = useRef(0);
   const lastSkipAsk = useRef(0);
   const lastPlayback = useRef({ spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 });

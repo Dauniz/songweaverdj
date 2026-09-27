@@ -348,7 +348,7 @@ Played through (the road that works): ${liked.map((h) => `${h.name} — ${h.arti
 Skipped (wrong turns, avoid similar): ${skipped.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(none)"}
 ${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
 ${roadRule}
-${lensRule(data.lens, data.history.length)}
+${lensRule(data.lens, data.history.length)}${data.deepCuts ? "\nDEEP CUTS: prefer forgotten songs they saved long ago and rarely return to — never the obvious staples." : ""}
 Favorites in memory are hints about taste, not a rotation list.
 Walrus Memory:
 ${recalled.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
