@@ -268,6 +268,26 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const avoidArtists = () =>
     [...artistSkips.current.entries()].filter(([, n]) => n >= 2).map(([a]) => a);
 
+  /** Let Crate reflect on how this session was actually listened to. */
+  const reflect = useCallback(
+    (sessionId: string, scope: "session" | "history") => {
+      if (reflecting.current) return;
+      reflecting.current = true;
+      synthFn({ data: { sessionId: sessionId || null, scope, tzOffsetMin: new Date().getTimezoneOffset() } })
+        .then((r) => {
+          if (r?.saved) {
+            qc.invalidateQueries({ queryKey: ["memories"] });
+            for (const i of r.insights ?? []) note("pick", `Walrus memory written: ${i.content}`);
+          }
+        })
+        .catch(() => null)
+        .finally(() => {
+          reflecting.current = false;
+        });
+    },
+    [synthFn, qc, note],
+  );
+
   const log = useCallback(
     (track: { id?: string | null; name: string; artists: string } | null, event: string, s: RadioState) => {
       logFn({
@@ -284,8 +304,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (r?.learned?.length) qc.invalidateQueries({ queryKey: ["memories"] });
         })
         .catch(() => null);
+      // Every few songs Crate steps back and draws conclusions from the trace.
+      logged.current += 1;
+      if (logged.current % 7 === 0 && s.sessionId) reflect(s.sessionId, logged.current >= 21 ? "history" : "session");
     },
-    [logFn, qc],
+    [logFn, qc, reflect],
   );
 
   const fetchBranch = useCallback(
