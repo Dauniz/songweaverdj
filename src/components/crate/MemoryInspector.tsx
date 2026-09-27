@@ -42,6 +42,7 @@ const KIND_STYLE: Record<string, string> = {
 
 
 function skillForMemory(kind: string, origin: string, content: string) {
+  if (origin === "synthesis") return "Crate insight";
   if (content.startsWith("Note on")) return "Feedbacker";
   if (content.startsWith("Often steers")) return "Steer";
   if (kind === "skipped") return "Skipped";
