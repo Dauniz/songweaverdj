@@ -785,13 +785,60 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       branches.current = null;
       if (reroot) note("reroot", `You played "${track.name}" in Spotify → new starting point`);
       else noteMove(s.current, outcome, track, nextState.road);
-      setRadio(
-        reroot
-          ? { ...nextState, current: track, seed: track, consecutiveSkips: 0 }
-          : { ...nextState, current: track },
-      );
+      const landedState: RadioState = reroot
+        ? { ...nextState, current: track, seed: track, consecutiveSkips: 0 }
+        : { ...nextState, current: track };
+      const tid = track.spotify_id ?? "";
+      const plan = landingPlan.current;
+      landingPlan.current = null;
+      if (!reroot && outcome === "skipped" && tid) {
+        const at = lineup.current.indexOf(tid);
+        const aheadTrack = at >= 0 ? lineupTracks.current.get(lineup.current[at + 1] ?? "") : undefined;
+        const skipRoad = advance(landedState, "skipped").road;
+        if (aheadTrack?.spotify_id) {
+          // The skip-ahead is already queued behind this song in Spotify: nothing to resend.
+          awaitingSkipPair.current = false;
+          quickSkipUntil.current = Date.now() + 1_000;
+          const aheadB: Branch = { track: aheadTrack, road: skipRoad };
+          door.current = { forId: tid, track: aheadTrack };
+          preSkip.current = { forId: tid, branch: aheadB };
+          setUpSkip(aheadB);
+          pushSpotifyLog({ kind: "event", at: Date.now(), text: `SKIP-AHEAD — "${aheadTrack.name}" already queued, no resend` });
+          // After the quiet second, prepare what to send if you skip onto the skip-ahead too.
+          const sessionId = s.sessionId;
+          setTimeout(() => {
+            void (async () => {
+              const still = () => radioRef.current.sessionId === sessionId && radioRef.current.current?.spotify_id === tid && !calmingRef.current;
+              if (!still()) return;
+              const onB = radioRef.current;
+              const doorD = await scoutAhead(onB, aheadB, [upNextRef.current?.spotify_id], 8_000);
+              if (!doorD || !still()) return;
+              const onC: RadioState = { ...advance(onB, "skipped"), current: aheadTrack, road: skipRoad };
+              const aheadE = await scoutAhead(onC, doorD, [tid], 8_000);
+              if (!still()) return;
+              landingPlan.current = { forId: aheadTrack.spotify_id!, door: doorD, ahead: aheadE, generation: listGeneration.current };
+              note("door", `One step ahead: if you skip "${aheadTrack.name}" too → "${doorD.track.name}"`);
+            })();
+          }, 1_050);
+        } else if (plan && plan.forId === tid && plan.door?.track) {
+          // Landed on the skip-ahead: send its prepared pair right away, at ~0:00 of the song.
+          awaitingSkipPair.current = false;
+          quickSkipUntil.current = Date.now() + 1_000;
+          preSkip.current = { forId: tid, branch: plan.door };
+          setUpSkip(plan.door);
+          const observedAt = Date.now();
+          void startSpotifyPlayback(
+            track, true, plan.door.track,
+            Math.max(1, Math.round(progressMs + (Date.now() - observedAt) + 150)),
+            "landing-resend", plan.ahead?.track ?? null,
+          ).then((ok) => {
+            if (!ok && radioRef.current.current?.spotify_id === tid) awaitingSkipPair.current = true;
+          });
+        }
+      }
+      setRadio(landedState);
     },
-    [log, note, noteMove],
+    [log, note, noteMove, scoutAhead, startSpotifyPlayback],
   );
 
   // Line up exactly one song behind the current one: the "if you skip" door.
