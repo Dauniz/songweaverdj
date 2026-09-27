@@ -791,7 +791,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       await check();
       if (stopped) return;
       const fast = Date.now() - lastTransition.current < 15_000;
-      timer = setTimeout(() => void loop(), fast ? 1_200 : 4_000);
+      timer = setTimeout(() => void loop(), fast ? 800 : 1_000);
     };
     void loop();
     return () => {
