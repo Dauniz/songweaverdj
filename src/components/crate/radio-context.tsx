@@ -793,6 +793,36 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [fetchBranch, log, note, startSpotifyPlayback, noteMove, playbackFn],
   );
 
+  /** Skip spamming (many skips in a second): pause, warn, then restart clean. */
+  const calmDown = useCallback(async () => {
+    if (Date.now() < cooldownUntil.current) return;
+    cooldownUntil.current = Date.now() + 4_000;
+    jumps.current = [];
+    void pauseFn().catch(() => undefined);
+    toast("Skip the skipping", { description: "Crate needs a second to catch its breath." });
+    note("think", "Too many skips at once — pausing a beat, then weaving a fresh song");
+    const s = radioRef.current;
+    const fresh = upSkipRef.current?.track ?? reserves.current.tracks[0] ?? null;
+    await new Promise((res) => setTimeout(res, 2_500));
+    const now = radioRef.current;
+    if (now.sessionId !== s.sessionId || !now.current) {
+      cooldownUntil.current = 0;
+      return;
+    }
+    door.current = null;
+    branches.current = null;
+    lineup.current = [];
+    if (fresh?.spotify_id && isPlayable(fresh)) {
+      noPlayFor.current = fresh.spotify_id;
+      if (await startSpotifyPlayback(fresh, true, null)) {
+        if (now.current.spotify_id) played.current.push(now.current.spotify_id);
+        setRadio({ ...advance(now, "skipped"), current: fresh });
+        note("pick", `Picking up again: "${fresh.name}" by ${fresh.artists}`);
+      }
+    }
+    cooldownUntil.current = Date.now() + 600;
+  }, [pauseFn, startSpotifyPlayback, note]);
+
   // Spotify owns playback. While a session is live, mirror what Spotify plays —
   // skips, finishes and songs you pick yourself inside the Spotify app.
   useEffect(() => {
@@ -800,6 +830,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const check = async () => {
       const current = radioRef.current.current;
       if (!current?.spotify_id || advancing.current || committing.current) return;
+      if (Date.now() < cooldownUntil.current) return; // catching our breath
       try {
         const state = await playbackFn();
         const previous = lastPlayback.current;
