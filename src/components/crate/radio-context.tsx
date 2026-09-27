@@ -840,7 +840,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     note("think", "Too many skips at once — pausing until the clicking stops, then weaving a fresh song");
     const s = radioRef.current;
     try {
-      // Wait for 2 quiet seconds: every further skip (even while paused) restarts the wait.
+      // Wait for one quiet second: every further skip (even while paused) restarts the wait.
       const started = Date.now();
       let quietSince = Date.now();
       let seen = "";
@@ -850,8 +850,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       } catch {
         /* keep waiting anyway */
       }
-      while (Date.now() - quietSince < 2_000 && Date.now() - started < 20_000) {
-        await new Promise((res) => setTimeout(res, 400));
+      while (Date.now() - quietSince < 1_000 && Date.now() - started < 20_000) {
+        await new Promise((res) => setTimeout(res, 300));
         if (radioRef.current.sessionId !== s.sessionId) return;
         try {
           const st = await playbackFn();
@@ -865,23 +865,28 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           /* ignore a hiccup and keep waiting */
         }
       }
-      setCalming(false);
       const now = radioRef.current;
       if (now.sessionId !== s.sessionId || !now.current) return;
-      // Only now does Crate look for the next song and build a clean line-up.
-      const fresh =
-        upSkipRef.current?.track ??
-        reserves.current.tracks.find(isPlayable) ??
-        (await fetchBranch(advance(now, "skipped")))?.track ??
-        null;
+      // The clicking stopped: Crate now searches the new angle and rebuilds a clean line-up.
+      // The warning stays up and Spotify stays paused until the new songs are ready.
+      const angle: RadioState = { ...advance(now, "skipped"), consecutiveSkips: 2, road: "mixed" };
+      const freshB = (await fetchBranch(angle)) ?? null;
+      const fresh = freshB?.track ?? reserves.current.tracks.find(isPlayable) ?? null;
       if (radioRef.current.sessionId !== s.sessionId) return;
       if (fresh?.spotify_id && isPlayable(fresh)) {
+        // Scout its own "if you skip" door too, so the restart is a full line-up.
+        const doorB = await Promise.race([
+          fetchBranch({ ...angle, current: fresh, road: freshB?.road ?? "mixed" }),
+          new Promise<Branch>((res) => setTimeout(() => res(null), 4_000)),
+        ]);
+        if (radioRef.current.sessionId !== s.sessionId) return;
         noPlayFor.current = fresh.spotify_id;
         calmingRef.current = false; // scouting may resume now that a fresh song is starting
-        if (await startSpotifyPlayback(fresh, true, null)) {
+        if (await startSpotifyPlayback(fresh, true, doorB?.track ?? null)) {
           if (now.current.spotify_id) played.current.push(now.current.spotify_id);
-          setRadio({ ...advance(now, "skipped"), current: fresh });
-          note("pick", `Picking up again: "${fresh.name}" by ${fresh.artists}`);
+          setRadio({ ...angle, current: fresh, road: freshB?.road ?? "mixed" });
+          setUpSkip(doorB ?? null);
+          note("pick", `Picking up again on a new angle: "${fresh.name}" by ${fresh.artists}`);
         }
       }
     } finally {
