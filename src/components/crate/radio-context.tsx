@@ -757,8 +757,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     }
     // Send the "if you skip" door in the very same call when it's already known:
     // adding it later would make Spotify re-buffer mid-song (an audible hiccup).
-    const pre = preSkip.current?.forId === current.spotify_id ? preSkip.current!.branch : null;
-    const ready = pre ?? (upSkipRef.current && radioRef.current.current?.spotify_id === current.spotify_id ? upSkipRef.current : null);
+    // Only a door scouted FOR this exact song counts; the on-screen skip door can still be the
+    // previous song's, which would send Spotify skip songs Crate never chose for this start.
+    const ready = preSkip.current?.forId === current.spotify_id ? preSkip.current!.branch : null;
     if (ready?.track && isPlayable(ready.track)) {
       void startSpotifyPlayback(current, false, ready.track);
       return;
