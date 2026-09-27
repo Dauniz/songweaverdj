@@ -122,10 +122,22 @@ function eraCandidates(anchor: Song, pool: Song[]) {
   const playlists = new Set(
     anchor.sources.filter((s) => s.type === "playlist").map((s) => s.name),
   );
+  // Huge catch-all playlists mix every genre, so sharing one says little about fit.
+  const size = new Map<string, number>();
+  for (const s of pool)
+    for (const x of s.sources)
+      if (x.type === "playlist") size.set(x.name, (size.get(x.name) ?? 0) + 1);
+  const playlistWeight = (name: string) => {
+    const n = size.get(name) ?? 0;
+    return n <= 120 ? 3 : n <= 400 ? 1.5 : 0.5;
+  };
   const months = anchor.sources.map((s) => monthIndex(s.period)).filter((m) => m !== null) as number[];
   const scored = pool.map((s) => {
     let score = 0;
-    if (s.sources.some((x) => x.type === "playlist" && playlists.has(x.name))) score += 3;
+    let shared = 0;
+    for (const x of s.sources)
+      if (x.type === "playlist" && playlists.has(x.name)) shared = Math.max(shared, playlistWeight(x.name));
+    score += shared;
     if (months.length) {
       let best = Infinity;
       for (const x of s.sources) {
@@ -140,10 +152,11 @@ function eraCandidates(anchor: Song, pool: Song[]) {
     return { s, score: score + Math.random() * 0.4 };
   });
   return scored
-    .filter((x) => x.score > 0.6)
+    .filter((x) => x.score > 1.2)
     .sort((a, b) => b.score - a.score)
     .map((x) => x.s);
 }
+
 
 /** Compact one-line candidate: title—artist [playlist yy-mm]. Fewer tokens, same musical signal. */
 function describe(s: Song) {

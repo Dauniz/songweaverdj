@@ -597,8 +597,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     void (async () => {
       // Keep trying until the "if you skip" door is really lined up in Spotify.
       for (let attempt = 0; attempt < 6 && !cancelled; attempt++) {
-        // Wait a beat so rapid steering changes only re-send Spotify's line-up once.
-        await new Promise((res) => setTimeout(res, attempt === 0 ? 700 : 3_000));
+        // Wait a beat so rapid steering changes only re-send Spotify's line-up once,
+        // and so a song that just started is playing steadily before a door is added.
+        await new Promise((res) => setTimeout(res, attempt === 0 ? 1_500 : 3_000));
+
         if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) return;
         if (swapping.current === cur.spotify_id) return; // end-of-song hand-over owns the line-up now
         // Scout one step further (the skip door's own skip door) so the next skip needs no re-send.
@@ -687,15 +689,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         return; // you moved on yourself
       }
       // Tell Spotify first; only move Crate forward once Spotify actually took the finish pick.
+      // Send the finish pick ALONE: if a door follows it in the same list while the old song is
+      // in its final moments, Spotify sometimes skips straight past it. The "if you skip" door is
+      // lined up a second later by the effect above, once the new song is playing steadily.
       noPlayFor.current = finishB.track.spotify_id;
       committing.current = true;
       let ok = false;
       try {
-        ok = await startSpotifyPlayback(finishB.track, true, skipB?.track ?? null, undefined, thenB?.track ?? null);
-        if (!ok) ok = await startSpotifyPlayback(finishB.track, true, null);
+        ok = await startSpotifyPlayback(finishB.track, true, null);
       } finally {
         committing.current = false;
       }
+
       if (!ok) {
         noPlayFor.current = "";
         swapping.current = "";
