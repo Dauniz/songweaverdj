@@ -35,6 +35,7 @@ export function SessionControl() {
   if (sessionLive) {
     return (
       <Button
+        data-onboarding="session-start"
         variant="outline"
         size="sm"
         className="ml-auto h-8 rounded-full px-4"

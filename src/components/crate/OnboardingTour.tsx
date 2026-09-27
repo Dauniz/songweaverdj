@@ -105,8 +105,6 @@ export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
     };
   }, [locate, step]);
 
-  if (!step) return null;
-
   const finishSetup = () => {
     markDone(SETUP_KEY);
     setSetupStep(null);
@@ -115,16 +113,20 @@ export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
     markDone(FEEDBACK_KEY);
     setFeedbackOpen(false);
   };
-  const dismiss = feedbackOpen ? dismissFeedback : finishSetup;
-
   useEffect(() => {
     if (!step) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") dismiss();
+      if (event.key !== "Escape") return;
+      if (feedbackOpen) dismissFeedback();
+      else finishSetup();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [step, feedbackOpen]);
+
+  if (!step) return null;
+
+  const dismiss = feedbackOpen ? dismissFeedback : finishSetup;
 
   const pad = 8;
   const vw = typeof window === "undefined" ? 1280 : window.innerWidth;
