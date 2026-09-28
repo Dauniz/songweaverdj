@@ -72,18 +72,31 @@ function AuthPage() {
 
   async function spotify() {
     setEntry("spotify");
+    // Inside a frame (e.g. the Lovable preview on iPhone) Spotify refuses to
+    // load in-place and shows a blank page, so open a real tab right on tap.
+    const framed = window.top !== window.self;
+    const pre = framed ? window.open("", "spotify-login") : null;
     try {
       const { url } = await loginUrl({ data: { origin: window.location.origin } });
+      if (pre) {
+        pre.location.href = url;
+        setEntry(null);
+        return;
+      }
       const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      if (ios) {
+      if (ios && !framed) {
         window.location.assign(url);
         return;
       }
       const popup = window.open(url, "spotify-login", "width=480,height=720");
-      if (!popup) window.location.assign(url);
+      if (!popup) {
+        if (framed && window.top) window.top.location.href = url;
+        else window.location.assign(url);
+      }
       setEntry(null);
     } catch (e) {
+      pre?.close();
       setEntry(null);
       toast.error(e instanceof Error ? e.message : "Spotify sign-in failed");
     }

@@ -88,10 +88,16 @@ export function LibraryPanel() {
   async function connect() {
     setBusy("connect");
     try {
+      const framed = window.top !== window.self;
+      const pre = framed ? window.open("", "spotify-auth") : null;
       const { url } = await authUrlFn({ data: { origin: window.location.origin } });
+      if (pre) {
+        pre.location.href = url;
+        return;
+      }
       const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      if (ios) {
+      if (ios && !framed) {
         window.location.assign(url);
         return;
       }
