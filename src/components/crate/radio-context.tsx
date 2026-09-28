@@ -503,10 +503,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   // Watchdog: the door boxes must never stay on "Finding…". Display-only — it reuses the
   // song already queued in Spotify, re-reads settled branches, or re-runs a skipped prefetch.
-  const upNextRef = useRef(upNext);
-  const upSkipRef = useRef(upSkip);
-  upNextRef.current = upNext;
-  upSkipRef.current = upSkip;
   const emptySince = useRef(0);
   useEffect(() => {
     const t = setInterval(() => {
