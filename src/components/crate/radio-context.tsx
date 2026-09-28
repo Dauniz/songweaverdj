@@ -1441,8 +1441,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       document.removeEventListener("visibilitychange", onVis);
       // Only fall back to Spotify Web when the app clearly didn't take focus.
       if (!appOpened && document.hasFocus()) {
-        const w = window.open(webUrl, "_blank", "noopener,noreferrer");
-        if (!w) window.top?.open(webUrl, "_blank");
+        window.open(webUrl, "_blank", "noopener,noreferrer");
       }
     }, 2500);
     let attempts = 0;
