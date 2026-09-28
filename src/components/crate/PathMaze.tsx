@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import type { RadioTrack } from "@/components/crate/radio-context";
 import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Route, SkipForward, Sparkles } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
@@ -69,88 +71,300 @@ export function PathMaze() {
               </span>
             </div>
           )}
-          <div className="rounded-xl border border-primary/40 bg-primary/5 p-3.5">
-            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-primary">
-              <span className="flex h-3.5 items-end gap-[2px]" aria-hidden>
-                {[0, 1, 2, 3].map((i) => (
-                  <span
-                    key={i}
-                    className={cn("eq-bar w-[2px] rounded-full bg-primary", !musicPlaying && "opacity-60")}
-                    style={{
-                      height: musicPlaying ? "100%" : "35%",
-                      animationDelay: `${i * 0.15}s`,
-                      animationDuration: `${0.7 + i * 0.12}s`,
-                      animationPlayState: musicPlaying ? "running" : "paused",
-                    }}
-                  />
-                ))}
-              </span>
-              You are here · {ROAD[radio.road].name}
-            </div>
-            <div className="mt-2.5 flex items-center gap-3">
-              <Art src={radio.current.image_url} alt={radio.current.name} className="h-14 w-14" />
-              <div className="min-w-0">
-                <div className="truncate text-base font-semibold">{radio.current.name}</div>
-                <div className="truncate text-sm text-muted-foreground">{radio.current.artists}</div>
-              </div>
-            </div>
-            {radio.current.why && (
-              <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
-                <span className="font-semibold text-foreground">Why Crate chose it:</span> {radio.current.why}
-              </p>
-            )}
-            <SongNote key={radio.current.spotify_id} trackName={radio.current.name} artists={radio.current.artists} />
-          </div>
-
-
-
-          <div className="pt-1">
-            {/* Junction fork: one trunk leaving the current song, splitting into
-                the straight "keep walking" branch and the turning "skip" branch. */}
-            <div className="relative h-7" aria-hidden>
-              <span className="absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 bg-border" />
-              <span className="absolute left-1/4 right-1/4 top-3 h-px bg-border" />
-              <span
-                className={cn(
-                  "absolute left-1/4 top-3 h-4 w-px bg-primary/70",
-                  !upNext && "fork-pulse",
-                )}
-              />
-              <span
-                className={cn(
-                  "absolute left-3/4 top-3 h-4 w-px bg-accent/70",
-                  !upSkip && "fork-pulse",
-                )}
-              />
-              <span className="absolute left-1/2 top-[7px] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-primary" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Door
-                tone="keep"
-                label="Keep walking"
-                sublabel="if you finish"
-                road={radio.road}
-                title={upNext?.name}
-                artists={upNext?.artists}
-                image={upNext?.image_url}
-                icon={<Check className="h-3 w-3" />}
-              />
-              <Door
-                tone="turn"
-                label="Take a turn"
-                sublabel="if you skip"
-                road={upSkip?.road ?? (radio.consecutiveSkips >= 1 ? "mixed" : radio.road === "vibe" ? "era" : "vibe")}
-                title={upSkip?.track.name}
-                artists={upSkip?.track.artists}
-                image={upSkip?.track.image_url}
-                icon={<SkipForward className="h-3 w-3" />}
-              />
-            </div>
-          </div>
+          <JunctionTree
+            current={radio.current}
+            road={radio.road}
+            consecutiveSkips={radio.consecutiveSkips}
+            upNext={upNext}
+            upSkip={upSkip}
+            musicPlaying={musicPlaying}
+          />
 
         </div>
       )}
     </div>
+  );
+}
+
+const TREE_EASE = [0.22, 1, 0.36, 1] as const;
+const LEVEL_GAP = 160;
+
+type TreeSnapshot = {
+  current: RadioTrack;
+  road: Road;
+  consecutiveSkips: number;
+  upNext: RadioTrack | null;
+  upSkip: { track: RadioTrack; road: Road } | null;
+};
+
+type TreeAnim =
+  | { type: "promote"; side: "left" | "right" }
+  | { type: "reset-out" }
+  | { type: "reset-in" }
+  | null;
+
+/**
+ * JunctionTree — the living maze diagram. The playing song sits on top (O),
+ * with two curved branches growing down to the Era/Vibe doors. Purely visual:
+ * it only renders playback state, never changes it.
+ */
+function JunctionTree({
+  current,
+  road,
+  consecutiveSkips,
+  upNext,
+  upSkip,
+  musicPlaying,
+}: TreeSnapshot & { musicPlaying: boolean }) {
+  const reduced = useReducedMotion();
+  const [shown, setShown] = useState<TreeSnapshot>({ current, road, consecutiveSkips, upNext, upSkip });
+  const [anim, setAnim] = useState<TreeAnim>(null);
+  const latest = useRef<TreeSnapshot>({ current, road, consecutiveSkips, upNext, upSkip });
+  latest.current = { current, road, consecutiveSkips, upNext, upSkip };
+  const timers = useRef<number[]>([]);
+
+  const box = useRef<HTMLDivElement>(null);
+  const oRef = useRef<HTMLDivElement>(null);
+  const lRef = useRef<HTMLDivElement>(null);
+  const rRef = useRef<HTMLDivElement>(null);
+  const [geo, setGeo] = useState<{ w: number; oH: number; dH: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      if (!box.current) return;
+      setGeo({
+        w: box.current.clientWidth,
+        oH: oRef.current?.offsetHeight ?? 0,
+        dH: Math.max(lRef.current?.offsetHeight ?? 0, rRef.current?.offsetHeight ?? 0),
+      });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    for (const el of [box.current, oRef.current, lRef.current, rRef.current]) {
+      if (el) ro.observe(el);
+    }
+    return () => ro.disconnect();
+  }, [shown, anim]);
+
+  // React to a new confirmed playing song. The cause (finish / skip / external)
+  // decides the animation type — never the track id alone.
+  useEffect(() => {
+    const id = current.spotify_id;
+    if (id === shown.current.spotify_id) {
+      // Same O, doors may have arrived or changed.
+      setShown((s) => ({ ...s, upNext, upSkip, road, consecutiveSkips }));
+      return;
+    }
+    const side: "left" | "right" | null =
+      id === shown.upNext?.spotify_id ? "left" : id === shown.upSkip?.track.spotify_id ? "right" : null;
+    timers.current.forEach(clearTimeout);
+    timers.current = [];
+    const commit = () => setShown({ ...latest.current });
+    if (reduced) {
+      setAnim(null);
+      commit();
+      return;
+    }
+    if (side) {
+      setAnim({ type: "promote", side });
+      timers.current.push(
+        window.setTimeout(() => {
+          commit();
+          setAnim(null);
+        }, 180 + 650),
+      );
+    } else {
+      setAnim({ type: "reset-out" });
+      timers.current.push(
+        window.setTimeout(() => {
+          commit();
+          setAnim({ type: "reset-in" });
+          timers.current.push(window.setTimeout(() => setAnim(null), 380));
+        }, 280),
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current.spotify_id]);
+
+  useEffect(() => () => timers.current.forEach(clearTimeout), []);
+
+  const w = geo?.w ?? 0;
+  const oH = geo?.oH ?? 0;
+  const dH = geo?.dH ?? 0;
+  const oW = Math.min(300, Math.max(0, w - 64));
+  const doorW = Math.min(220, Math.max(130, w / 2 - 40));
+  const oX = (w - oW) / 2;
+  const lX = w / 4 - doorW / 2;
+  const rX = (3 * w) / 4 - doorW / 2;
+  const doorsTop = oH + LEVEL_GAP;
+  const ready = geo !== null && w > 0 && oH > 0;
+
+  const skipRoad = shown.upSkip?.road ?? (shown.consecutiveSkips >= 1 ? "mixed" : shown.road === "vibe" ? "era" : "vibe");
+  const promoting = anim?.type === "promote" ? anim.side : null;
+  const resetting = anim?.type === "reset-out";
+
+  const branch = (tx: number, color: string, grownKey: string, delay: number, dim: boolean) => (
+    <motion.path
+      key={grownKey}
+      d={`M ${w / 2} ${oH} C ${w / 2} ${oH + LEVEL_GAP / 2}, ${tx} ${doorsTop - LEVEL_GAP / 2}, ${tx} ${doorsTop}`}
+      fill="none"
+      stroke={color}
+      strokeWidth={2}
+      strokeLinecap="round"
+      initial={reduced ? false : { pathLength: 0 }}
+      animate={{ pathLength: 1 }}
+      transition={{ duration: 0.55, delay, ease: TREE_EASE }}
+      style={{ opacity: dim ? 0.35 : 1 }}
+    />
+  );
+
+  return (
+    <motion.div
+      ref={box}
+      className="relative mt-1"
+      style={{ height: ready ? doorsTop + dH : undefined }}
+      initial={false}
+      animate={resetting ? { scale: 0.88, opacity: 0 } : { scale: 1, opacity: 1 }}
+      transition={{ duration: resetting ? 0.28 : 0.32, ease: TREE_EASE }}
+    >
+      {ready && (
+        <svg className="pointer-events-none absolute inset-0" width={w} height={doorsTop + dH} aria-hidden>
+          {branch(w / 4, "var(--primary)", `L-${shown.upNext?.spotify_id ?? "none"}`, 0, !shown.upNext)}
+          {branch((3 * w) / 4, "var(--accent)", `R-${shown.upSkip?.track.spotify_id ?? "none"}`, 0.07, !shown.upSkip)}
+          {/* light pulse along the chosen branch */}
+          {promoting && (
+            <motion.path
+              d={`M ${w / 2} ${oH} C ${w / 2} ${oH + LEVEL_GAP / 2}, ${promoting === "left" ? w / 4 : (3 * w) / 4} ${doorsTop - LEVEL_GAP / 2}, ${promoting === "left" ? w / 4 : (3 * w) / 4} ${doorsTop}`}
+              fill="none"
+              stroke={promoting === "left" ? "var(--primary)" : "var(--accent)"}
+              strokeWidth={4}
+              strokeLinecap="round"
+              initial={{ opacity: 0.9 }}
+              animate={{ opacity: 0 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+            />
+          )}
+        </svg>
+      )}
+
+      {/* O — the currently playing song */}
+      <motion.div
+        ref={oRef}
+        className="absolute top-0"
+        style={{ left: oX, width: oW }}
+        initial={anim?.type === "reset-in" && !reduced ? { scale: 0.96, opacity: 0 } : false}
+        animate={{ scale: 1, opacity: promoting ? 0 : 1 }}
+        transition={{ duration: promoting ? 0.3 : 0.32, ease: TREE_EASE }}
+      >
+        <div className="rounded-xl border border-primary/40 bg-primary/5 p-3.5">
+          <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-primary">
+            <span className="flex h-3.5 items-end gap-[2px]" aria-hidden>
+              {[0, 1, 2, 3].map((i) => (
+                <span
+                  key={i}
+                  className={cn("eq-bar w-[2px] rounded-full bg-primary", !musicPlaying && "opacity-60")}
+                  style={{
+                    height: musicPlaying ? "100%" : "35%",
+                    animationDelay: `${i * 0.15}s`,
+                    animationDuration: `${0.7 + i * 0.12}s`,
+                    animationPlayState: musicPlaying ? "running" : "paused",
+                  }}
+                />
+              ))}
+            </span>
+            You are here · {ROAD[shown.road].name}
+          </div>
+          <div className="mt-2.5 flex items-center gap-3">
+            <Art src={shown.current.image_url} alt={shown.current.name} className="h-14 w-14" />
+            <div className="min-w-0">
+              <div className="truncate text-base font-semibold">{shown.current.name}</div>
+              <div className="truncate text-sm text-muted-foreground">{shown.current.artists}</div>
+            </div>
+          </div>
+          {shown.current.why && (
+            <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
+              <span className="font-semibold text-foreground">Why Crate chose it:</span> {shown.current.why}
+            </p>
+          )}
+          <SongNote key={shown.current.spotify_id} trackName={shown.current.name} artists={shown.current.artists} />
+        </div>
+      </motion.div>
+
+      {/* Doors */}
+      <motion.div
+        ref={lRef}
+        className="absolute"
+        style={{ left: lX, top: doorsTop, width: doorW }}
+        key={`doorL-${shown.upNext?.spotify_id ?? "none"}`}
+        initial={reduced ? false : { opacity: 0, y: 8, scale: 0.96 }}
+        animate={{ opacity: promoting === "left" ? 0 : 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.3, delay: promoting ? 0 : 0.37, ease: TREE_EASE }}
+      >
+        <Door
+          tone="keep"
+          label="Keep walking"
+          sublabel="if you finish"
+          road={shown.road}
+          title={shown.upNext?.name}
+          artists={shown.upNext?.artists}
+          image={shown.upNext?.image_url}
+          icon={<Check className="h-3 w-3" />}
+        />
+      </motion.div>
+      <motion.div
+        ref={rRef}
+        className="absolute"
+        style={{ left: rX, top: doorsTop, width: doorW }}
+        key={`doorR-${shown.upSkip?.track.spotify_id ?? "none"}`}
+        initial={reduced ? false : { opacity: 0, y: 8, scale: 0.96 }}
+        animate={{ opacity: promoting ? 0 : 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.3, delay: promoting ? 0 : 0.37, ease: TREE_EASE }}
+      >
+        <Door
+          tone="turn"
+          label="Take a turn"
+          sublabel="if you skip"
+          road={skipRoad}
+          title={shown.upSkip?.track.name}
+          artists={shown.upSkip?.track.artists}
+          image={shown.upSkip?.track.image_url}
+          icon={<SkipForward className="h-3 w-3" />}
+        />
+      </motion.div>
+
+      {/* Travelling clone: the chosen door gliding up to O's position */}
+      {promoting && ready && (
+        <motion.div
+          className="pointer-events-none absolute z-10"
+          initial={{
+            x: promoting === "left" ? lX : rX,
+            y: doorsTop,
+            width: doorW,
+            opacity: 1,
+          }}
+          animate={{ x: oX, y: 0, width: oW, opacity: 1 }}
+          transition={{ duration: 0.65, delay: 0.18, ease: TREE_EASE }}
+        >
+          <div className="rounded-xl border border-primary/40 bg-surface p-3 shadow-lg">
+            <div className="flex items-center gap-2.5">
+              <Art
+                src={promoting === "left" ? shown.upNext?.image_url : shown.upSkip?.track.image_url}
+                alt=""
+                className="h-10 w-10"
+              />
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">
+                  {promoting === "left" ? shown.upNext?.name : shown.upSkip?.track.name}
+                </div>
+                <div className="truncate text-[11px] text-muted-foreground">
+                  {promoting === "left" ? shown.upNext?.artists : shown.upSkip?.track.artists}
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </motion.div>
   );
 }
 
