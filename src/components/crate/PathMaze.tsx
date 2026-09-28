@@ -69,27 +69,7 @@ export function PathMaze() {
               </span>
             </div>
           )}
-          {radio.history.slice(-4).map((h, i) => (
-            <div key={i} className="flex items-center gap-3 border-l-2 border-muted py-1.5 pl-3.5 text-sm">
-              {h.outcome === "played" ? (
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15">
-                  <Check className="h-3 w-3 shrink-0 text-primary" />
-                </span>
-              ) : (
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted">
-                  <SkipForward className="h-3 w-3 shrink-0 text-muted-foreground" />
-                </span>
-              )}
-              <span className="min-w-0">
-                <span className={cn("block truncate", h.outcome === "skipped" && "text-muted-foreground line-through")}>
-                  {h.name}
-                </span>
-                <span className="block truncate text-xs text-muted-foreground">{h.artists}</span>
-              </span>
-            </div>
-          ))}
-
-          <div className="mt-3 rounded-xl border border-primary/40 bg-primary/5 p-3.5">
+          <div className="rounded-xl border border-primary/40 bg-primary/5 p-3.5">
             <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-primary">
               <span className="flex h-3.5 items-end gap-[2px]" aria-hidden>
                 {[0, 1, 2, 3].map((i) => (
