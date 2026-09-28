@@ -146,22 +146,22 @@ function eraCandidates(anchor: Song, pool: Song[]) {
     const n = size.get(name) ?? 0;
     return n <= 120 ? 3 : n <= 400 ? 1.5 : 0.5;
   };
-  const months = anchor.sources.map((s) => monthIndex(s.period)).filter((m) => m !== null) as number[];
+  const anchorDays = anchor.sources.map((s) => dayIndex(s.period)).filter((d): d is number => d !== null);
   const scored = pool.map((s) => {
     let score = 0;
     let shared = 0;
     for (const x of s.sources)
       if (x.type === "playlist" && playlists.has(x.name)) shared = Math.max(shared, playlistWeight(x.name));
     score += shared;
-    if (months.length) {
+    if (anchorDays.length) {
       let best = Infinity;
       for (const x of s.sources) {
-        const m = monthIndex(x.period);
-        if (m === null) continue;
-        for (const am of months) best = Math.min(best, Math.abs(m - am));
+        const d = dayIndex(x.period);
+        if (d === null) continue;
+        for (const ad of anchorDays) best = Math.min(best, Math.abs(d - ad));
       }
-      if (best <= 2) score += 2 - best * 0.5;
-      else if (best <= 6) score += 0.5;
+      if (best <= 14) score += 2;
+      else if (best <= 31) score += 0.5;
     }
     if (s.artists === anchor.artists) score += 0.5;
     return { s, score: score + Math.random() * 0.4 };
