@@ -35,7 +35,6 @@ export function PathMaze() {
         .limit(1);
       return data?.[0] ?? null;
     },
-    select: (rows: unknown) => rows as { content: string; kind: string; blob_id: string | null } | null,
     staleTime: 30_000,
   });
 
