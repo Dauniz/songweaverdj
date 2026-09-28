@@ -214,7 +214,7 @@ function JunctionTree({
       initial={reduced ? false : { pathLength: 0 }}
       animate={{ pathLength: 1 }}
       transition={{ duration: 0.55, delay, ease: TREE_EASE }}
-      style={dim ? { opacity: 0.35 } : undefined}
+      style={{ opacity: dim ? 0.35 : 1 }}
     />
   );
 
