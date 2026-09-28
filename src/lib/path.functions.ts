@@ -397,21 +397,27 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const partOfDay = hour < 5 ? "late night" : hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 22 ? "evening" : "late night";
     const nowLabel = `${weekday} ${partOfDay}, ${String(hour).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
 
-    const [recalled, learned] = await Promise.all([
-      recallMemories(
-        userId,
-        `${weekday} ${partOfDay} ${data.seedPrompt} ${data.seed.name} ${data.seed.artists}`,
-        6,
-      ).catch(() => []),
-      // Crate's own learned knowledge: cross-session anchors, session observations, Feedbacker notes.
-      supabase
-        .from("memory_nodes")
-        .select("content, origin, created_at")
-        .or("origin.eq.cross_session,origin.eq.synthesis,content.like.Note on%")
-        .order("created_at", { ascending: false })
-        .limit(40)
-        .then((r: { data: { content: string; origin: string }[] | null }) => r.data ?? []),
-    ]);
+    const recallKey = `${weekday} ${partOfDay} ${data.seedPrompt} ${data.seed.name} ${data.seed.artists}`;
+    const cachedMem = memoryCache.get(userId);
+    const fresh = cachedMem && Date.now() - cachedMem.at < MEMORY_TTL ? cachedMem.bundle : null;
+
+    const learned: { content: string; origin: string }[] = fresh
+      ? fresh.learned
+      : await supabase
+          .from("memory_nodes")
+          .select("content, origin, created_at")
+          .or("origin.eq.cross_session,origin.eq.synthesis,content.like.Note on%")
+          .order("created_at", { ascending: false })
+          .limit(40)
+          .then((r: { data: { content: string; origin: string }[] | null }) => r.data ?? []);
+
+    const recalled: { text: string }[] =
+      fresh?.walrusBy.get(recallKey) ?? (await recallMemories(userId, recallKey, 6).catch(() => []));
+
+    const bundle: MemoryBundle = fresh ?? { learned, walrusBy: new Map() };
+    bundle.walrusBy.set(recallKey, recalled);
+    memoryCache.set(userId, { at: fresh ? (cachedMem?.at ?? Date.now()) : Date.now(), bundle });
+
     const anchors = learned.filter((m) => m.origin === "cross_session").slice(0, 6);
     const observations = learned.filter((m) => m.origin === "synthesis").slice(0, 4);
     const notes = learned.filter((m) => m.content.startsWith("Note on")).slice(0, 8);
