@@ -12,6 +12,7 @@ import {
   syncSpotifyLibrary,
 } from "@/lib/spotify.functions";
 import { buildDemoRows } from "@/lib/demo-library";
+import { useRadio } from "@/components/crate/radio-context";
 import { cn } from "@/lib/utils";
 import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import {
@@ -166,6 +167,17 @@ export function LibraryPanel() {
   }
 
   const hasDemo = tracks.some((t) => t.is_demo);
+  const { spotifyLost } = useRadio();
+  const orbClass = spotifyLost
+    ? "bg-destructive shadow-[0_0_6px_var(--destructive)]"
+    : status?.connected
+      ? "bg-primary shadow-[0_0_6px_var(--primary)]"
+      : "bg-muted-foreground/40";
+  const orbLabel = spotifyLost
+    ? "Spotify connection lost"
+    : status?.connected
+      ? "Spotify connected"
+      : "Spotify not connected";
 
   function toggleCollapsed() {
     setCollapsed((c) => {
