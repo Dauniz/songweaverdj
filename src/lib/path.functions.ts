@@ -108,10 +108,11 @@ async function loadPool(supabase: any, userId: string): Promise<Song[]> {
   return songs;
 }
 
-function monthIndex(p: string | null) {
+function dayIndex(p: string | null) {
   if (!p) return null;
-  const [y = 0, m = 1] = p.split("-").map(Number);
-  return y * 12 + (m - 1);
+  const d = new Date(p + "T00:00:00Z");
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.round(d.getTime() / 86_400_000);
 }
 
 function fmtPeriod(p: string | null) {
