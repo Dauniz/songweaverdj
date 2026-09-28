@@ -22,11 +22,25 @@ export const getSpotifyStatus = createServerFn({ method: "GET" })
       .select("display_name, last_synced_at")
       .eq("user_id", context.userId)
       .maybeSingle();
+    // Reconnecting Spotify can recreate the connection row without a sync time even though
+    // the library is already imported — fall back to the newest imported track.
+    let lastSyncedAt = data?.last_synced_at ?? null;
+    if (data && !lastSyncedAt) {
+      const { data: latest } = await supabaseAdmin
+        .from("library_tracks")
+        .select("created_at")
+        .eq("user_id", context.userId)
+        .eq("is_demo", false)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      lastSyncedAt = latest?.created_at ?? null;
+    }
     return {
       configured,
       connected: Boolean(data),
       displayName: data?.display_name ?? null,
-      lastSyncedAt: data?.last_synced_at ?? null,
+      lastSyncedAt,
     };
   });
 
