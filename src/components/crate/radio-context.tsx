@@ -1044,6 +1044,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     branches.current = null;
     door.current = null;
     landingPlan.current = null;
+    finishPlan.current = null;
     quickSkipUntil.current = 0;
     lineup.current = [];
     await pauseFn().catch(() => undefined);
