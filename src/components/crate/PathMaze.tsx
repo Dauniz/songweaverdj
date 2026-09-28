@@ -433,6 +433,8 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
 
 function Door({
   label,
+  sublabel,
+  tone,
   road,
   title,
   artists,
@@ -440,17 +442,31 @@ function Door({
   icon,
 }: {
   label: string;
+  sublabel: string;
+  tone: "keep" | "turn";
   road: Road;
   title?: string | undefined;
   artists?: string | undefined;
   image?: string | null | undefined;
   icon: React.ReactNode;
 }) {
+  const keep = tone === "keep";
   return (
-    <div className="rounded-xl border bg-surface p-3">
-      <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+    <div
+      className={cn(
+        "rounded-xl border bg-surface p-3",
+        keep ? "border-primary/40" : "border-accent/40",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide",
+          keep ? "text-primary" : "text-accent",
+        )}
+      >
         {icon} {label}
       </div>
+      <div className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{sublabel}</div>
       <div className="mt-2 flex items-center gap-2.5">
         <Art src={image ?? null} alt={title ?? label} className="h-10 w-10" />
         <div className="min-w-0">
@@ -467,3 +483,4 @@ function Door({
     </div>
   );
 }
+
