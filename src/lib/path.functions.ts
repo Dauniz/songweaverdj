@@ -66,6 +66,7 @@ type Row = {
   source_type: string;
   source_name: string;
   source_period: string | null;
+  genres: string | null;
 };
 
 /** One unique song across all playlists, remembering every place it lives. */
@@ -82,7 +83,7 @@ async function loadPool(supabase: any, userId: string): Promise<Song[]> {
     const { data } = await supabase
       .from("library_tracks")
       .select(
-        "id, spotify_id, name, artists, album, image_url, preview_url, spotify_url, source_type, source_name, source_period",
+        "id, spotify_id, name, artists, album, image_url, preview_url, spotify_url, source_type, source_name, source_period, genres",
       )
       .order("id")
       .range(from, from + 999);
@@ -97,6 +98,7 @@ async function loadPool(supabase: any, userId: string): Promise<Song[]> {
     if (existing) {
       existing.sources.push(src);
       if (!existing.image_url && r.image_url) existing.image_url = r.image_url;
+      if (!existing.genres && r.genres) existing.genres = r.genres;
     } else {
       bySpotify.set(r.spotify_id, { ...r, sources: [src] });
     }
@@ -175,7 +177,8 @@ function describe(s: Song) {
   const src = s.sources[0];
   const period = src?.period ? ` ${src.period.slice(0, 7)}` : "";
   const tag = src ? ` [${src.name.slice(0, 28)}${period}]` : "";
-  return `${s.name}—${s.artists}${tag}`;
+  const g = s.genres ? ` {${s.genres}}` : "";
+  return `${s.name}—${s.artists}${g}${tag}`;
 }
 
 /** Pick up to n items from a list, skipping ones already chosen. */
@@ -491,7 +494,7 @@ ${bullets(observations)}
 Things they told you about specific songs (Feedbacker — their own words, trust them):
 ${bullets(notes)}
 
-Candidates (code|title—artist [playlist yyyy-mm]):
+Candidates (code|title—artist {Spotify genre tags, when known} [playlist yyyy-mm]). Use genre tags together with your own knowledge of the artist's sound:
 ${lines.join("\n")}`;
 
     const live = `It is ${nowLabel} (${weekday} ${partOfDay}) for the listener right now.
