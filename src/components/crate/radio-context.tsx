@@ -81,6 +81,8 @@ type RadioContextValue = {
   resumeLastSession: () => void;
   events: MazeEvent[];
   spotifyIdle: boolean;
+  /** Spotify is actually producing sound right now (drives the live equaliser icon). */
+  musicPlaying: boolean;
   /** Skip-spam cooldown: Spotify paused, Crate catching its breath. */
   calming: boolean;
   foreignQueued: number;
