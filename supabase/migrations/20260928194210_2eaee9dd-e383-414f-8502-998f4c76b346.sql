@@ -1,0 +1,1 @@
+ALTER TABLE public.library_tracks ADD COLUMN IF NOT EXISTS artist_id text, ADD COLUMN IF NOT EXISTS genres text;
