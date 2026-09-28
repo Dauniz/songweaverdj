@@ -1230,6 +1230,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           state.spotifyId === previous.spotifyId &&
           state.progressMs > previous.progressMs + 250;
         const playing = state.status === "ready" && (state.isPlaying || progressMoved);
+        setMusicPlaying(playing);
         if (!playing) {
           // A second skip runs the two-song context dry. Spotify commonly reports the skip
           // door paused at its beginning; stop and rebuild rather than guessing another song.
