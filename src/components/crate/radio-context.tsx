@@ -181,6 +181,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const committing = useRef(false);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionLive, setSessionLive] = useState(false);
+  const startingFor = useRef<{ id: string; at: number } | null>(null);
+  const watchOff = useRef(false);
   // Track Spotify is already playing (user-chosen in Spotify) — don't restart it.
   const noPlayFor = useRef("");
   // The single song lined up behind the current one in Spotify (the "if you skip" door).
@@ -807,14 +809,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       noPlayFor.current = "";
       return; // Spotify is already playing it
     }
-    // Send the "if you skip" door in the very same call when it's already known:
-    // adding it later would make Spotify re-buffer mid-song (an audible hiccup).
-    // Only a door scouted FOR this exact song counts; the on-screen skip door can still be the
-    // previous song's, which would send Spotify skip songs Crate never chose for this start.
+    const startId = current.spotify_id;
+    startingFor.current = { id: startId, at: Date.now() };
+    const release = () => {
+      if (startingFor.current?.id === startId) startingFor.current = null;
+    };
     const ready = preSkip.current?.forId === current.spotify_id ? preSkip.current!.branch : null;
-    // No skip door yet (e.g. a searched song): wait for the SAME scouting that fills the
-    // screen, so the skip song in Spotify is exactly the "if you skip" door shown — one source.
-    // Then pick that door's own skip song too, so all three go out in the first call.
     let cancelled = false;
     void (async () => {
       let branch: Branch = ready?.track && isPlayable(ready.track) ? ready : null;
@@ -834,17 +834,19 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const skip = branch?.track && isPlayable(branch.track) && branch.track.spotify_id !== current.spotify_id ? branch : null;
       if (skip) setUpSkip(skip);
       const finishId = upNextRef.current?.spotify_id;
-      // Wait a few seconds for the skip door's own skip; if it isn't ready, start anyway and
-      // let that same search finish as the landing plan for the skip door.
       const aheadP: Promise<Branch> = skip ? scoutAhead(radioRef.current, skip, [finishId]) : Promise.resolve(null);
       const ahead = await withTimeout(aheadP, 6_000, null);
       if (cancelled || radioRef.current.current?.spotify_id !== current.spotify_id) return;
       await startSpotifyPlayback(current, false, skip?.track ?? null, undefined, "session start", ahead?.track ?? null, {
         frontierDoor: ahead ? undefined : aheadP,
       });
+      // Give Spotify a moment to report the new song before the mirror resumes.
+      lastPlayback.current = { spotifyId: startId, ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: Date.now() };
+      setTimeout(release, 1_500);
     })();
     return () => {
       cancelled = true;
+      release();
     };
   }, [sessionLive, radio.active, radio.current?.spotify_id, startSpotifyPlayback, fetchBranch, scoutAhead]);
 
@@ -1186,6 +1188,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const current = radioRef.current.current;
       if (!current?.spotify_id || advancing.current || committing.current) return;
       if (Date.now() < cooldownUntil.current) return; // catching our breath
+      // First list for this song not sent yet: Spotify still reports the old/paused song.
+      // Reading it now would reroot or end the session and wipe the picked song.
+      const st = startingFor.current;
+      if (st && st.id === current.spotify_id && Date.now() - st.at < 25_000) return;
       // Polling is throttled while Spotify is foregrounded on mobile. Ignore those stale
       // snapshots and require a fresh observation after Songweaver becomes visible again.
       if (document.hidden) {
@@ -1364,7 +1370,31 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     };
   }, [sessionLive, radio.active, radio.sessionId, playbackIssue, playbackFn, next, acceptObserved, stopRadio, handOver, startSpotifyPlayback, calmDown, log, note]);
 
-  // "Open Spotify" issue: retry reconnecting every 5 s; only give up after ~5 min.
+  /** Turn what Spotify is playing into the session seed without restarting it. */
+  const adoptPlaying = useCallback(
+    (state: { spotifyId?: string | null; name?: string | null; artists?: string; album?: string | null; imageUrl?: string | null; spotifyUrl?: string | null; progressMs: number; durationMs: number; isPlaying: boolean }) => {
+      if (!state.spotifyId) return;
+      const track: RadioTrack = {
+        id: `demo-ext-${state.spotifyId}`,
+        spotify_id: state.spotifyId,
+        name: state.name || "Unknown song",
+        artists: state.artists ?? "",
+        album: state.album ?? null,
+        image_url: state.imageUrl ?? null,
+        spotify_url: state.spotifyUrl ?? null,
+        source_name: "Spotify",
+      } as RadioTrack;
+      noPlayFor.current = state.isPlaying ? state.spotifyId : "";
+      lastPlayback.current = {
+        spotifyId: state.spotifyId, ratio: 0, observed: state.isPlaying,
+        progressMs: state.progressMs, durationMs: state.durationMs, at: Date.now(),
+      };
+      startRadio([track], "");
+    },
+    [startRadio],
+  );
+
+  // "Open Spotify" issue: retry reconnecting every 5 s; give up after the grace.
   useEffect(() => {
     if (!sessionLive || playbackIssue?.status !== "no_device") return;
     const started = Date.now();
@@ -1373,30 +1403,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (current?.spotify_id) {
         void startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, lastPlayback.current.progressMs || undefined, "connection retry");
       } else {
-        // Session started without a track: keep watching Spotify for a song the
-        // user plays themselves and adopt it as the session seed.
         void (async () => {
           try {
             const state = await playbackFn();
             if (state.status === "ready" && state.spotifyId && state.isPlaying && !radioRef.current.active) {
               setPlaybackIssue(null);
               noDeviceSince.current = 0;
-              const track: RadioTrack = {
-                id: `demo-ext-${state.spotifyId}`,
-                spotify_id: state.spotifyId,
-                name: state.name || "Unknown song",
-                artists: state.artists,
-                album: state.album,
-                image_url: state.imageUrl,
-                spotify_url: state.spotifyUrl,
-                source_name: "Spotify",
-              };
-              noPlayFor.current = state.spotifyId;
-              lastPlayback.current = {
-                spotifyId: state.spotifyId, ratio: 0, observed: true,
-                progressMs: state.progressMs, durationMs: state.durationMs, at: Date.now(),
-              };
-              startRadio([track], "");
+              adoptPlaying(state);
             }
           } catch { /* keep waiting */ }
         })();
@@ -1404,36 +1417,35 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (Date.now() - started > NO_DEVICE_GRACE) stopRadio({ keepSpotify: true });
     }, 5_000);
     return () => clearInterval(t);
-  }, [sessionLive, playbackIssue, stopRadio, startSpotifyPlayback, playbackFn, startRadio]);
+  }, [sessionLive, playbackIssue, stopRadio, startSpotifyPlayback, playbackFn, adoptPlaying]);
+
+  // No session yet: watch Spotify quietly. Pressing play in the Spotify app starts a
+  // session from that song. Off after a manual End session until the next prompt/search.
+  useEffect(() => {
+    if (sessionLive || radio.active) return;
+    const t = setInterval(() => {
+      if (document.hidden || watchOff.current) return;
+      void (async () => {
+        try {
+          const state = await playbackFn();
+          if (watchOff.current || radioRef.current.active) return;
+          if (state.status === "ready" && state.spotifyId && state.isPlaying) adoptPlaying(state);
+        } catch { /* not connected yet */ }
+      })();
+    }, 5_000);
+    return () => clearInterval(t);
+  }, [sessionLive, radio.active, playbackFn, adoptPlaying]);
 
   const startSession = useCallback(async () => {
+    watchOff.current = false;
     setSessionLive(true);
     idleSince.current = 0;
     if (radioRef.current.active) return;
-    // The user may have started the session by playing a song inside Spotify. Check
-    // a few times — Spotify can take a moment to report a freshly started track.
     for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
         const state = await playbackFn();
         if (state.status === "ready" && state.spotifyId) {
-          const track: RadioTrack = {
-            id: `demo-ext-${state.spotifyId}`,
-            spotify_id: state.spotifyId,
-            name: state.name || "Unknown song",
-            artists: state.artists,
-            album: state.album,
-            image_url: state.imageUrl,
-            spotify_url: state.spotifyUrl,
-            source_name: "Spotify",
-          };
-          // Adopt a genuinely playing track without restarting it. If Spotify only reports
-          // a paused last track, use it as the seed but let the normal playback effect start it.
-          noPlayFor.current = state.isPlaying ? state.spotifyId : "";
-          lastPlayback.current = {
-            spotifyId: state.spotifyId, ratio: 0, observed: state.isPlaying,
-            progressMs: state.progressMs, durationMs: state.durationMs, at: Date.now(),
-          };
-          startRadio([track], "");
+          adoptPlaying(state);
           return;
         }
       } catch {
@@ -1441,12 +1453,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       if (attempt < 4) await new Promise((r) => setTimeout(r, 2_000));
     }
-    // No Spotify track found: ask the user to open Spotify. The reconnect effect
-    // ends the session automatically after the no-device grace period.
     noDeviceSince.current = Date.now();
     lastLostPrompt.current = Date.now();
     setPlaybackIssue({ status: "no_device", message: "Open Spotify and play a song to start the session." });
-  }, [playbackFn, startRadio]);
+  }, [playbackFn, adoptPlaying]);
+
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -1633,7 +1644,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         setDeepCuts,
         sessionLive,
         startSession,
-        endSession: () => stopRadio(),
+        endSession: () => {
+          watchOff.current = true; // hand Spotify back: don't auto-adopt again
+          stopRadio();
+        },
         hasLastSession,
         resumeLastSession,
         events,

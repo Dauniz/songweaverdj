@@ -16,6 +16,7 @@ import { SessionControl } from "@/components/crate/SessionControl";
 import { cn } from "@/lib/utils";
 import { BugReportButton } from "@/components/BugReportButton";
 import { OnboardingTour } from "@/components/crate/OnboardingTour";
+import { SpotifyConnectPrompt } from "@/components/crate/SpotifyConnectPrompt";
 import logo from "@/assets/crate-logo.jpg";
 import { Button } from "@/components/ui/button";
 import { SpotifyLogPanel } from "@/components/crate/SpotifyLogPanel";
@@ -133,6 +134,7 @@ function StudioLayout({
         </aside>
       </div>
       <OnboardingTour showMemory={showMemory} />
+      <SpotifyConnectPrompt />
     </div>
   );
 }
