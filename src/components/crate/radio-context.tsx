@@ -1380,7 +1380,22 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             if (state.status === "ready" && state.spotifyId && state.isPlaying && !radioRef.current.active) {
               setPlaybackIssue(null);
               noDeviceSince.current = 0;
-              void startSession();
+              const track: RadioTrack = {
+                id: `demo-ext-${state.spotifyId}`,
+                spotify_id: state.spotifyId,
+                name: state.name || "Unknown song",
+                artists: state.artists,
+                album: state.album,
+                image_url: state.imageUrl,
+                spotify_url: state.spotifyUrl,
+                source_name: "Spotify",
+              };
+              noPlayFor.current = state.spotifyId;
+              lastPlayback.current = {
+                spotifyId: state.spotifyId, ratio: 0, observed: true,
+                progressMs: state.progressMs, durationMs: state.durationMs, at: Date.now(),
+              };
+              startRadio([track], "");
             }
           } catch { /* keep waiting */ }
         })();
@@ -1388,7 +1403,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (Date.now() - started > NO_DEVICE_GRACE) stopRadio({ keepSpotify: true });
     }, 5_000);
     return () => clearInterval(t);
-  }, [sessionLive, playbackIssue, stopRadio, startSpotifyPlayback, playbackFn, startSession]);
+  }, [sessionLive, playbackIssue, stopRadio, startSpotifyPlayback, playbackFn, startRadio]);
 
   const startSession = useCallback(async () => {
     setSessionLive(true);
