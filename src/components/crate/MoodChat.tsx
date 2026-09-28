@@ -16,17 +16,10 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input";
-import {
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
-} from "@/components/ai-elements/tool";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { TrackCard, type CardTrack } from "./TrackCard";
 import { useRadio } from "./radio-context";
-import { CircleHelp, LoaderCircle, Mic, Radio, Square } from "lucide-react";
+import { CircleHelp, LoaderCircle, Mic, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LENSES } from "@/lib/lenses";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -474,7 +467,7 @@ export function MoodChat() {
                               {out.vibe_title}
                             </div>
                             <div className="grid gap-1.5 sm:grid-cols-2">
-                              {out.tracks.map((t, j) => (
+                              {out.tracks.slice(0, 6).map((t, j) => (
                                 <TrackCard
                                   key={t.id}
                                   track={t}
@@ -485,15 +478,6 @@ export function MoodChat() {
                                 />
                               ))}
                             </div>
-                            {out.tracks.length > 0 && (
-                              <Button
-                                onClick={() => startRadio(out.tracks, lastUserText.current || out.vibe_title)}
-                                size="sm"
-                                className="mt-2 rounded-full px-4 transition-transform hover:scale-[1.02]"
-                              >
-                                <Radio className="h-3.5 w-3.5" /> Start vibe radio from these picks
-                              </Button>
-                            )}
                           </>
                         ) : part.state === "output-error" ? (
                           <p className="text-sm text-destructive">Couldn't load picks.</p>
@@ -504,21 +488,7 @@ export function MoodChat() {
                     );
                   }
                   if (part.type === "tool-save_memory") {
-                    return (
-                      <Tool key={i} defaultOpen={false} className="memory-reveal my-0.5">
-                        <ToolHeader
-                          type={part.type}
-                          state={part.state}
-                          title="Saved to Walrus Memory"
-                        />
-                        <ToolContent>
-                          <ToolInput input={part.input} />
-                          {part.state === "output-available" && (
-                            <ToolOutput output={part.output} errorText={undefined} />
-                          )}
-                        </ToolContent>
-                      </Tool>
-                    );
+                    return null;
                   }
                   return null;
                 })}
