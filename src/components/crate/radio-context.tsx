@@ -1372,13 +1372,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   /** Turn what Spotify is playing into the session seed without restarting it. */
   const adoptPlaying = useCallback(
-    (state: { spotifyId?: string | null; name?: string | null; artists?: string[]; album?: string | null; imageUrl?: string | null; spotifyUrl?: string | null; progressMs: number; durationMs: number; isPlaying: boolean }) => {
+    (state: { spotifyId?: string | null; name?: string | null; artists?: string; album?: string | null; imageUrl?: string | null; spotifyUrl?: string | null; progressMs: number; durationMs: number; isPlaying: boolean }) => {
       if (!state.spotifyId) return;
       const track: RadioTrack = {
         id: `demo-ext-${state.spotifyId}`,
         spotify_id: state.spotifyId,
         name: state.name || "Unknown song",
-        artists: state.artists ?? [],
+        artists: state.artists ?? "",
         album: state.album ?? null,
         image_url: state.imageUrl ?? null,
         spotify_url: state.spotifyUrl ?? null,
