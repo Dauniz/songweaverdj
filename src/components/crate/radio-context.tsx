@@ -203,6 +203,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const preSkip = useRef<{ forId: string; branch: Branch } | null>(null);
   const scoutAbort = useRef<AbortController | null>(null);
   const lensTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sidePending = useRef<{ lens: LensId | null; deep: boolean } | null>(null);
   const upSkipRef = useRef<{ track: RadioTrack; road: Road } | null>(null);
   upSkipRef.current = upSkip;
   const sideSnap = useRef<{
@@ -419,6 +420,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     (s: RadioState) => {
       if (!s.active || !s.current) return;
       if (calmingRef.current) return; // wait for the clicking to stop before looking for songs
+      if (lensTimer.current) return; // side-road misclick buffer: keep the current doors until it settles
       const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
       if (branches.current?.key === key) return;
       scoutAbort.current?.abort(); // drop any scouting still running for an old key
@@ -1648,9 +1650,19 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       setLensState(nextLens);
       deepCutsRef.current = nextDeep;
       setDeepCutsState(nextDeep);
+      // Misclick buffer: the current doors stay until the choice has settled for ~1.2 s.
+      if (!lensTimer.current) sidePending.current = { lens: prevLens, deep: prevDeep };
       if (lensTimer.current) clearTimeout(lensTimer.current);
-      scoutAbort.current?.abort();
+      lensTimer.current = null;
+      const pending = sidePending.current;
+      if (pending && pending.lens === nextLens && pending.deep === nextDeep) {
+        // Changed their mind inside the buffer → nothing was rewired, nothing to undo.
+        sidePending.current = null;
+        return;
+      }
       if (canRestore && snap) {
+        sidePending.current = null;
+        scoutAbort.current?.abort();
         sideSnap.current = null;
         branches.current = snap.branches;
         preSkip.current = snap.preSkip;
@@ -1660,21 +1672,35 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         note("steer", "Side road toggled back → keeping the original doors");
         return;
       }
-      if (s.active && nextLens) log({ name: `lens:${nextLens}`, artists: "" }, "steer", s);
-      if (s.active && nextDeep) log({ name: "deep cuts", artists: "" }, "steer", s);
-      branches.current = null;
-      preSkip.current = null;
-      listGeneration.current += 1;
-      awaitingSkipPair.current = false;
-      if (!s.active) return;
-      setUpNext(null);
-      setUpSkip(null);
-      const label = nextLens ?? (nextDeep ? "deep cuts" : null);
-      note("steer", label ? `Side road ${label} on → re-scouting both doors` : "Side road off → back to the main roads");
+      if (!s.active) {
+        sidePending.current = null;
+        branches.current = null;
+        preSkip.current = null;
+        listGeneration.current += 1;
+        awaitingSkipPair.current = false;
+        return;
+      }
       lensTimer.current = setTimeout(() => {
         lensTimer.current = null;
-        setRadio({ ...radioRef.current });
-      }, 350);
+        sidePending.current = null;
+        const cur = radioRef.current;
+        if (!cur.active) return;
+        const l = lensRef.current;
+        const d = deepCutsRef.current;
+        if (l) log({ name: `lens:${l}`, artists: "" }, "steer", cur);
+        if (d) log({ name: "deep cuts", artists: "" }, "steer", cur);
+        scoutAbort.current?.abort();
+        branches.current = null;
+        preSkip.current = null;
+        landingPlan.current = null;
+        listGeneration.current += 1;
+        awaitingSkipPair.current = false;
+        setUpNext(null);
+        setUpSkip(null);
+        const label = l ?? (d ? "deep cuts" : null);
+        note("steer", label ? `Side road ${label} on → rewiring both doors` : "Side road off → back to the main roads");
+        setRadio({ ...cur });
+      }, 1200);
     },
     [log, note],
   );
