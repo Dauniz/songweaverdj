@@ -410,8 +410,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // The skip door may already be decided: queued in Spotify behind this song (preSkip), or
       // being chosen one step ahead (the landing plan). Reuse it — scouting again would put a
       // different song on screen than the one Spotify will really play.
-      const pre = preSkip.current?.forId === cid ? preSkip.current.branch : null;
-      const plan = !pre && landingPlan.current?.forId === cid && landingPlan.current.sessionId === s.sessionId ? landingPlan.current : null;
+      const ps = preSkip.current;
+      const pre = ps && ps.forId === cid ? ps.branch : null;
+      const lp = landingPlan.current;
+      const plan = !pre && lp && lp.forId === cid && lp.sessionId === s.sessionId ? lp : null;
       const knownSkipId = pre?.track.spotify_id ?? plan?.doorVal?.track.spotify_id;
       const playedB = fetchBranch(advance(s, "played"), ctrl.signal, knownSkipId ? [knownSkipId] : []);
       const skippedState = advance(s, "skipped");
@@ -996,7 +998,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // If this door came from the landing plan, its own skip may already be known — send it too,
       // or let that running search become the plan for the new last song.
       const plan = landingPlan.current;
-      const planned = plan?.forId === cur.spotify_id && plan.doorVal?.track.spotify_id === skip.spotify_id ? plan : null;
+      const planned = plan && plan.forId === cur.spotify_id && plan.doorVal?.track.spotify_id === skip.spotify_id ? plan : null;
       const aheadKnown = planned?.aheadVal ?? null;
       const ok = await startSpotifyPlayback(cur, true, skip, Math.max(1, Math.round(pos)), "skip rebuild", aheadKnown?.track ?? null, {
         frontierDoor: planned && !aheadKnown ? planned.ahead : undefined,
