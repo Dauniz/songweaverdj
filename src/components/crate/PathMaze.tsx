@@ -6,10 +6,10 @@ import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
 
-const ROAD: Record<Road, { name: string; rule: string }> = {
-  vibe: { name: "Vibe road", rule: "same feeling & sound" },
-  era: { name: "Era road", rule: "same playlist & months" },
-  mixed: { name: "New angle", rule: "fresh direction + your memory" },
+const ROAD: Record<Road, { name: string }> = {
+  vibe: { name: "Vibe Road" },
+  era: { name: "Era Road" },
+  mixed: { name: "New Angle" },
 };
 
 function Art({ src, alt, className }: { src: string | null | undefined; alt: string; className?: string }) {
@@ -661,9 +661,7 @@ function Door({
       </div>
       <div className="mt-2 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
         <CornerDownRight className="mt-0.5 h-3 w-3 shrink-0" />
-        <span>
-          {ROAD[road].name}: {ROAD[road].rule}
-        </span>
+        <span>{ROAD[road].name}</span>
       </div>
     </div>
   );

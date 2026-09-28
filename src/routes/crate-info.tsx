@@ -98,6 +98,43 @@ function CrateInfoPage() {
             Maze box in the Studio shows the path so far, where you are, and the
             two songs waiting behind each door — with the reason for each pick.
           </p>
+
+          <div className="mt-6 space-y-3">
+            <div className="rounded-lg border bg-surface p-4">
+              <h3 className="font-semibold">Vibe Road</h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                The feeling road. Crate reads the mood, energy and sound of the
+                song playing right now — together with the vibe you asked for in
+                the chat — and aims for songs in your library that carry the
+                same feeling, whatever year or playlist they come from. This is
+                the road Crate picks when your prompt is about a mood, a
+                setting or a sound rather than a time.
+              </p>
+            </div>
+            <div className="rounded-lg border bg-surface p-4">
+              <h3 className="font-semibold">Era Road</h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                The time road. Crate walks through the same playlist and the
+                same months the current song came from — the period of your life
+                when you saved it. No AI guesses here: it follows your own
+                library's history, so it surfaces songs you actually lived
+                through together. Crate aims for this road when the anchor song
+                or your prompt points at a period, a playlist or a memory.
+              </p>
+            </div>
+            <div className="rounded-lg border bg-surface p-4">
+              <h3 className="font-semibold">New Angle</h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                The escape hatch. New Angle never appears as the "if you finish"
+                song — it only shows up behind the skip door, and only after
+                you've skipped more than once in a row. That's the clearest
+                signal that the current direction is wrong, so Crate reads your
+                Walrus memories and aims somewhere noticeably different: a
+                fresh direction it believes you'll like, based on everything it
+                has learned about how you listen.
+              </p>
+            </div>
+          </div>
         </section>
 
         <section className="mt-10">
