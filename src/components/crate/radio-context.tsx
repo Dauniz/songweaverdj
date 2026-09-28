@@ -909,6 +909,28 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     };
   }, [sessionLive, radio.current, upSkip, startSpotifyPlayback, playbackFn, fetchBranch]);
 
+  // As soon as the "if you finish" pick is known, prepare ITS skip song and skip-ahead too,
+  // so the finish hand-over sends all three at the finish song's 0:00 — never mid-song.
+  useEffect(() => {
+    const cur = radio.current;
+    const fin = upNext;
+    if (!sessionLive || !radio.active || !cur?.spotify_id || !fin?.spotify_id || !isPlayable(fin)) return;
+    if (finishPlan.current?.forId === fin.spotify_id && finishPlan.current.fromId === cur.spotify_id) return;
+    const s = radioRef.current;
+    const afterState: RadioState = { ...advance(s, "played"), current: fin, road: s.road };
+    const ready = (async () => {
+      const skipB = await Promise.race([
+        fetchBranch(advance(afterState, "skipped"), undefined, [cur.spotify_id!]),
+        new Promise<Branch>((res) => setTimeout(() => res(null), 15_000)),
+      ]);
+      if (!skipB?.track.spotify_id || !isPlayable(skipB.track) || skipB.track.spotify_id === fin.spotify_id) return null;
+      const aheadB = await scoutAhead(afterState, skipB, [cur.spotify_id], 12_000);
+      return { door: skipB, ahead: aheadB };
+    })();
+    finishPlan.current = { forId: fin.spotify_id, fromId: cur.spotify_id, ready };
+  }, [sessionLive, radio.active, radio.current?.spotify_id, upNext?.spotify_id, fetchBranch, scoutAhead]);
+
+
   /** A few seconds before the song ends: replace the line-up with
    *  ["if you finish" pick, its own "if you skip" door]. */
   const handOver = useCallback(
@@ -928,12 +950,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         return;
       }
       const afterState = { ...advance(s, "played"), current: finishB.track, road: finishB.road };
-      const skipB = await Promise.race([
+      // Prefer the chain Crate prepared for this finish pick while the song played.
+      const fp = finishPlan.current;
+      const prepared = fp && fp.forId === finishB.track.spotify_id && fp.fromId === cur.spotify_id
+        ? await Promise.race([fp.ready, new Promise<null>((res) => setTimeout(() => res(null), Math.max(0, deadline - Date.now() - 4_000)))])
+        : null;
+      const skipB = prepared?.door ?? await Promise.race([
         fetchBranch(advance(afterState, "skipped")),
         new Promise<Branch>((res) => setTimeout(() => res(null), Math.max(0, deadline - Date.now() - 4_000))),
       ]);
       // One step ahead: the finish song's skip door gets its own skip song in the same list.
-      const aheadB = skipB?.track && isPlayable(skipB.track)
+      const aheadB = prepared?.door ? prepared.ahead : skipB?.track && isPlayable(skipB.track)
         ? await scoutAhead(afterState, skipB, [cur.spotify_id], Math.max(0, deadline - Date.now() - 3_000))
         : null;
       // Get close to the end, then re-read Spotify's real position so the swap lands
