@@ -1370,12 +1370,25 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const t = setInterval(() => {
       const current = radioRef.current.current;
       if (current?.spotify_id) {
-      void startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, lastPlayback.current.progressMs || undefined, "connection retry");
+        void startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, lastPlayback.current.progressMs || undefined, "connection retry");
+      } else {
+        // Session started without a track: keep watching Spotify for a song the
+        // user plays themselves and adopt it as the session seed.
+        void (async () => {
+          try {
+            const state = await playbackFn();
+            if (state.status === "ready" && state.spotifyId && state.isPlaying && !radioRef.current.active) {
+              setPlaybackIssue(null);
+              noDeviceSince.current = 0;
+              void startSession();
+            }
+          } catch { /* keep waiting */ }
+        })();
       }
       if (Date.now() - started > NO_DEVICE_GRACE) stopRadio({ keepSpotify: true });
     }, 5_000);
     return () => clearInterval(t);
-  }, [sessionLive, playbackIssue, stopRadio, startSpotifyPlayback]);
+  }, [sessionLive, playbackIssue, stopRadio, startSpotifyPlayback, playbackFn, startSession]);
 
   const startSession = useCallback(async () => {
     setSessionLive(true);
