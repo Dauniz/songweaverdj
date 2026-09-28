@@ -26,7 +26,7 @@ function Art({ src, alt, className }: { src: string | null | undefined; alt: str
 export function PathMaze() {
   const { radio, upNext, upSkip, spotifyIdle, sessionLive, calming, foreignQueued, musicPlaying } = useRadio();
   const { data: latestMemory } = useQuery({
-    queryKey: ["memories"],
+    queryKey: ["memories", "latest"],
     queryFn: async () => {
       const { data } = await supabase
         .from("memory_nodes")
