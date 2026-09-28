@@ -16,7 +16,7 @@ export function SessionControl() {
   if (!hasLastSession) return null;
   return (
     <Button variant="ghost" size="sm" className="h-8 rounded-full px-2.5 text-muted-foreground sm:px-3" onClick={resumeLastSession}>
-      <History className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Resume last</span>
+      <History className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Resume last session</span>
     </Button>
   );
 }
