@@ -36,7 +36,13 @@ type SpotifyConnection = {
   expires_at: string;
 };
 
+const tokenCache = new Map<string, { token: string; expiresAt: number }>();
+const deviceCache = new Map<string, { id: string; name: string }>();
+const deviceInit = new Map<string, number>();
+
 async function spotifyAccess(userId: string) {
+  const cached = tokenCache.get(userId);
+  if (cached && cached.expiresAt >= Date.now() + 60_000) return cached.token;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin
     .from("spotify_connections")
@@ -44,8 +50,15 @@ async function spotifyAccess(userId: string) {
     .eq("user_id", userId)
     .maybeSingle();
   const conn = data as SpotifyConnection | null;
-  if (!conn) return null;
-  if (new Date(conn.expires_at).getTime() >= Date.now() + 60_000) return conn.access_token;
+  if (!conn) {
+    tokenCache.delete(userId);
+    return null;
+  }
+  const exp = new Date(conn.expires_at).getTime();
+  if (exp >= Date.now() + 60_000) {
+    tokenCache.set(userId, { token: conn.access_token, expiresAt: Math.min(exp, Date.now() + 5 * 60_000) });
+    return conn.access_token;
+  }
   const refreshed = await exchangeToken({ grant_type: "refresh_token", refresh_token: conn.refresh_token });
   await supabaseAdmin
     .from("spotify_connections")
@@ -56,6 +69,7 @@ async function spotifyAccess(userId: string) {
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", userId);
+  tokenCache.set(userId, { token: refreshed.access_token, expiresAt: Date.now() + 5 * 60_000 });
   return refreshed.access_token;
 }
 
@@ -96,66 +110,79 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
     const token = await spotifyAccess(context.userId);
     if (!token) return { status: "connect_required" as const, message: "Connect Spotify to start listening." };
     const headers = { Authorization: `Bearer ${token}` };
-    const devicesResponse = await fetch("https://api.spotify.com/v1/me/player/devices", { headers });
-    if (!devicesResponse.ok) return playbackFailure(devicesResponse.status, await devicesResponse.text());
-    const body = (await devicesResponse.json()) as {
-      devices?: { id: string | null; is_active: boolean; is_restricted: boolean; name: string }[];
-    };
-    const device = body.devices?.find((item) => item.is_active && !item.is_restricted && item.id)
-      ?? body.devices?.find((item) => !item.is_restricted && item.id);
-    if (!device?.id) return { status: "no_device" as const, message: "Spotify needs to be open on one of your devices." };
     // [now, "if you skip", skip-ahead]: the skip door already has its own skip song queued,
     // so landing on it never needs a mid-song resend (Spotify re-buffers audibly on resend).
     const chain = [data.spotifyId, ...(data.nextId ? [data.nextId] : []), ...(data.nextId && data.aheadId ? [data.aheadId] : [])];
     const uris = [...new Set(chain)].slice(0, 3).map((id) => `spotify:track:${id}`);
-    const response = await fetch(
-      `https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(device.id)}`,
-      {
+    const body = JSON.stringify({ uris, ...(data.positionMs ? { position_ms: data.positionMs } : {}) });
+
+    const pickDevice = async () => {
+      const r = await fetch("https://api.spotify.com/v1/me/player/devices", { headers });
+      if (!r.ok) return { fail: playbackFailure(r.status, await r.text()) };
+      const b = (await r.json()) as {
+        devices?: { id: string | null; is_active: boolean; is_restricted: boolean; name: string }[];
+      };
+      const d = b.devices?.find((i) => i.is_active && !i.is_restricted && i.id)
+        ?? b.devices?.find((i) => !i.is_restricted && i.id);
+      if (!d?.id) return { fail: { status: "no_device" as const, message: "Spotify needs to be open on one of your devices." } };
+      const dev = { id: d.id, name: d.name };
+      deviceCache.set(context.userId, dev);
+      return { dev };
+    };
+    const send = (id: string) =>
+      fetch(`https://api.spotify.com/v1/me/player/play?device_id=${encodeURIComponent(id)}`, {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ uris, ...(data.positionMs ? { position_ms: data.positionMs } : {}) }),
-      },
-    );
+        body,
+      });
 
-    if (!response.ok) return playbackFailure(response.status, await response.text());
-    // Repeat/shuffle would loop Crate's short line-up (skip → same song again), so turn them off.
-    const dev = `device_id=${encodeURIComponent(device.id)}`;
-    await Promise.all([
-      fetch(`https://api.spotify.com/v1/me/player/repeat?state=off&${dev}`, { method: "PUT", headers }),
-      fetch(`https://api.spotify.com/v1/me/player/shuffle?state=false&${dev}`, { method: "PUT", headers }),
-    ]).catch(() => undefined);
-
-    // Spotify can acknowledge a play command even when a stale/inactive device never
-    // starts it. Do not tell Songweaver it is playing until Spotify reports the requested
-    // track as actively playing; otherwise the observer can react to stale player state.
-    for (const delay of [250, 450, 700]) {
-      await new Promise((resolve) => setTimeout(resolve, delay));
-      const verify = await fetch("https://api.spotify.com/v1/me/player", { headers }).catch(() => null);
-      if (!verify?.ok || verify.status === 204) continue;
-      const playback = (await verify.json()) as { is_playing?: boolean; item?: { id?: string | null } | null };
-      if (playback.is_playing && playback.item?.id === data.spotifyId) {
-        // Spotify's API cannot clear the listener's own "Next in queue", and those songs
-        // play before Crate's list. Count them so Songweaver can ask the listener to clear it.
-        let foreignQueued = 0;
-        try {
-          const q = await fetch("https://api.spotify.com/v1/me/player/queue", { headers });
-          if (q.ok) {
-            const body = (await q.json()) as { queue?: { id?: string | null }[] };
-            const ids = (body.queue ?? []).map((i) => i.id ?? "");
-            const ours = new Set(uris.slice(1).map((u) => u.replace("spotify:track:", "")));
-            const firstOurs = ids.findIndex((id) => ours.has(id));
-            foreignQueued = firstOurs > 0 ? firstOurs : 0;
-          }
-        } catch {
-          /* optional check */
-        }
-        return { status: "playing" as const, deviceName: device.name, foreignQueued };
-      }
+    // Reuse the last device (saves a round trip); only ask Spotify for devices when it fails.
+    let device = deviceCache.get(context.userId) ?? null;
+    let response: Response | null = device ? await send(device.id) : null;
+    if (!response || !response.ok) {
+      deviceCache.delete(context.userId);
+      const picked = await pickDevice();
+      if (picked.fail) return picked.fail;
+      device = picked.dev;
+      response = await send(device.id);
     }
-    return {
-      status: "no_device" as const,
-      message: "Spotify didn't start playback. Open Spotify on a device, then try again.",
-    };
+    if (!response.ok) {
+      deviceCache.delete(context.userId);
+      return playbackFailure(response.status, await response.text());
+    }
+    // Repeat/shuffle would loop Crate's short line-up; turn them off once per device, without waiting.
+    const initKey = `${context.userId}|${device!.id}`;
+    const last = deviceInit.get(initKey) ?? 0;
+    if (Date.now() - last > 30 * 60_000) {
+      deviceInit.set(initKey, Date.now());
+      const dev = `device_id=${encodeURIComponent(device!.id)}`;
+      void Promise.all([
+        fetch(`https://api.spotify.com/v1/me/player/repeat?state=off&${dev}`, { method: "PUT", headers }),
+        fetch(`https://api.spotify.com/v1/me/player/shuffle?state=false&${dev}`, { method: "PUT", headers }),
+      ]).catch(() => undefined);
+    }
+    // Answer right away; the client's once-a-second poll confirms the song actually plays.
+    return { status: "playing" as const, deviceName: device!.name, foreignQueued: 0 };
+  });
+
+/** Counts songs in the listener's own "Next in queue" ahead of Crate's list. */
+export const getForeignQueueCount = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) => z.object({ ids: z.array(z.string().max(64)).max(3) }).parse(d))
+  .handler(async ({ data, context }) => {
+    const token = await spotifyAccess(context.userId);
+    if (!token) return { count: 0 };
+    try {
+      const q = await fetch("https://api.spotify.com/v1/me/player/queue", { headers: { Authorization: `Bearer ${token}` } });
+      if (!q.ok) return { count: 0 };
+      const body = (await q.json()) as { queue?: { id?: string | null }[] };
+      const ids = (body.queue ?? []).map((i) => i.id ?? "");
+      const ours = new Set(data.ids);
+      const firstOurs = ids.findIndex((id) => ours.has(id));
+      return { count: firstOurs > 0 ? firstOurs : 0 };
+    } catch {
+      return { count: 0 };
+    }
   });
 
 export const getSpotifyPlayback = createServerFn({ method: "GET" })
