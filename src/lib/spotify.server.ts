@@ -67,7 +67,7 @@ export async function exchangeToken(body: Record<string, string>) {
 type SpotifyTrack = {
   id: string | null;
   name: string;
-  artists: { name: string }[];
+  artists: { name: string; id?: string | null }[];
   album?: { name: string; images?: { url: string }[] };
   preview_url?: string | null;
   external_urls?: { spotify?: string };
@@ -85,6 +85,8 @@ export type IngestRow = {
   source_type: string;
   source_name: string;
   source_period: string | null;
+  artist_id: string | null;
+  genres?: string | null;
 };
 
 export function toRow(
@@ -105,6 +107,7 @@ export function toRow(
     source_type,
     source_name,
     source_period,
+    artist_id: t.artists[0]?.id ?? null,
   };
 }
 

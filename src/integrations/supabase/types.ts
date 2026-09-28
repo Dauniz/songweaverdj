@@ -95,8 +95,10 @@ export type Database = {
       library_tracks: {
         Row: {
           album: string | null
+          artist_id: string | null
           artists: string
           created_at: string
+          genres: string | null
           id: string
           image_url: string | null
           is_demo: boolean
@@ -111,8 +113,10 @@ export type Database = {
         }
         Insert: {
           album?: string | null
+          artist_id?: string | null
           artists: string
           created_at?: string
+          genres?: string | null
           id?: string
           image_url?: string | null
           is_demo?: boolean
@@ -127,8 +131,10 @@ export type Database = {
         }
         Update: {
           album?: string | null
+          artist_id?: string | null
           artists?: string
           created_at?: string
+          genres?: string | null
           id?: string
           image_url?: string | null
           is_demo?: boolean

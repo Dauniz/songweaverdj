@@ -482,6 +482,27 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
     if (unique.length === 0 && limited) {
       throw new Error("Spotify is limiting requests right now. Wait a few minutes and try syncing again.");
     }
+    // Genre tags per artist (one lookup per 50 artists). Best effort: sync never fails on this.
+    const artistIds = [...new Set(unique.map((r) => r.artist_id).filter((x): x is string => !!x))];
+    const genresBy = new Map<string, string>();
+    setP({ stage: "Reading artist genres…", done: 0, total: artistIds.length });
+    for (let i = 0; i < artistIds.length && !limited; i += 50) {
+      try {
+        if (i > 0) await pace(250);
+        const res = await spotifyGet<{ artists: ({ id: string; genres?: string[] } | null)[] }>(
+          token,
+          `/artists?ids=${artistIds.slice(i, i + 50).join(",")}`,
+        );
+        for (const a of res.artists ?? [])
+          if (a?.genres?.length) genresBy.set(a.id, a.genres.slice(0, 4).join(", "));
+      } catch (e) {
+        console.error("artist genres failed", e);
+        break;
+      }
+      setP({ done: Math.min(i + 50, artistIds.length) });
+    }
+    for (const r of unique) r.genres = r.artist_id ? (genresBy.get(r.artist_id) ?? null) : null;
+
     setP({ stage: `Saving ${unique.length} tracks…`, done: 0, total: unique.length });
     for (let i = 0; i < unique.length; i += 500) {
       const { error } = await context.supabase.from("library_tracks").upsert(
