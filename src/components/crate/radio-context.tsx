@@ -81,6 +81,8 @@ type RadioContextValue = {
   resumeLastSession: () => void;
   events: MazeEvent[];
   spotifyIdle: boolean;
+  /** Spotify is actually producing sound right now (drives the live equaliser icon). */
+  musicPlaying: boolean;
   /** Skip-spam cooldown: Spotify paused, Crate catching its breath. */
   calming: boolean;
   foreignQueued: number;
@@ -236,6 +238,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const eventsRef = useRef(events);
   eventsRef.current = events;
   const [spotifyIdle, setSpotifyIdle] = useState(false);
+  const [musicPlaying, setMusicPlaying] = useState(false);
   const [calming, setCalming] = useState(false);
   /** Songs in the listener's own Spotify "Next in queue" — they'd play before Crate's list. */
   const [foreignQueued, setForeignQueued] = useState(0);
@@ -1227,6 +1230,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           state.spotifyId === previous.spotifyId &&
           state.progressMs > previous.progressMs + 250;
         const playing = state.status === "ready" && (state.isPlaying || progressMoved);
+        setMusicPlaying(playing);
         if (!playing) {
           // A second skip runs the two-song context dry. Spotify commonly reports the skip
           // door paused at its beginning; stop and rebuild rather than guessing another song.
@@ -1665,6 +1669,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         resumeLastSession,
         events,
         spotifyIdle,
+        musicPlaying: musicPlaying && sessionLive && !spotifyIdle && !calming && !playbackIssue,
         calming,
         foreignQueued,
       }}
