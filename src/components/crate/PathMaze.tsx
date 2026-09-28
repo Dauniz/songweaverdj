@@ -71,84 +71,14 @@ export function PathMaze() {
               </span>
             </div>
           )}
-          <div className="rounded-xl border border-primary/40 bg-primary/5 p-3.5">
-            <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-primary">
-              <span className="flex h-3.5 items-end gap-[2px]" aria-hidden>
-                {[0, 1, 2, 3].map((i) => (
-                  <span
-                    key={i}
-                    className={cn("eq-bar w-[2px] rounded-full bg-primary", !musicPlaying && "opacity-60")}
-                    style={{
-                      height: musicPlaying ? "100%" : "35%",
-                      animationDelay: `${i * 0.15}s`,
-                      animationDuration: `${0.7 + i * 0.12}s`,
-                      animationPlayState: musicPlaying ? "running" : "paused",
-                    }}
-                  />
-                ))}
-              </span>
-              You are here · {ROAD[radio.road].name}
-            </div>
-            <div className="mt-2.5 flex items-center gap-3">
-              <Art src={radio.current.image_url} alt={radio.current.name} className="h-14 w-14" />
-              <div className="min-w-0">
-                <div className="truncate text-base font-semibold">{radio.current.name}</div>
-                <div className="truncate text-sm text-muted-foreground">{radio.current.artists}</div>
-              </div>
-            </div>
-            {radio.current.why && (
-              <p className="mt-2.5 text-xs leading-relaxed text-muted-foreground">
-                <span className="font-semibold text-foreground">Why Crate chose it:</span> {radio.current.why}
-              </p>
-            )}
-            <SongNote key={radio.current.spotify_id} trackName={radio.current.name} artists={radio.current.artists} />
-          </div>
-
-
-
-          <div className="pt-1">
-            {/* Junction fork: one trunk leaving the current song, splitting into
-                the straight "keep walking" branch and the turning "skip" branch. */}
-            <div className="relative h-7" aria-hidden>
-              <span className="absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 bg-border" />
-              <span className="absolute left-1/4 right-1/4 top-3 h-px bg-border" />
-              <span
-                className={cn(
-                  "absolute left-1/4 top-3 h-4 w-px bg-primary/70",
-                  !upNext && "fork-pulse",
-                )}
-              />
-              <span
-                className={cn(
-                  "absolute left-3/4 top-3 h-4 w-px bg-accent/70",
-                  !upSkip && "fork-pulse",
-                )}
-              />
-              <span className="absolute left-1/2 top-[7px] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-primary" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <Door
-                tone="keep"
-                label="Keep walking"
-                sublabel="if you finish"
-                road={radio.road}
-                title={upNext?.name}
-                artists={upNext?.artists}
-                image={upNext?.image_url}
-                icon={<Check className="h-3 w-3" />}
-              />
-              <Door
-                tone="turn"
-                label="Take a turn"
-                sublabel="if you skip"
-                road={upSkip?.road ?? (radio.consecutiveSkips >= 1 ? "mixed" : radio.road === "vibe" ? "era" : "vibe")}
-                title={upSkip?.track.name}
-                artists={upSkip?.track.artists}
-                image={upSkip?.track.image_url}
-                icon={<SkipForward className="h-3 w-3" />}
-              />
-            </div>
-          </div>
+          <JunctionTree
+            current={radio.current}
+            road={radio.road}
+            consecutiveSkips={radio.consecutiveSkips}
+            upNext={upNext}
+            upSkip={upSkip}
+            musicPlaying={musicPlaying}
+          />
 
         </div>
       )}
