@@ -19,7 +19,7 @@ type Step = {
 const SETUP_STEPS: Step[] = [
   {
     target: "spotify-sync",
-    eyebrow: "Step 1 of 4",
+    eyebrow: "Step 1 of 3",
     title: "Bring in your music",
     body: "Sync imports your liked songs and songs from playlists you created. Crate uses this as the map for every session.",
   },
@@ -31,7 +31,7 @@ const SETUP_STEPS: Step[] = [
   },
   {
     target: "side-roads",
-    eyebrow: "Step 4 of 4",
+    eyebrow: "Step 3 of 3",
     title: "Bend the path with side roads",
     body: "The checkboxes under the chat are side roads — Wormhole, Scene, Wave, Texture and Deep cuts. They bend the current road: each adds its own rule or filter to what Crate plays next. Only one can be on at a time, and turning one off puts you back on the main path. Tap the question mark for what each one does.",
   },
