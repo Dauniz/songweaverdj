@@ -75,8 +75,13 @@ export function PathMaze() {
                 {[0, 1, 2, 3].map((i) => (
                   <span
                     key={i}
-                    className="eq-bar w-[2px] rounded-full bg-primary"
-                    style={{ height: "100%", animationDelay: `${i * 0.15}s`, animationDuration: `${0.7 + i * 0.12}s` }}
+                    className={cn("eq-bar w-[2px] rounded-full bg-primary", !musicPlaying && "opacity-60")}
+                    style={{
+                      height: musicPlaying ? "100%" : "35%",
+                      animationDelay: `${i * 0.15}s`,
+                      animationDuration: `${0.7 + i * 0.12}s`,
+                      animationPlayState: musicPlaying ? "running" : "paused",
+                    }}
                   />
                 ))}
               </span>
