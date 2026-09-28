@@ -918,6 +918,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         landingPlan.current = null;
         preSkip.current = null;
         quickSkipUntil.current = 0;
+        setUpSkip(null); // the old door was chosen for another song — decide a fresh one first
         pushSpotifyLog({ kind: "event", at: Date.now(), text: `MANUAL — "${track.name}" picked in Spotify; Crate will line up a skip song (one resend)` });
       } else if (tid) {
         const at = lineup.current.indexOf(tid);
@@ -943,6 +944,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           // Landed on the last song Spotify had: nothing plays after it until Crate sends.
           awaitingSkipPair.current = true;
           quickSkipUntil.current = Date.now() + 1_000;
+          setUpSkip(null); // this song WAS the skip door; its own door is shown once decided
           if (plan && plan.forId === tid && plan.sessionId === s.sessionId) {
             void landOnFrontier(track, landedState, plan, progressMs);
           } else {
@@ -961,7 +963,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const cur = radio.current;
     const skip = upSkip?.track;
-    if (!sessionLive || !cur?.spotify_id || !skip?.spotify_id || !isPlayable(skip)) return;
+    if (!sessionLive || !cur?.spotify_id || !skip?.spotify_id || !isPlayable(skip) || skip.spotify_id === cur.spotify_id) return;
     if (calmingRef.current) return; // hands off Spotify while Crate waits out the clicking
     if (door.current?.forId === cur.spotify_id && door.current.track.spotify_id === skip.spotify_id) return;
     if (lastPlayback.current.spotifyId !== cur.spotify_id) return;
