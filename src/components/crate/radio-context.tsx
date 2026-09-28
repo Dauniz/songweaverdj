@@ -614,10 +614,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     async (s: RadioState, skip: Branch, exclude: (string | undefined | null)[] = [], ms = 6_000): Promise<Branch> => {
       if (!skip?.track.spotify_id) return null;
       const onSkip = { ...advance(s, "skipped"), current: skip.track, road: skip.road };
-      const b = await Promise.race([
-        fetchBranch(advance(onSkip, "skipped"), undefined, [s.current?.spotify_id, ...exclude].filter(Boolean) as string[]),
-        new Promise<Branch>((res) => setTimeout(() => res(null), ms)),
-      ]);
+      const excluded = [s.current?.spotify_id, skip.track.spotify_id, ...exclude].filter(Boolean) as string[];
+      const request = () => fetchBranch(advance(onSkip, "skipped"), undefined, excluded);
+      const run = () => ms > 0
+        ? Promise.race([request(), new Promise<Branch>((res) => setTimeout(() => res(null), ms))])
+        : request();
+      let b = await run();
+      if (!b?.track.spotify_id || !isPlayable(b.track) || b.track.spotify_id === skip.track.spotify_id) {
+        // AI or network can occasionally return no usable pick. Retry only on failure so a
+        // long-running chain cannot silently degrade from A → B → C into A → B.
+        b = await run();
+      }
       return b?.track.spotify_id && isPlayable(b.track) && b.track.spotify_id !== skip.track.spotify_id ? b : null;
     },
     [fetchBranch],
@@ -835,11 +842,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           const onB = landedState;
           const ready = (async () => {
             const still = () => radioRef.current.sessionId === sessionId && !calmingRef.current;
-            const doorD = await scoutAhead(onB, aheadB, [upNextRef.current?.spotify_id], 10_000);
+            const doorD = await scoutAhead(onB, aheadB, [upNextRef.current?.spotify_id], 0);
             if (!doorD || !still()) return null;
             const onC: RadioState = { ...advance(onB, "skipped"), current: aheadTrack, road: skipRoad };
-            const aheadE = await scoutAhead(onC, doorD, [tid], 10_000);
-            if (!still()) return null;
+            const aheadE = await scoutAhead(onC, doorD, [tid], 0);
+            if (!aheadE || !still()) return null;
             note("door", `One step ahead: if you skip "${aheadTrack.name}" too → "${doorD.track.name}"`);
             return { door: doorD, ahead: aheadE };
           })();
@@ -847,7 +854,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         } else if (plan && plan.forId === tid) {
           // Landed on the skip-ahead: send its prepared list at ~0:00 of the song
           // (if Crate is still finishing it, send the instant it's ready).
-          awaitingSkipPair.current = false;
+          // C has started, but Spotify has no D/E behind it until this prepared plan is
+          // accepted. Any additional skip before then must pause rather than drift.
+          awaitingSkipPair.current = true;
           quickSkipUntil.current = Date.now() + 1_000;
           const observedAt = Date.now();
           const gen = listGeneration.current;
@@ -908,12 +917,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const s = radioRef.current;
     const afterState: RadioState = { ...advance(s, "played"), current: fin, road: s.road };
     const ready = (async () => {
-      const skipB = await Promise.race([
-        fetchBranch(advance(afterState, "skipped"), undefined, [cur.spotify_id!]),
-        new Promise<Branch>((res) => setTimeout(() => res(null), 15_000)),
-      ]);
+      const skipB = await fetchBranch(advance(afterState, "skipped"), undefined, [cur.spotify_id!]);
       if (!skipB?.track.spotify_id || !isPlayable(skipB.track) || skipB.track.spotify_id === fin.spotify_id) return null;
-      const aheadB = await scoutAhead(afterState, skipB, [cur.spotify_id], 12_000);
+      const aheadB = await scoutAhead(afterState, skipB, [cur.spotify_id], 0);
+      if (!aheadB) return null;
       return { door: skipB, ahead: aheadB };
     })();
     finishPlan.current = { forId: fin.spotify_id, fromId: cur.spotify_id, ready };
