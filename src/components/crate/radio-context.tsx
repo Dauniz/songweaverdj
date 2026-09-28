@@ -1312,6 +1312,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const openSpotify = useCallback(() => {
     const track = radioRef.current.current;
     if (!track?.spotify_id) return;
+    const trackId = track.spotify_id;
     // Close the popup and wait quietly for the user to open Spotify — it only
     // reappears if they press play again.
     setPlaybackIssue(null);
@@ -1333,9 +1334,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const retry = async () => {
       attempts += 1;
       const queuedDoor = door.current;
-      const at = lineup.current.indexOf(track.spotify_id);
+      const at = lineup.current.indexOf(trackId);
       const queuedAhead = at >= 0 ? lineupTracks.current.get(lineup.current[at + 2] ?? "") : undefined;
-      if (await startSpotifyPlayback(track, true, queuedDoor && queuedDoor.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry", queuedAhead)) return;
+      if (await startSpotifyPlayback(track, true, queuedDoor && queuedDoor.forId === trackId ? queuedDoor.track : null, undefined, "open Spotify retry", queuedAhead)) return;
       if (attempts < 10) retryTimer.current = setTimeout(() => void retry(), 3_000);
     };
     retryTimer.current = setTimeout(() => void retry(), 2_000);
