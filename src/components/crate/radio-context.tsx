@@ -501,39 +501,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     return undefined;
   }, [radio, prefetch, settleTick]);
 
-  // Watchdog: the door boxes must never stay on "Finding…". Display-only — it reuses the
-  // song already queued in Spotify, re-reads settled branches, or re-runs a skipped prefetch.
-  const emptySince = useRef(0);
-  useEffect(() => {
-    const t = setInterval(() => {
-      const s = radioRef.current;
-      if (!s.active || !s.current) { emptySince.current = 0; return; }
-      if (upNextRef.current && upSkipRef.current) { emptySince.current = 0; return; }
-      if (!emptySince.current) emptySince.current = Date.now();
-      const cid = s.current.spotify_id;
-      if (!upSkipRef.current) {
-        const ps = preSkip.current;
-        if (ps && ps.forId === cid && ps.branch?.track) setUpSkip(ps.branch);
-        else if (door.current && door.current.forId === cid) {
-          setUpSkip({ track: door.current.track, road: advance(s, "skipped").road });
-        }
-      }
-      const b = branches.current;
-      if (b) {
-        const key = b.key;
-        if (!upNextRef.current) void b.played.then((x) => { if (x && branches.current?.key === key) setUpNext(x.track); });
-        if (!upSkipRef.current) void b.skipped.then((x) => { if (x && branches.current?.key === key) setUpSkip(x); });
-      }
-      // Still empty after a while (prefetch was held back, or came back empty): scout again.
-      if (Date.now() - emptySince.current > 4000 && !calmingRef.current && !lensTimer.current) {
-        emptySince.current = Date.now();
-        branches.current = null;
-        prefetch(s);
-      }
-    }, 1000);
-    return () => clearInterval(t);
-  }, [prefetch]);
-
   const startRadio = useCallback(
     (tracks: CardTrack[], seedPrompt: string, startAt = 0) => {
       const ordered = [...tracks.slice(startAt), ...tracks.slice(0, startAt)];
