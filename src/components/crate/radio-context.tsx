@@ -193,6 +193,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const noPlayFor = useRef("");
   // The single song lined up behind the current one in Spotify (the "if you skip" door).
   const door = useRef<{ forId: string; track: RadioTrack } | null>(null);
+  const attemptedDoor = useRef<{ forId: string; track: RadioTrack; ahead: RadioTrack | null } | null>(null);
   // "If you skip" door for the upcoming song, computed before the hand-over near the end.
   const preSkip = useRef<{ forId: string; branch: Branch } | null>(null);
   const scoutAbort = useRef<AbortController | null>(null);
@@ -718,6 +719,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       opts?: { stateAt?: RadioState | undefined; frontierDoor?: Promise<Branch> | undefined },
     ) => {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
+      // Retries (Spotify was closed, "Open Spotify", reconnect) often don't know the skip
+      // song because it's only confirmed after a successful send. Reuse the last one tried.
+      const pending = attemptedDoor.current?.forId === track.spotify_id ? attemptedDoor.current : null;
+      const pre = preSkip.current?.forId === track.spotify_id ? preSkip.current.branch?.track ?? null : null;
+      if (!skipDoor || !isPlayable(skipDoor)) skipDoor = pending?.track ?? pre ?? skipDoor;
+      if (!aheadDoor && pending?.ahead && skipDoor?.spotify_id === pending.track.spotify_id) aheadDoor = pending.ahead;
+      if (skipDoor?.spotify_id && isPlayable(skipDoor) && skipDoor.spotify_id !== track.spotify_id) {
+        attemptedDoor.current = { forId: track.spotify_id, track: skipDoor, ahead: aheadDoor ?? null };
+      }
       const nextId = skipDoor?.spotify_id && isPlayable(skipDoor) ? skipDoor.spotify_id : undefined;
       if (!nextId || nextId === track.spotify_id) {
         if (!quiet) {
