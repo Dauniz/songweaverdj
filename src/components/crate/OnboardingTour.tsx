@@ -148,6 +148,7 @@ export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
     markDone(userId, SETUP_KEY);
     setFlags((f) => ({ ...(f ?? {}), [SETUP_KEY]: true }));
     setSetupStep(null);
+    window.dispatchEvent(new Event("songweaver-onboarding-done"));
   };
   const dismissFeedback = () => {
     markDone(userId, FEEDBACK_KEY);
