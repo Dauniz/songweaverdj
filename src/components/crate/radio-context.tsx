@@ -66,7 +66,7 @@ type RadioContextValue = {
   askSteer: boolean;
   dismissSteer: () => void;
   startRadio: (tracks: CardTrack[], seedPrompt: string, startAt?: number) => void;
-  rerootTo: (track: CardTrack) => void;
+  rerootTo: (track: CardTrack, prompt?: string) => void;
   stopRadio: () => void;
   next: (outcome: Outcome) => void;
   toggleChip: (chip: string) => void;
