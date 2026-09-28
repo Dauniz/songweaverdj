@@ -27,7 +27,7 @@ function applyDeepCuts<T extends { sources: { period: string | null }[] }>(pool:
   const cutoff = now.getUTCFullYear() * 12 + now.getUTCMonth() - 12;
   const deep = pool.filter((s) => {
     if (s.sources.length > 1) return false;
-    const months = s.sources.map((x) => monthIndex(x.period)).filter((m): m is number => m !== null);
+    const months = s.sources.map((x) => dayIndex(x.period)).filter((m): m is number => m !== null);
     return months.length > 0 && Math.max(...months) <= cutoff;
   });
   return deep.length >= 15 ? deep : pool;
