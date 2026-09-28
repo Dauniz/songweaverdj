@@ -1422,12 +1422,28 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const onVis = () => { if (document.hidden) appOpened = true; };
     window.addEventListener("blur", onBlur);
     document.addEventListener("visibilitychange", onVis);
-    window.location.href = `spotify:track:${track.spotify_id}`;
+    // Launch the app via the spotify: link without navigating this page, so an
+    // embedded preview frame doesn't swallow it or turn it into a web player.
+    const appUrl = `spotify:track:${track.spotify_id}`;
+    const frame = document.createElement("iframe");
+    frame.style.display = "none";
+    frame.src = appUrl;
+    document.body.appendChild(frame);
+    try {
+      const a = document.createElement("a");
+      a.href = appUrl;
+      a.rel = "noopener";
+      a.click();
+    } catch { /* ignore */ }
     setTimeout(() => {
+      frame.remove();
       window.removeEventListener("blur", onBlur);
       document.removeEventListener("visibilitychange", onVis);
-      if (!appOpened) window.open(webUrl, "_blank", "noopener,noreferrer");
-    }, 1500);
+      // Only fall back to Spotify Web when the app clearly didn't take focus.
+      if (!appOpened && document.hasFocus()) {
+        window.open(webUrl, "_blank", "noopener,noreferrer");
+      }
+    }, 2500);
     let attempts = 0;
     const retry = async () => {
       attempts += 1;
