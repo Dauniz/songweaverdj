@@ -1506,10 +1506,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   const connectSpotify = useCallback(async () => {
     try {
+      const framed = window.top !== window.self;
+      const pre = framed ? window.open("", "spotify-auth") : null;
       const { url } = await authUrlFn({ data: { origin: window.location.origin } });
+      if (pre) {
+        pre.location.href = url;
+        return;
+      }
       const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      if (ios) {
+      if (ios && !framed) {
         window.location.assign(url);
         return;
       }
