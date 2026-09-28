@@ -129,9 +129,7 @@ export function MemoryInspector() {
       <div className="scrollbar-thin min-h-0 shrink overflow-y-auto">
         <PathMaze />
       </div>
-      <div className="shrink-0 border-t px-4 py-3 text-xs" />
-
-      <div className={cn("shrink-0 px-4 pt-1 pb-3 text-xs", (consoleOpen || consoleAnimating) && "hidden")}>
+      <div className={cn("shrink-0 px-4 pt-3 pb-3 text-xs", (consoleOpen || consoleAnimating) && "hidden")}>
         <div className="flex flex-wrap gap-1.5">
           {Object.entries(counts).filter(([k]) => KIND_LABEL[k]).map(([k, v]) => (
             <span key={k} className="inline-flex items-center gap-1">
