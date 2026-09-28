@@ -191,9 +191,44 @@ function take<T extends { spotify_id: string }>(from: T[], n: number, seen: Set<
 }
 
 /**
- * Layered candidate pool (~75 high-signal songs).
- * Same musical reach — artist web, playlist neighbours, era, wildcards — at a
- * fraction of the prompt size, so Crate reasons over signal instead of noise.
+ * Spread a sample across every corner of the library: round-robin over playlists
+ * (and loose saves), so Crate can spot the same sound in a place the current playlist never reaches.
+ */
+function libraryWideSample(from: Song[], n: number, seen: Set<string>, preferForgotten = false) {
+  const buckets = new Map<string, Song[]>();
+  for (const s of from) {
+    const key = s.sources[0]?.name ?? "_";
+    const b = buckets.get(key) ?? [];
+    b.push(s);
+    buckets.set(key, b);
+  }
+  if (preferForgotten)
+    for (const b of buckets.values())
+      b.sort((a, c) => a.sources.length - c.sources.length);
+  const lists = shuffle([...buckets.values()]);
+  const out: Song[] = [];
+  for (let round = 0; out.length < n && round < 50; round++) {
+    let added = false;
+    for (const b of lists) {
+      if (out.length >= n) break;
+      const s = b[round];
+      if (!s) continue;
+      added = true;
+      if (seen.has(s.spotify_id)) continue;
+      seen.add(s.spotify_id);
+      out.push(s);
+    }
+    if (!added) break;
+  }
+  return out;
+}
+
+/**
+ * Road-specific candidate pool (~75 songs). Each road gets candidates for its own mission:
+ * - Vibe: artists working this session + a library-wide spread (forgotten songs first).
+ *   No era or playlist-neighbour filtering — Crate judges sound, instruments and genre itself.
+ * - Era: playlist neighbours and nearby months (time and chapter continuity).
+ * - New angle: deliberate contrast — wide wildcards, avoiding the session's artists.
  */
 function buildShortlist(
   road: "vibe" | "era" | "mixed",
@@ -205,26 +240,35 @@ function buildShortlist(
   const out: Song[] = [];
   const shuffled = shuffle(available);
 
-  // 1. Artist web — the artists that are working in this session.
-  out.push(...take(shuffled.filter((s) => likedArtists.has(s.artists)), 15, seen));
-
-  // 2. Playlist neighbours — songs sharing a playlist with the anchor.
-  if (anchor) {
-    const playlists = new Set(
-      anchor.sources.filter((x) => x.type === "playlist").map((x) => x.name),
-    );
-    const neighbours = shuffled.filter((s) =>
-      s.sources.some((x) => x.type === "playlist" && playlists.has(x.name)),
-    );
-    out.push(...take(neighbours, road === "era" ? 30 : 25, seen));
+  if (road === "vibe") {
+    out.push(...take(shuffled.filter((s) => likedArtists.has(s.artists)), 20, seen));
+    out.push(...libraryWideSample(shuffled, 55, seen, true));
+    return out;
   }
 
-  // 3. Era / nearby months around the anchor.
-  if (anchor) out.push(...take(eraCandidates(anchor, available), road === "era" ? 25 : 20, seen));
+  if (road === "era") {
+    out.push(...take(shuffled.filter((s) => likedArtists.has(s.artists)), 10, seen));
+    if (anchor) {
+      const playlists = new Set(
+        anchor.sources.filter((x) => x.type === "playlist").map((x) => x.name),
+      );
+      out.push(
+        ...take(
+          shuffled.filter((s) => s.sources.some((x) => x.type === "playlist" && playlists.has(x.name))),
+          30,
+          seen,
+        ),
+      );
+      out.push(...take(eraCandidates(anchor, available), 30, seen));
+    }
+    out.push(...take(shuffled, 75 - out.length, seen));
+    return out;
+  }
 
-  // 4. Wildcards — keeps the maze surprising and deep cuts reachable.
-  out.push(...take(shuffled, road === "vibe" ? 20 : 15, seen));
-
+  // New angle: step away from what's been playing.
+  const fresh = shuffled.filter((s) => !likedArtists.has(s.artists));
+  out.push(...libraryWideSample(fresh, 45, seen));
+  out.push(...take(fresh, 30, seen));
   return out;
 }
 
@@ -427,7 +471,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
 
     const roadRule =
       data.road === "vibe"
-        ? "Follow the VIBE: same mood, energy, setting and sonic feel as the songs they played through, regardless of era. Similar or adjacent artists are great."
+        ? "Follow the VIBE: use your own music knowledge of each artist's sound — instrumentation, production, genre, tempo, vocal style, mood — and pick the candidate that sounds closest to the songs they played through, regardless of era or which playlist it sits in. Prefer finding the same sound from a different artist or a forgotten corner of their library over the obvious neighbour."
         : data.road === "era"
           ? "Follow the ERA: songs from the same playlists / time period as the last song they played through, filtered by their steering chips."
           : "Their last two picks were skipped. Try a fresh angle: blend era and vibe, or change direction noticeably, to figure out what they're after.";
