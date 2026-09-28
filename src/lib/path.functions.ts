@@ -23,12 +23,11 @@ function applyCodeLens<T extends { sources: { name: string; type: string; period
 
 /** Deep cuts: songs saved in at most one place, last added 12+ months ago (forgotten, not staples). */
 function applyDeepCuts<T extends { sources: { period: string | null }[] }>(pool: T[]): T[] {
-  const now = new Date();
-  const cutoff = now.getUTCFullYear() * 12 + now.getUTCMonth() - 12;
+  const cutoff = Math.round(Date.now() / 86_400_000) - 365;
   const deep = pool.filter((s) => {
     if (s.sources.length > 1) return false;
-    const months = s.sources.map((x) => dayIndex(x.period)).filter((m): m is number => m !== null);
-    return months.length > 0 && Math.max(...months) <= cutoff;
+    const days = s.sources.map((x) => dayIndex(x.period)).filter((d): d is number => d !== null);
+    return days.length > 0 && Math.max(...days) <= cutoff;
   });
   return deep.length >= 15 ? deep : pool;
 }
