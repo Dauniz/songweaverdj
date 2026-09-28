@@ -1482,7 +1482,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     setPlaybackIssue(null);
     // Try the installed desktop/mobile app first; if the page is still visible
     // shortly after, the app isn't installed, so fall back to Spotify Web.
-    const webUrl = track.spotify_url ?? `https://open.spotify.com/track/${track.spotify_id}`;
+    // Open Spotify itself, not the track: a track link makes Spotify play it inside
+    // its album, filling "Next up" with album songs. Crate sends its own list instead.
+    const webUrl = "https://open.spotify.com/";
     let appOpened = false;
     const onBlur = () => { appOpened = true; };
     const onVis = () => { if (document.hidden) appOpened = true; };
@@ -1490,7 +1492,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     document.addEventListener("visibilitychange", onVis);
     // Launch the app via the spotify: link without navigating this page, so an
     // embedded preview frame doesn't swallow it or turn it into a web player.
-    const appUrl = `spotify:track:${track.spotify_id}`;
+    const appUrl = "spotify:";
     const frame = document.createElement("iframe");
     frame.style.display = "none";
     frame.src = appUrl;
