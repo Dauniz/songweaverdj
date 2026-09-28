@@ -24,7 +24,20 @@ function Art({ src, alt, className }: { src: string | null | undefined; alt: str
 
 /** Visual "maze solver": the path walked so far, and the two doors ahead. */
 export function PathMaze() {
-  const { radio, upNext, upSkip, spotifyIdle, sessionLive, calming, foreignQueued } = useRadio();
+  const { radio, upNext, upSkip, spotifyIdle, sessionLive, calming, foreignQueued, musicPlaying } = useRadio();
+  const { data: latestMemory } = useQuery({
+    queryKey: ["memories"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("memory_nodes")
+        .select("content, kind, blob_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(1);
+      return data?.[0] ?? null;
+    },
+    select: (rows: unknown) => rows as { content: string; kind: string; blob_id: string | null } | null,
+    staleTime: 30_000,
+  });
 
   return (
     <div className="border-b px-4 py-4">
