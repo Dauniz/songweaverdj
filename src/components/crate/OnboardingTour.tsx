@@ -27,7 +27,7 @@ const SETUP_STEPS: Step[] = [
     target: "prompt",
     eyebrow: "Step 2 of 3",
     title: "Start a session from here",
-    body: "Describe a vibe or search for a song and a live session starts. Once Spotify is connected, pressing play in the Spotify app starts one too. Finishes, skips, and songs you choose steer the maze.",
+    body: "Describe a vibe, search for a song, or press Start session. Once live, Crate follows Spotify: finishes, skips, and songs you pick there steer the maze.",
   },
   {
     target: "side-roads",
