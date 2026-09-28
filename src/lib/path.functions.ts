@@ -191,9 +191,9 @@ function take<T extends { spotify_id: string }>(from: T[], n: number, seen: Set<
 }
 
 /**
- * Layered candidate pool (~140 songs instead of ~700 random ones).
+ * Layered candidate pool (~75 high-signal songs).
  * Same musical reach — artist web, playlist neighbours, era, wildcards — at a
- * quarter of the prompt size, so Crate reasons over signal instead of noise.
+ * fraction of the prompt size, so Crate reasons over signal instead of noise.
  */
 function buildShortlist(
   road: "vibe" | "era" | "mixed",
@@ -206,7 +206,7 @@ function buildShortlist(
   const shuffled = shuffle(available);
 
   // 1. Artist web — the artists that are working in this session.
-  out.push(...take(shuffled.filter((s) => likedArtists.has(s.artists)), 25, seen));
+  out.push(...take(shuffled.filter((s) => likedArtists.has(s.artists)), 15, seen));
 
   // 2. Playlist neighbours — songs sharing a playlist with the anchor.
   if (anchor) {
@@ -216,17 +216,26 @@ function buildShortlist(
     const neighbours = shuffled.filter((s) =>
       s.sources.some((x) => x.type === "playlist" && playlists.has(x.name)),
     );
-    out.push(...take(neighbours, road === "era" ? 50 : 40, seen));
+    out.push(...take(neighbours, road === "era" ? 30 : 25, seen));
   }
 
   // 3. Era / nearby months around the anchor.
-  if (anchor) out.push(...take(eraCandidates(anchor, available), road === "era" ? 45 : 35, seen));
+  if (anchor) out.push(...take(eraCandidates(anchor, available), road === "era" ? 25 : 20, seen));
 
   // 4. Wildcards — keeps the maze surprising and deep cuts reachable.
-  out.push(...take(shuffled, road === "vibe" ? 50 : 40, seen));
+  out.push(...take(shuffled, road === "vibe" ? 20 : 15, seen));
 
   return out;
 }
+
+// Short-lived per-user cache of Crate's learned memory (same for both branch prefetches).
+type MemoryBundle = {
+  learned: { content: string; origin: string }[];
+  walrusBy: Map<string, { text: string }[]>;
+};
+const memoryCache = new Map<string, { at: number; bundle: MemoryBundle }>();
+const MEMORY_TTL = 90_000;
+
 
 const reserveSchema = z.object({
   seed: z.object({ spotifyId: z.string(), name: z.string(), artists: z.string() }),
