@@ -191,9 +191,9 @@ function take<T extends { spotify_id: string }>(from: T[], n: number, seen: Set<
 }
 
 /**
- * Layered candidate pool (~140 songs instead of ~700 random ones).
+ * Layered candidate pool (~75 high-signal songs).
  * Same musical reach — artist web, playlist neighbours, era, wildcards — at a
- * quarter of the prompt size, so Crate reasons over signal instead of noise.
+ * fraction of the prompt size, so Crate reasons over signal instead of noise.
  */
 function buildShortlist(
   road: "vibe" | "era" | "mixed",
@@ -206,7 +206,7 @@ function buildShortlist(
   const shuffled = shuffle(available);
 
   // 1. Artist web — the artists that are working in this session.
-  out.push(...take(shuffled.filter((s) => likedArtists.has(s.artists)), 25, seen));
+  out.push(...take(shuffled.filter((s) => likedArtists.has(s.artists)), 15, seen));
 
   // 2. Playlist neighbours — songs sharing a playlist with the anchor.
   if (anchor) {
@@ -216,17 +216,26 @@ function buildShortlist(
     const neighbours = shuffled.filter((s) =>
       s.sources.some((x) => x.type === "playlist" && playlists.has(x.name)),
     );
-    out.push(...take(neighbours, road === "era" ? 50 : 40, seen));
+    out.push(...take(neighbours, road === "era" ? 30 : 25, seen));
   }
 
   // 3. Era / nearby months around the anchor.
-  if (anchor) out.push(...take(eraCandidates(anchor, available), road === "era" ? 45 : 35, seen));
+  if (anchor) out.push(...take(eraCandidates(anchor, available), road === "era" ? 25 : 20, seen));
 
   // 4. Wildcards — keeps the maze surprising and deep cuts reachable.
-  out.push(...take(shuffled, road === "vibe" ? 50 : 40, seen));
+  out.push(...take(shuffled, road === "vibe" ? 20 : 15, seen));
 
   return out;
 }
+
+// Short-lived per-user cache of Crate's learned memory (same for both branch prefetches).
+type MemoryBundle = {
+  learned: { content: string; origin: string }[];
+  walrusBy: Map<string, { text: string }[]>;
+};
+const memoryCache = new Map<string, { at: number; bundle: MemoryBundle }>();
+const MEMORY_TTL = 90_000;
+
 
 const reserveSchema = z.object({
   seed: z.object({ spotifyId: z.string(), name: z.string(), artists: z.string() }),
@@ -388,21 +397,27 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const partOfDay = hour < 5 ? "late night" : hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 22 ? "evening" : "late night";
     const nowLabel = `${weekday} ${partOfDay}, ${String(hour).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
 
-    const [recalled, learned] = await Promise.all([
-      recallMemories(
-        userId,
-        `${weekday} ${partOfDay} ${data.seedPrompt} ${data.seed.name} ${data.seed.artists}`,
-        6,
-      ).catch(() => []),
-      // Crate's own learned knowledge: cross-session anchors, session observations, Feedbacker notes.
-      supabase
-        .from("memory_nodes")
-        .select("content, origin, created_at")
-        .or("origin.eq.cross_session,origin.eq.synthesis,content.like.Note on%")
-        .order("created_at", { ascending: false })
-        .limit(40)
-        .then((r: { data: { content: string; origin: string }[] | null }) => r.data ?? []),
-    ]);
+    const recallKey = `${weekday} ${partOfDay} ${data.seedPrompt} ${data.seed.name} ${data.seed.artists}`;
+    const cachedMem = memoryCache.get(userId);
+    const fresh = cachedMem && Date.now() - cachedMem.at < MEMORY_TTL ? cachedMem.bundle : null;
+
+    const learned: { content: string; origin: string }[] = fresh
+      ? fresh.learned
+      : await supabase
+          .from("memory_nodes")
+          .select("content, origin, created_at")
+          .or("origin.eq.cross_session,origin.eq.synthesis,content.like.Note on%")
+          .order("created_at", { ascending: false })
+          .limit(40)
+          .then((r: { data: { content: string; origin: string }[] | null }) => r.data ?? []);
+
+    const recalled: { text: string }[] =
+      fresh?.walrusBy.get(recallKey) ?? (await recallMemories(userId, recallKey, 6).catch(() => []));
+
+    const bundle: MemoryBundle = fresh ?? { learned, walrusBy: new Map() };
+    bundle.walrusBy.set(recallKey, recalled);
+    memoryCache.set(userId, { at: fresh ? (cachedMem?.at ?? Date.now()) : Date.now(), bundle });
+
     const anchors = learned.filter((m) => m.origin === "cross_session").slice(0, 6);
     const observations = learned.filter((m) => m.origin === "synthesis").slice(0, 4);
     const notes = learned.filter((m) => m.content.startsWith("Note on")).slice(0, 8);
