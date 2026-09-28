@@ -116,6 +116,23 @@ export function PathMaze() {
             <SongNote key={radio.current.spotify_id} trackName={radio.current.name} artists={radio.current.artists} />
           </div>
 
+          {latestMemory?.content && (
+            <div className="mt-3 rounded-xl border bg-surface p-3.5">
+              <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                What Crate just learned about you
+              </div>
+              <p className="mt-2 text-sm leading-relaxed">{latestMemory.content}</p>
+              <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
+                {latestMemory.blob_id && !latestMemory.blob_id.startsWith("job:")
+                  ? `Etched to Walrus · ${latestMemory.blob_id.slice(0, 10)}…`
+                  : "Writing to Walrus…"}
+              </div>
+            </div>
+          )}
+
+
           <div className="grid grid-cols-2 gap-3 pt-3">
             <Door
               label="If you finish"
