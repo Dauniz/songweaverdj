@@ -105,17 +105,11 @@ export function MemoryInspector() {
           <Database className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold uppercase tracking-wider">Walrus Memory</h2>
         </div>
-      </div>
-      <div className={cn("flex min-h-0 flex-col", consoleOpen ? "shrink" : "flex-1")}>
-      <div className="scrollbar-thin min-h-0 shrink overflow-y-auto">
-        <PathMaze />
-      </div>
-      <div className="shrink-0 border-t px-4 py-3 text-xs">
         {cfg?.configured ? (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="inline-flex cursor-default items-center gap-1.5 text-primary">
+                <span className="inline-flex cursor-default items-center gap-1.5 text-xs text-primary">
                   <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Connected to Walrus relayer
                 </span>
               </TooltipTrigger>
@@ -125,13 +119,17 @@ export function MemoryInspector() {
             </Tooltip>
           </TooltipProvider>
         ) : (
-          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
             <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" /> Walrus keys not added
             — memories saved locally
           </span>
         )}
       </div>
-      <div className={cn("shrink-0 px-4 pt-1 pb-3 text-xs", (consoleOpen || consoleAnimating) && "hidden")}>
+      <div className={cn("flex min-h-0 flex-col", consoleOpen ? "shrink" : "flex-1")}>
+      <div className="scrollbar-thin min-h-0 shrink overflow-y-auto">
+        <PathMaze />
+      </div>
+      <div className={cn("shrink-0 px-4 pt-3 pb-3 text-xs", (consoleOpen || consoleAnimating) && "hidden")}>
         <div className="flex flex-wrap gap-1.5">
           {Object.entries(counts).filter(([k]) => KIND_LABEL[k]).map(([k, v]) => (
             <span key={k} className="inline-flex items-center gap-1">
