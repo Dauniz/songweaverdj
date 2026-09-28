@@ -1484,7 +1484,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         })();
       }
       if (Date.now() - started > NO_DEVICE_GRACE) stopRadio({ keepSpotify: true });
-    }, 5_000);
+    }, 3_000);
     return () => clearInterval(t);
   }, [sessionLive, playbackIssue, stopRadio, startSpotifyPlayback, playbackFn, adoptPlaying]);
 
