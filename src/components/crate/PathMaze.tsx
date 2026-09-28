@@ -1,7 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Route, SkipForward, Sparkles } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
@@ -27,18 +25,6 @@ function Art({ src, alt, className }: { src: string | null | undefined; alt: str
 /** Visual "maze solver": the path walked so far, and the two doors ahead. */
 export function PathMaze() {
   const { radio, upNext, upSkip, spotifyIdle, sessionLive, calming, foreignQueued, musicPlaying } = useRadio();
-  const { data: latestMemory } = useQuery({
-    queryKey: ["memories", "latest"],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from("memory_nodes")
-        .select("content, kind, blob_id, created_at")
-        .order("created_at", { ascending: false })
-        .limit(1);
-      return data?.[0] ?? null;
-    },
-    staleTime: 30_000,
-  });
 
   return (
     <div className="border-b px-4 py-4">
@@ -116,21 +102,6 @@ export function PathMaze() {
             <SongNote key={radio.current.spotify_id} trackName={radio.current.name} artists={radio.current.artists} />
           </div>
 
-          {latestMemory?.content && (
-            <div className="mt-3 rounded-xl border bg-surface p-3.5">
-              <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
-                What Crate just learned about you
-              </div>
-              <p className="mt-2 text-sm leading-relaxed">{latestMemory.content}</p>
-              <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden />
-                {latestMemory.blob_id && !latestMemory.blob_id.startsWith("job:")
-                  ? `Etched to Walrus · ${latestMemory.blob_id.slice(0, 10)}…`
-                  : "Writing to Walrus…"}
-              </div>
-            </div>
-          )}
 
 
           <div className="pt-1">
