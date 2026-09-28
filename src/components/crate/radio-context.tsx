@@ -238,6 +238,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const eventsRef = useRef(events);
   eventsRef.current = events;
   const [spotifyIdle, setSpotifyIdle] = useState(false);
+  const [musicPlaying, setMusicPlaying] = useState(false);
   const [calming, setCalming] = useState(false);
   /** Songs in the listener's own Spotify "Next in queue" — they'd play before Crate's list. */
   const [foreignQueued, setForeignQueued] = useState(0);
