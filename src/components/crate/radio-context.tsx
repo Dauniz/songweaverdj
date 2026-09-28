@@ -262,6 +262,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     artistSkips.current = new Map(saved.artistSkips ?? []);
     if (saved.radio.current?.spotify_id) {
       noPlayFor.current = saved.radio.current.spotify_id;
+      handledFor.current = saved.radio.current.spotify_id; // reload: keep Spotify untouched
       lastPlayback.current = { ...lastPlayback.current, spotifyId: saved.radio.current.spotify_id, observed: true, at: Date.now() };
     }
     setEvents(saved.events ?? []);
