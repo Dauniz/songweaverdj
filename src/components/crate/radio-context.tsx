@@ -53,6 +53,8 @@ export type RadioState = {
   chips: string[];
   history: HistoryItem[];
   consecutiveSkips: number;
+  /** Last Era/Vibe road, used for "if you finish" after a New angle. */
+  baseRoad?: Road;
   sessionId: string;
 };
 
@@ -132,10 +134,13 @@ function advance(s: RadioState, outcome: "played" | "skipped"): RadioState {
     ...s.history,
     { spotifyId: cur.spotify_id ?? cur.id, name: cur.name, artists: cur.artists, outcome },
   ].slice(-25);
-  if (outcome === "played") return { ...s, history, consecutiveSkips: 0 };
+  // "If you finish" is always Era or Vibe: a New angle ends as soon as a song plays through.
+  const base: Road = s.road !== "mixed" ? s.road : (s.baseRoad ?? "vibe");
+  if (outcome === "played") return { ...s, history, consecutiveSkips: 0, road: base, baseRoad: base };
   const skips = s.consecutiveSkips + 1;
-  const road: Road = skips === 1 ? (s.road === "vibe" ? "era" : s.road === "era" ? "vibe" : "vibe") : "mixed";
-  return { ...s, history, consecutiveSkips: skips, road };
+  // New angle only after two or more skips in a row — a clear sign you want something else.
+  const road: Road = skips === 1 ? (base === "vibe" ? "era" : "vibe") : "mixed";
+  return { ...s, history, consecutiveSkips: skips, road, baseRoad: road === "mixed" ? base : road };
 }
 
 export function RadioProvider({ children }: { children: ReactNode }) {
@@ -465,7 +470,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         `${played.current.length} songs already heard excluded`,
       ].filter(Boolean).join(" · ");
       note("think", `At "${s.current.name}" · on ${ROAD_NAME[s.road]} · skips in a row: ${s.consecutiveSkips}`);
-      note("think", `Scouting two doors: finish → ${ROAD_NAME[s.road]}, skip → ${ROAD_NAME[skipRoad]}${s.consecutiveSkips >= 1 ? " (second skip = new angle)" : ""}`);
+      note("think", `Scouting two doors: finish → ${ROAD_NAME[advance(s, "played").road]}, skip → ${ROAD_NAME[skipRoad]}${s.consecutiveSkips >= 1 ? " (second skip = new angle)" : ""}`);
       note("think", ctx);
       skippedB.then((b) => {
         if (branches.current?.key !== key) return;
