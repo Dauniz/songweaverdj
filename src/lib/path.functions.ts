@@ -23,12 +23,11 @@ function applyCodeLens<T extends { sources: { name: string; type: string; period
 
 /** Deep cuts: songs saved in at most one place, last added 12+ months ago (forgotten, not staples). */
 function applyDeepCuts<T extends { sources: { period: string | null }[] }>(pool: T[]): T[] {
-  const now = new Date();
-  const cutoff = now.getUTCFullYear() * 12 + now.getUTCMonth() - 12;
+  const cutoff = Math.round(Date.now() / 86_400_000) - 365;
   const deep = pool.filter((s) => {
     if (s.sources.length > 1) return false;
-    const months = s.sources.map((x) => monthIndex(x.period)).filter((m): m is number => m !== null);
-    return months.length > 0 && Math.max(...months) <= cutoff;
+    const days = s.sources.map((x) => dayIndex(x.period)).filter((d): d is number => d !== null);
+    return days.length > 0 && Math.max(...days) <= cutoff;
   });
   return deep.length >= 15 ? deep : pool;
 }
@@ -108,10 +107,11 @@ async function loadPool(supabase: any, userId: string): Promise<Song[]> {
   return songs;
 }
 
-function monthIndex(p: string | null) {
+function dayIndex(p: string | null) {
   if (!p) return null;
-  const [y = 0, m = 1] = p.split("-").map(Number);
-  return y * 12 + (m - 1);
+  const d = new Date(p + "T00:00:00Z");
+  if (Number.isNaN(d.getTime())) return null;
+  return Math.round(d.getTime() / 86_400_000);
 }
 
 function fmtPeriod(p: string | null) {
@@ -145,22 +145,22 @@ function eraCandidates(anchor: Song, pool: Song[]) {
     const n = size.get(name) ?? 0;
     return n <= 120 ? 3 : n <= 400 ? 1.5 : 0.5;
   };
-  const months = anchor.sources.map((s) => monthIndex(s.period)).filter((m) => m !== null) as number[];
+  const anchorDays = anchor.sources.map((s) => dayIndex(s.period)).filter((d): d is number => d !== null);
   const scored = pool.map((s) => {
     let score = 0;
     let shared = 0;
     for (const x of s.sources)
       if (x.type === "playlist" && playlists.has(x.name)) shared = Math.max(shared, playlistWeight(x.name));
     score += shared;
-    if (months.length) {
+    if (anchorDays.length) {
       let best = Infinity;
       for (const x of s.sources) {
-        const m = monthIndex(x.period);
-        if (m === null) continue;
-        for (const am of months) best = Math.min(best, Math.abs(m - am));
+        const d = dayIndex(x.period);
+        if (d === null) continue;
+        for (const ad of anchorDays) best = Math.min(best, Math.abs(d - ad));
       }
-      if (best <= 2) score += 2 - best * 0.5;
-      else if (best <= 6) score += 0.5;
+      if (best <= 14) score += 2;
+      else if (best <= 31) score += 0.5;
     }
     if (s.artists === anchor.artists) score += 0.5;
     return { s, score: score + Math.random() * 0.4 };
