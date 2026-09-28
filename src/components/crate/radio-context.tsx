@@ -151,6 +151,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const qc = useQueryClient();
   const [playbackIssue, setPlaybackIssue] = useState<SpotifyPlaybackIssue | null>(null);
+  const lastLostPrompt = useRef(0);
   const [retrying, setRetrying] = useState(false);
 
   const radioRef = useRef(radio);
@@ -1231,8 +1232,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             if (!noDeviceSince.current) noDeviceSince.current = Date.now();
             // Spotify closed: show the "Open Spotify" message so the user can reopen it.
             // The retry effect below keeps reconnecting and ends the session after the grace.
-            if (state.status === "no_device" || Date.now() - noDeviceSince.current > 6_000) {
-              log(`DEVICE LOST — Spotify closed, asking to reopen`);
+            if (
+              (state.status === "no_device" || Date.now() - noDeviceSince.current > 6_000) &&
+              Date.now() - lastLostPrompt.current > 20_000 &&
+              Date.now() - noDeviceSince.current <= NO_DEVICE_GRACE
+            ) {
+              lastLostPrompt.current = Date.now();
               setPlaybackIssue({ status: "no_device", message: "Spotify was closed. Open it again to keep the session going." });
               return;
             }
