@@ -814,7 +814,29 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const release = () => {
       if (startingFor.current?.id === startId) startingFor.current = null;
     };
-...
+    const ready = preSkip.current?.forId === current.spotify_id ? preSkip.current!.branch : null;
+    let cancelled = false;
+    void (async () => {
+      let branch: Branch = ready?.track && isPlayable(ready.track) ? ready : null;
+      if (!branch) {
+        const prefix = `${current.id}|`;
+        for (let i = 0; i < 20 && !branches.current?.key.startsWith(prefix); i++) {
+          await new Promise((res) => setTimeout(res, 100));
+          if (cancelled) return;
+        }
+        const b = branches.current?.key.startsWith(prefix) ? branches.current : null;
+        branch = await Promise.race([
+          (b ? b.skipped : fetchBranch(advance(radioRef.current, "skipped"))).catch(() => null),
+          new Promise<Branch>((res) => setTimeout(() => res(null), 10_000)),
+        ]);
+      }
+      if (cancelled || radioRef.current.current?.spotify_id !== current.spotify_id) return;
+      const skip = branch?.track && isPlayable(branch.track) && branch.track.spotify_id !== current.spotify_id ? branch : null;
+      if (skip) setUpSkip(skip);
+      const finishId = upNextRef.current?.spotify_id;
+      const aheadP: Promise<Branch> = skip ? scoutAhead(radioRef.current, skip, [finishId]) : Promise.resolve(null);
+      const ahead = await withTimeout(aheadP, 6_000, null);
+      if (cancelled || radioRef.current.current?.spotify_id !== current.spotify_id) return;
       await startSpotifyPlayback(current, false, skip?.track ?? null, undefined, "session start", ahead?.track ?? null, {
         frontierDoor: ahead ? undefined : aheadP,
       });
