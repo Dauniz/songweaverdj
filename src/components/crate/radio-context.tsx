@@ -11,7 +11,7 @@ import { nextPathTrack } from "@/lib/path.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
 import { pushSpotifyLog, ackSpotifySend, observeSpotify } from "@/lib/spotify-log";
-import { endSpotifySession, getSpotifyAuthUrl, getSpotifyPlayback, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
+import { endSpotifySession, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyPlayback, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
 import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
@@ -147,6 +147,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const logged = useRef(0);
   const reflecting = useRef(false);
   const playFn = useServerFn(playSpotifyTrack);
+  const queueCountFn = useServerFn(getForeignQueueCount);
   const pauseFn = useServerFn(pauseSpotifyPlayback);
   const playbackFn = useServerFn(getSpotifyPlayback);
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
@@ -748,7 +749,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           lineupTracks.current = m;
           quickSkipUntil.current = 0;
           setPlaybackIssue(null);
-          setForeignQueued((result as { foreignQueued?: number }).foreignQueued ?? 0);
+          const oursIds = lineup.current.slice(1);
+          window.setTimeout(() => {
+            queueCountFn({ data: { ids: oursIds } })
+              .then((r) => { if (generation === listGeneration.current) setForeignQueued(r.count); })
+              .catch(() => undefined);
+          }, 400);
           idleSince.current = 0;
           idlePolls.current = 0;
           setSpotifyIdle(false);
