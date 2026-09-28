@@ -88,6 +88,8 @@ type RadioContextValue = {
   /** Skip-spam cooldown: Spotify paused, Crate catching its breath. */
   calming: boolean;
   foreignQueued: number;
+  /** Live session but Spotify connection is lost (no device / playback refused). */
+  spotifyLost: boolean;
 };
 
 // Keep one context instance across hot reloads so provider and consumers never diverge.
@@ -1743,6 +1745,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         musicPlaying: musicPlaying && sessionLive && !spotifyIdle && !calming && !playbackIssue,
         calming,
         foreignQueued,
+        spotifyLost: sessionLive && playbackIssue !== null,
       }}
     >
       {children}
