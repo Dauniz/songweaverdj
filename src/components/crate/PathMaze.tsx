@@ -186,6 +186,16 @@ function JunctionTree({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current.spotify_id]);
 
+  // Doors arriving (or changing) while the same song keeps playing: show them
+  // immediately. Mid-animation arrivals are picked up by commit() via `latest`.
+  useEffect(() => {
+    setShown((s) =>
+      s.current.spotify_id === current.spotify_id
+        ? { ...s, upNext, upSkip, road, consecutiveSkips }
+        : s,
+    );
+  }, [upNext, upSkip, road, consecutiveSkips, current.spotify_id]);
+
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   const w = geo?.w ?? 0;
