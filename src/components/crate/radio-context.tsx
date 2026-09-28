@@ -420,6 +420,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     (s: RadioState) => {
       if (!s.active || !s.current) return;
       if (calmingRef.current) return; // wait for the clicking to stop before looking for songs
+      if (lensTimer.current) return; // side-road misclick buffer: keep the current doors until it settles
       const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
       if (branches.current?.key === key) return;
       scoutAbort.current?.abort(); // drop any scouting still running for an old key
