@@ -943,6 +943,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       scoutAbort.current?.abort();
       awaitingSkipPair.current = false;
       noPlayFor.current = track.spotify_id ?? "";
+      handledFor.current = track.spotify_id ?? ""; // this path sends its own list
       lastTransition.current = Date.now();
       settleUntil.current = Date.now() + 1_000; // one quiet second before Crate looks for new songs
       lastPlayback.current = { spotifyId: track.spotify_id ?? "", ratio: 0, observed: true, progressMs, durationMs, at: Date.now() };
@@ -1119,6 +1120,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // Send the finish pick AND its "if you skip" door in the same call, so nothing has to be
       // re-sent while the new song plays (a mid-song re-send makes Spotify re-buffer audibly).
       noPlayFor.current = finishB.track.spotify_id;
+      handledFor.current = finishB.track.spotify_id ?? "";
       committing.current = true;
       let ok = false;
       try {
