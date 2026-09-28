@@ -1669,6 +1669,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         resumeLastSession,
         events,
         spotifyIdle,
+        musicPlaying: musicPlaying && sessionLive && !spotifyIdle && !calming && !playbackIssue,
         calming,
         foreignQueued,
       }}
