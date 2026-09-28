@@ -183,6 +183,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [sessionLive, setSessionLive] = useState(false);
   const startingFor = useRef<{ id: string; at: number } | null>(null);
   const watchOff = useRef(false);
+  const endedOn = useRef("");
   // Track Spotify is already playing (user-chosen in Spotify) — don't restart it.
   const noPlayFor = useRef("");
   // The single song lined up behind the current one in Spotify (the "if you skip" door).
@@ -1424,12 +1425,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (sessionLive || radio.active) return;
     const t = setInterval(() => {
-      if (document.hidden || watchOff.current) return;
       void (async () => {
         try {
           const state = await playbackFn();
-          if (watchOff.current || radioRef.current.active) return;
-          if (state.status === "ready" && state.spotifyId && state.isPlaying) adoptPlaying(state);
+          if (radioRef.current.active) return;
+          if (state.status !== "ready" || !state.spotifyId || !state.isPlaying) return;
+          // After a manual End, ignore only the song that was playing then; a new song restarts.
+          if (watchOff.current && state.spotifyId === endedOn.current) return;
+          watchOff.current = false;
+          adoptPlaying(state);
         } catch { /* not connected yet */ }
       })();
     }, 5_000);
@@ -1645,7 +1649,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         sessionLive,
         startSession,
         endSession: () => {
-          watchOff.current = true; // hand Spotify back: don't auto-adopt again
+          watchOff.current = true; // don't re-adopt the song you just ended on
+          endedOn.current = lastPlayback.current.spotifyId;
           stopRadio();
         },
         hasLastSession,
