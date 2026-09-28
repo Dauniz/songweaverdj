@@ -198,20 +198,11 @@ export function LibraryPanel() {
                 aria-label="Expand Spotify panel"
                 className="flex h-9 items-center gap-2 rounded-full border bg-card/95 px-3 shadow-lg backdrop-blur transition-colors hover:bg-accent"
               >
-                <span
-                  className={cn(
-                    "inline-block h-2 w-2 rounded-full",
-                    status?.connected
-                      ? "bg-primary shadow-[0_0_6px_var(--primary)]"
-                      : "bg-muted-foreground/40",
-                  )}
-                />
+                <span className={cn("inline-block h-2 w-2 rounded-full", orbClass)} />
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">
-              {status?.connected ? "Spotify connected" : "Spotify not connected"}
-            </TooltipContent>
+            <TooltipContent side="right">{orbLabel}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </div>
@@ -226,18 +217,11 @@ export function LibraryPanel() {
           <Tooltip>
             <TooltipTrigger asChild>
               <span
-                aria-label={status?.connected ? "Spotify connected" : "Spotify not connected"}
-                className={cn(
-                  "inline-block h-2 w-2 shrink-0 rounded-full",
-                  status?.connected
-                    ? "bg-primary shadow-[0_0_6px_var(--primary)]"
-                    : "bg-muted-foreground/40",
-                )}
+                aria-label={orbLabel}
+                className={cn("inline-block h-2 w-2 shrink-0 rounded-full", orbClass)}
               />
             </TooltipTrigger>
-            <TooltipContent side="right">
-              {status?.connected ? "Spotify connected" : "Spotify not connected"}
-            </TooltipContent>
+            <TooltipContent side="right">{orbLabel}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
         <span className="ml-auto text-xs font-normal text-muted-foreground">
