@@ -59,7 +59,7 @@ export function SpotifyLogPanel() {
                   <ol className="ml-4 list-decimal text-foreground/80">
                     {e.uris.map((u, i) => (
                       <li key={u.id + i}>
-                        <span className="text-muted-foreground">{["now", "if you skip"][i] ?? `#${i}`}:</span> {u.name}{" "}
+                        <span className="text-muted-foreground">{["now", "if you skip", "if you skip again"][i] ?? `#${i}`}:</span> {u.name}{" "}
                         <span className="text-muted-foreground">spotify:track:{u.id}</span>
                       </li>
                     ))}
