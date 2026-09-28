@@ -686,7 +686,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       positionMs?: number,
       reason = "start",
       aheadDoor?: RadioTrack | null,
-      opts?: { stateAt?: RadioState; frontierDoor?: Promise<Branch> },
+      opts?: { stateAt?: RadioState | undefined; frontierDoor?: Promise<Branch> | undefined },
     ) => {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
       const nextId = skipDoor?.spotify_id && isPlayable(skipDoor) ? skipDoor.spotify_id : undefined;
