@@ -2,7 +2,7 @@ import { LIVE_KEY, readLiveSession } from "@/lib/live-session";
 
 const LAST_KEY = "songweaver-last-session";
 /** End the session when Spotify shows no open device for this long. */
-const NO_DEVICE_GRACE = 5 * 60_000;
+const NO_DEVICE_GRACE = 90_000;
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
@@ -151,6 +151,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const qc = useQueryClient();
   const [playbackIssue, setPlaybackIssue] = useState<SpotifyPlaybackIssue | null>(null);
+  const lastLostPrompt = useRef(0);
   const [retrying, setRetrying] = useState(false);
 
   const radioRef = useRef(radio);
@@ -1229,7 +1230,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           // Spotify reports no open device at all → Spotify is closed; end the session.
           if (state.status === "idle" || state.status === "no_device") {
             if (!noDeviceSince.current) noDeviceSince.current = Date.now();
-            // Try to wake Spotify back up every 5 s instead of giving up right away.
+            // Spotify closed: show the "Open Spotify" message so the user can reopen it.
+            // The retry effect below keeps reconnecting and ends the session after the grace.
+            if (
+              (state.status === "no_device" || Date.now() - noDeviceSince.current > 6_000) &&
+              Date.now() - lastLostPrompt.current > 20_000 &&
+              Date.now() - noDeviceSince.current <= NO_DEVICE_GRACE
+            ) {
+              lastLostPrompt.current = Date.now();
+              setPlaybackIssue({ status: "no_device", message: "Spotify was closed. Open it again to keep the session going." });
+              return;
+            }
             if (Date.now() - lastReconnectTry.current > 5_000) {
               lastReconnectTry.current = Date.now();
               void startSpotifyPlayback(
