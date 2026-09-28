@@ -13,6 +13,7 @@ import {
 } from "@/lib/spotify.functions";
 import { buildDemoRows } from "@/lib/demo-library";
 import { cn } from "@/lib/utils";
+import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import {
   Tooltip,
   TooltipContent,
@@ -85,24 +86,20 @@ export function LibraryPanel() {
     return () => window.removeEventListener("message", onMsg);
   }, [qc]);
 
+  const preparedAuth = usePreparedSpotifyUrl(() =>
+    authUrlFn({ data: { origin: window.location.origin } }),
+  );
+
   async function connect() {
+    const ready = preparedAuth.get();
+    if (ready) {
+      openSpotifyAuth(ready, "spotify-auth");
+      return;
+    }
     setBusy("connect");
     try {
-      const framed = window.top !== window.self;
-      const pre = framed ? window.open("", "spotify-auth") : null;
       const { url } = await authUrlFn({ data: { origin: window.location.origin } });
-      if (pre) {
-        pre.location.href = url;
-        return;
-      }
-      const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      if (ios && !framed) {
-        window.location.assign(url);
-        return;
-      }
-      const popup = window.open(url, "spotify-auth", "width=520,height=720");
-      if (!popup) window.location.assign(url);
+      window.location.assign(url);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't start Spotify sign-in");
     } finally {

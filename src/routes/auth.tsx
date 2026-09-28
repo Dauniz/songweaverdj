@@ -6,6 +6,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Disc3, Loader2 } from "lucide-react";
 import { createGuestSession, getSpotifyLoginUrl } from "@/lib/auth-entry.functions";
 import { Button } from "@/components/ui/button";
+import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import logo from "@/assets/crate-logo.jpg";
 
 export const Route = createFileRoute("/auth")({
@@ -38,6 +39,9 @@ function AuthPage() {
   const [entry, setEntry] = useState<null | "spotify" | "guest">(null);
   const loginUrl = useServerFn(getSpotifyLoginUrl);
   const guestFn = useServerFn(createGuestSession);
+  const preparedLogin = usePreparedSpotifyUrl(() =>
+    loginUrl({ data: { origin: window.location.origin } }),
+  );
 
   async function finishSpotify(tokenHash: string) {
     setEntry("spotify");
@@ -71,32 +75,16 @@ function AuthPage() {
   }, []);
 
   async function spotify() {
+    const ready = preparedLogin.get();
+    if (ready) {
+      openSpotifyAuth(ready, "spotify-login");
+      return;
+    }
     setEntry("spotify");
-    // Inside a frame (e.g. the Lovable preview on iPhone) Spotify refuses to
-    // load in-place and shows a blank page, so open a real tab right on tap.
-    const framed = window.top !== window.self;
-    const pre = framed ? window.open("", "spotify-login") : null;
     try {
       const { url } = await loginUrl({ data: { origin: window.location.origin } });
-      if (pre) {
-        pre.location.href = url;
-        setEntry(null);
-        return;
-      }
-      const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      if (ios && !framed) {
-        window.location.assign(url);
-        return;
-      }
-      const popup = window.open(url, "spotify-login", "width=480,height=720");
-      if (!popup) {
-        if (framed && window.top) window.top.location.href = url;
-        else window.location.assign(url);
-      }
-      setEntry(null);
+      window.location.assign(url);
     } catch (e) {
-      pre?.close();
       setEntry(null);
       toast.error(e instanceof Error ? e.message : "Spotify sign-in failed");
     }

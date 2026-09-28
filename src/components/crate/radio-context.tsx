@@ -12,6 +12,7 @@ import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
 import { pushSpotifyLog, ackSpotifySend, observeSpotify } from "@/lib/spotify-log";
 import { endSpotifySession, getSpotifyAuthUrl, getSpotifyPlayback, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
+import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
 import { SteerChips } from "./SteerChips";
@@ -1504,27 +1505,22 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     retryTimer.current = setTimeout(() => void retry(), 2_000);
   }, [startSpotifyPlayback]);
 
+  const preparedAuth = usePreparedSpotifyUrl(() =>
+    authUrlFn({ data: { origin: window.location.origin } }),
+  );
   const connectSpotify = useCallback(async () => {
+    const ready = preparedAuth.get();
+    if (ready) {
+      openSpotifyAuth(ready, "spotify-auth");
+      return;
+    }
     try {
-      const framed = window.top !== window.self;
-      const pre = framed ? window.open("", "spotify-auth") : null;
       const { url } = await authUrlFn({ data: { origin: window.location.origin } });
-      if (pre) {
-        pre.location.href = url;
-        return;
-      }
-      const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      if (ios && !framed) {
-        window.location.assign(url);
-        return;
-      }
-      const popup = window.open(url, "spotify-auth", "width=520,height=720");
-      if (!popup) window.location.assign(url);
+      window.location.assign(url);
     } catch {
       setPlaybackIssue({ status: "unavailable", message: "Spotify could not be connected." });
     }
-  }, [authUrlFn]);
+  }, [authUrlFn, preparedAuth]);
 
   useEffect(() => () => {
     if (retryTimer.current) clearTimeout(retryTimer.current);
