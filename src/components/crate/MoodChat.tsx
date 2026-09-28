@@ -427,6 +427,9 @@ export function MoodChat() {
             Describe your mood, where you are, what you're doing. I'll dig up tracks you already
             love from your past playlists.
           </p>
+          <p className="mt-2 max-w-lg text-sm leading-5 text-muted-foreground/70 sm:text-base sm:leading-6">
+            Either search for a song or send a prompt to Crate to initialize a Songweaver session.
+          </p>
         </div>
         {composer}
       </div>
