@@ -66,7 +66,7 @@ type RadioContextValue = {
   askSteer: boolean;
   dismissSteer: () => void;
   startRadio: (tracks: CardTrack[], seedPrompt: string, startAt?: number) => void;
-  rerootTo: (track: CardTrack) => void;
+  rerootTo: (track: CardTrack, prompt?: string) => void;
   stopRadio: () => void;
   next: (outcome: Outcome) => void;
   toggleChip: (chip: string) => void;
@@ -541,12 +541,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
    *  mid-session it re-roots the path from that song while keeping the trail,
    *  road, chips and skipped-artist memory — like picking it in Spotify. */
   const rerootTo = useCallback(
-    (track: CardTrack) => {
+    (track: CardTrack, prompt?: string) => {
       const s = radioRef.current;
       if (!s.active) {
-        startRadio([track], "");
+        startRadio([track], prompt ?? "");
         return;
       }
+      listGeneration.current += 1; // late answers from the old plan are discarded
+      scoutAbort.current?.abort();
       branches.current = null; // the prefetched doors are stale from here on
       door.current = null;
       preSkip.current = null;
@@ -556,12 +558,24 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       noPlayFor.current = "";
       handledFor.current = "";
       if (!sessionLive) setSessionLive(true);
+      idleSince.current = 0;
       lastPlayback.current = { spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 };
-      setRadio({ ...s, current: track, seed: track });
+      setRadio({ ...s, current: track, seed: track, consecutiveSkips: 0, ...(prompt ? { seedPrompt: prompt } : {}) });
       log(track, "steer", s); // a deliberate choice — Walrus learns from it
-      note("reroot", `You picked "${track.name}" → the path continues from here`);
+      note("reroot", prompt ? `New prompt → the path continues from "${track.name}"` : `You picked "${track.name}" → the path continues from here`);
     },
     [startRadio, log, note, sessionLive],
+  );
+
+  /** Prompt results: start a session when none runs, otherwise replan the live one. */
+  const startOrReplan = useCallback(
+    (tracks: CardTrack[], seedPrompt: string, startAt = 0) => {
+      if (!radioRef.current.active) return startRadio(tracks, seedPrompt, startAt);
+      const ordered = [...tracks.slice(startAt), ...tracks.slice(0, startAt)];
+      const first = ordered.find(isPlayable);
+      if (first) rerootTo(first, seedPrompt);
+    },
+    [startRadio, rerootTo],
   );
 
   const stopRadio = useCallback((opts?: { keepSpotify?: boolean }) => {
@@ -853,7 +867,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     // Already playing in Spotify (started there): keep it going, only add Crate's skip songs.
     const alreadyPlaying = noPlayFor.current === startId;
     noPlayFor.current = "";
-    startingFor.current = { id: startId, at: Date.now() };
+    // Adopted songs already play in Spotify, so the mirror keeps watching for your next switch.
+    if (!alreadyPlaying) startingFor.current = { id: startId, at: Date.now() };
     const release = () => {
       if (startingFor.current?.id === startId) startingFor.current = null;
     };
@@ -1244,10 +1259,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // First list for this song not sent yet: Spotify still reports the old/paused song.
       // Reading it now would reroot or end the session and wipe the picked song.
       const st = startingFor.current;
-      if (st && st.id === current.spotify_id && Date.now() - st.at < 25_000) return;
-      // Polling is throttled while Spotify is foregrounded on mobile. Ignore those stale
-      // snapshots and require a fresh observation after Songweaver becomes visible again.
-      if (document.hidden) {
+      if (st && st.id === current.spotify_id && Date.now() - st.at < 10_000) return;
+      // Desktop keeps watching in the background (you're usually in the Spotify app).
+      // Mobile throttles hidden tabs heavily, so there we wait until Songweaver is visible.
+      if (document.hidden && window.matchMedia("(pointer: coarse)").matches) {
         idleSince.current = 0;
         idlePolls.current = 0;
         return;
@@ -1321,8 +1336,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (!idleSince.current) idleSince.current = Date.now();
           idlePolls.current += 1;
           if (idlePolls.current >= 5 && Date.now() - idleSince.current > 15_000) setSpotifyIdle(true);
-          if (Date.now() - idleSince.current > 30 * 60_000) {
-            stopRadio(); // idle ~30 min: hand Spotify back
+          if (Date.now() - idleSince.current > NO_DEVICE_GRACE) {
+            stopRadio(); // paused over 90 s: end the session
             return;
           }
           // A paused Spotify player still reports its last track id. Never interpret that
@@ -1469,29 +1484,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         })();
       }
       if (Date.now() - started > NO_DEVICE_GRACE) stopRadio({ keepSpotify: true });
-    }, 5_000);
+    }, 3_000);
     return () => clearInterval(t);
   }, [sessionLive, playbackIssue, stopRadio, startSpotifyPlayback, playbackFn, adoptPlaying]);
 
-  // No session yet: watch Spotify quietly. Pressing play in the Spotify app starts a
-  // session from that song. Off after a manual End session until the next prompt/search.
-  useEffect(() => {
-    if (sessionLive || radio.active) return;
-    const t = setInterval(() => {
-      void (async () => {
-        try {
-          const state = await playbackFn();
-          if (radioRef.current.active) return;
-          if (state.status !== "ready" || !state.spotifyId || !state.isPlaying) return;
-          // After a manual End, ignore only the song that was playing then; a new song restarts.
-          if (watchOff.current && state.spotifyId === endedOn.current) return;
-          watchOff.current = false;
-          adoptPlaying(state);
-        } catch { /* not connected yet */ }
-      })();
-    }, 5_000);
-    return () => clearInterval(t);
-  }, [sessionLive, radio.active, playbackFn, adoptPlaying]);
+  // No background watching without a session: Start session, a search or a prompt connects.
 
   const startSession = useCallback(async () => {
     watchOff.current = false;
@@ -1692,7 +1689,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         thinking,
         askSteer,
         dismissSteer: () => setAskSteer(false),
-        startRadio,
+        startRadio: startOrReplan,
         rerootTo,
         stopRadio,
         next,
