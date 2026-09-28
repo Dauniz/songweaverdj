@@ -133,24 +133,50 @@ export function PathMaze() {
           )}
 
 
-          <div className="grid grid-cols-2 gap-3 pt-3">
-            <Door
-              label="If you finish"
-              road={radio.road}
-              title={upNext?.name}
-              artists={upNext?.artists}
-              image={upNext?.image_url}
-              icon={<Check className="h-3 w-3 text-primary" />}
-            />
-            <Door
-              label="If you skip"
-              road={upSkip?.road ?? (radio.consecutiveSkips >= 1 ? "mixed" : radio.road === "vibe" ? "era" : "vibe")}
-              title={upSkip?.track.name}
-              artists={upSkip?.track.artists}
-              image={upSkip?.track.image_url}
-              icon={<SkipForward className="h-3 w-3" />}
-            />
+          <div className="pt-1">
+            {/* Junction fork: one trunk leaving the current song, splitting into
+                the straight "keep walking" branch and the turning "skip" branch. */}
+            <div className="relative h-7" aria-hidden>
+              <span className="absolute left-1/2 top-0 h-3 w-px -translate-x-1/2 bg-border" />
+              <span className="absolute left-1/4 right-1/4 top-3 h-px bg-border" />
+              <span
+                className={cn(
+                  "absolute left-1/4 top-3 h-4 w-px bg-primary/70",
+                  !upNext && "fork-pulse",
+                )}
+              />
+              <span
+                className={cn(
+                  "absolute left-3/4 top-3 h-4 w-px bg-accent/70",
+                  !upSkip && "fork-pulse",
+                )}
+              />
+              <span className="absolute left-1/2 top-[7px] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-primary" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Door
+                tone="keep"
+                label="Keep walking"
+                sublabel="if you finish"
+                road={radio.road}
+                title={upNext?.name}
+                artists={upNext?.artists}
+                image={upNext?.image_url}
+                icon={<Check className="h-3 w-3" />}
+              />
+              <Door
+                tone="turn"
+                label="Take a turn"
+                sublabel="if you skip"
+                road={upSkip?.road ?? (radio.consecutiveSkips >= 1 ? "mixed" : radio.road === "vibe" ? "era" : "vibe")}
+                title={upSkip?.track.name}
+                artists={upSkip?.track.artists}
+                image={upSkip?.track.image_url}
+                icon={<SkipForward className="h-3 w-3" />}
+              />
+            </div>
           </div>
+
         </div>
       )}
     </div>
