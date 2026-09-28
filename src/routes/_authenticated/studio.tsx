@@ -19,7 +19,7 @@ import { OnboardingTour } from "@/components/crate/OnboardingTour";
 import { SpotifyConnectPrompt } from "@/components/crate/SpotifyConnectPrompt";
 import logo from "@/assets/crate-logo.jpg";
 import { Button } from "@/components/ui/button";
-import { SpotifyLogPanel } from "@/components/crate/SpotifyLogPanel";
+// import { SpotifyLogPanel } from "@/components/crate/SpotifyLogPanel";
 
 export const Route = createFileRoute("/_authenticated/studio")({
   head: () => ({
@@ -53,7 +53,7 @@ function Studio() {
     <RadioProvider>
       <StudioLayout mobileTab={mobileTab} onTab={setMobileTab} onSignOut={signOut} />
       <BugReportButton />
-      <SpotifyLogPanel />
+      {/* Spotify live log hidden for now — re-enable by rendering <SpotifyLogPanel /> */}
     </RadioProvider>
   );
 }
