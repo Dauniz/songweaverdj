@@ -177,7 +177,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const artistSkips = useRef<Map<string, number>>(new Map());
   const played = useRef<string[]>([]);
   // Two prefetched branches per song: one assuming you finish it, one assuming you skip it.
-  const branches = useRef<{ key: string; played: Promise<Branch>; skipped: Promise<Branch> } | null>(
+  const branches = useRef<{ key: string; played: Promise<Branch>; skipped: Promise<Branch>; finishSkip?: Promise<Branch> } | null>(
     null,
   );
   const [upNext, setUpNext] = useState<RadioTrack | null>(null);
@@ -454,13 +454,21 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         : plan
           ? plan.door.then((b) => (b?.track && isPlayable(b.track) ? b : freshSkip()))
           : freshSkip();
-      branches.current = { key, played: playedB, skipped: skippedB };
+      // v: the finish door's own "if you skip" song, ready before the hand-over needs it.
+      const finishSkip: Promise<Branch> = Promise.all([playedB, skippedB]).then(([f, k]) => {
+        if (!f?.track.spotify_id) return null;
+        const onFinish: RadioState = { ...advance(s, "played"), current: f.track, road: f.road };
+        return fetchBranch(advance(onFinish, "skipped"), ctrl.signal, [cid, k?.track.spotify_id].filter(Boolean) as string[])
+          .then((b) => (b?.track.spotify_id && isPlayable(b.track) && b.track.spotify_id !== f.track.spotify_id ? b : null));
+      });
+      branches.current = { key, played: playedB, skipped: skippedB, finishSkip };
       if (plan && !knownSkipId) {
         // The planned door arrives later: if it turns out to be the finish pick, re-choose the finish.
         void Promise.all([playedB, skippedB]).then(([finish, skip]) => {
           if (branches.current?.key !== key || !finish || !skip || finish.track.spotify_id !== skip.track.spotify_id) return;
           const again = fetchBranch(advance(s, "played"), ctrl.signal, [skip.track.spotify_id!]);
           branches.current = { key, played: again, skipped: skippedB };
+          void finishSkip;
           void again.then((b) => {
             if (branches.current?.key === key) setUpNext(b?.track ?? null);
           });
@@ -719,7 +727,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const ex = exclude.filter(Boolean) as string[];
       const door = withTimeout(doorPromise ?? scoutAhead(parent, frontier, ex), 15_000, null);
       const atFrontier: RadioState = { ...advance(parent, "skipped"), current: frontier.track, road: frontier.road };
-      const ahead = door.then((d) => (d ? withTimeout(scoutAhead(atFrontier, d, [forId, ...ex]), 15_000, null) : null));
+      void atFrontier;
+      const ahead: Promise<Branch> = Promise.resolve(null);
       const plan: LandingPlan = { forId, sessionId: parent.sessionId, door, ahead, doorVal: undefined, aheadVal: undefined };
       landingPlan.current = plan;
       void door.then((d) => {
