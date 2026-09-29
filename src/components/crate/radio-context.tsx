@@ -227,6 +227,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const playbackWrite = useRef<Promise<void>>(Promise.resolve());
   /** True after the first skip until that song's new authoritative pair is accepted. */
   const awaitingSkipPair = useRef(false);
+  // Song you started yourself in Spotify: Crate never re-sends mid-song, only hands over at its end.
+  const passiveFor = useRef("");
   /** Skip landed on a door whose own skip song was already queued: another change before this
    *  moment is a rapid double skip; after it, a skip onto the queued skip-ahead is allowed. */
   const quickSkipUntil = useRef(0);
@@ -877,6 +879,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     // Already playing in Spotify (started there): keep it going, only add Crate's skip songs.
     const alreadyPlaying = noPlayFor.current === startId;
     noPlayFor.current = "";
+    passiveFor.current = alreadyPlaying ? startId : "";
     // Adopted songs already play in Spotify, so the mirror keeps watching for your next switch.
     if (!alreadyPlaying) startingFor.current = { id: startId, at: Date.now() };
     const release = () => {
@@ -904,26 +907,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const skip = branch?.track && isPlayable(branch.track) && branch.track.spotify_id !== current.spotify_id ? branch : null;
       if (skip) setUpSkip(skip);
       const finishId = upNextRef.current?.spotify_id;
-      const aheadP: Promise<Branch> = skip ? scoutAhead(radioRef.current, skip, [finishId]) : Promise.resolve(null);
+      const aheadP: Promise<Branch> = skip && !alreadyPlaying ? scoutAhead(radioRef.current, skip, [finishId]) : Promise.resolve(null);
       const ahead = await withTimeout(aheadP, alreadyPlaying ? 1_500 : 6_000, null);
       if (stale()) return release();
       if (alreadyPlaying) {
-        // The listener picked this song in Spotify: never re-send it alone. Only push once a
-        // skip door exists — [current, skip, ahead] at the live position replaces "next up".
-        if (!skip) {
-          pushSpotifyLog({ kind: "event", at: Date.now(), text: `ADOPT — "${current.name}" left untouched until a skip door is found` });
-          awaitingSkipPair.current = true;
-          setResendTick((n) => n + 1); // the line-up guard sends [current, skip] once found
-          setTimeout(release, 1_500);
-          return;
-        }
-        const lp = lastPlayback.current;
-        const pos = lp.spotifyId === startId ? Math.max(1, Math.round(lp.progressMs + (Date.now() - lp.at) + 150)) : undefined;
-        door.current = { forId: startId, track: skip.track! };
-        preSkip.current = { forId: startId, branch: skip };
-        await startSpotifyPlayback(current, true, skip.track ?? null, pos, "adopt from Spotify", ahead?.track ?? null, {
-          frontierDoor: ahead ? undefined : aheadP,
-        });
+        // You picked this song in Spotify: leave playback untouched (no mid-song resend = no
+        // glitch). Doors show on screen; Crate takes over only when the song ends naturally.
+        passiveFor.current = startId;
+        awaitingSkipPair.current = false;
+        pushSpotifyLog({ kind: "event", at: Date.now(), text: `ADOPT — "${current.name}" left untouched; Crate takes over at its natural end` });
         setTimeout(release, 1_500);
         return;
       }
@@ -1058,6 +1050,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     if (calmingRef.current) return; // hands off Spotify while Crate waits out the clicking
     if (door.current?.forId === cur.spotify_id && door.current.track.spotify_id === skip.spotify_id) return;
     if (lastPlayback.current.spotifyId !== cur.spotify_id) return;
+    if (passiveFor.current === cur.spotify_id) return; // your own Spotify pick: never resend mid-song
     // Already lined up behind this song in Spotify (sent one step ahead) — no re-send, no glitch.
     const at = lineup.current.indexOf(cur.spotify_id);
     if (at >= 0 && lineup.current[at + 1] === skip.spotify_id) {
