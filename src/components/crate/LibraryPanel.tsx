@@ -15,6 +15,7 @@ import { buildDemoRows } from "@/lib/demo-library";
 import { useRadio } from "@/components/crate/radio-context";
 import { cn } from "@/lib/utils";
 import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
+import { HistoryImport } from "@/components/crate/HistoryImport";
 import {
   Tooltip,
   TooltipContent,
@@ -64,7 +65,7 @@ export function LibraryPanel() {
       for (let from = 0; ; from += 1000) {
         const { data, error } = await supabase
           .from("library_tracks")
-          .select("id, name, artists, source_name, source_period, source_type, is_demo, image_url")
+          .select("id, spotify_id, name, artists, source_name, source_period, source_type, is_demo, image_url")
           .order("source_period", { ascending: false, nullsFirst: false })
           .order("id")
           .range(from, from + 999);
@@ -299,6 +300,7 @@ export function LibraryPanel() {
           </Button>
         )}
       </div>
+      <HistoryImport libraryIds={new Set(tracks.map((t) => t.spotify_id))} />
     </div>
   );
 }
