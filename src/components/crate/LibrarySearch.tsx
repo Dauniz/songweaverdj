@@ -34,7 +34,7 @@ function score(row: Row, q: string) {
   return s;
 }
 
-export function LibrarySearch() {
+export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
   const { rerootTo } = useRadio();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -78,6 +78,7 @@ export function LibrarySearch() {
     const track: CardTrack = { ...row };
     rerootTo(track);
     setQ("");
+    onSelect?.();
   }
 
   const open = debounced.length >= 2 && !dismissed;

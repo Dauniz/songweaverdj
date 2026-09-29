@@ -118,7 +118,7 @@ function StudioLayout({
               : "w-full xl:w-[calc(100%-20rem)]",
           )}
         >
-          <MoodChat />
+          <MoodChat onSearchSelection={() => onTab("memory")} />
         </main>
         <aside
           className={cn(

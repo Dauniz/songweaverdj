@@ -23,3 +23,4 @@
 - [x] iPhone Safari support: same-tab Spotify authorization fallback, callback return, safe viewport sizing, and touch-ready session UI
 - [x] Spotify observer safety: paused/stale player state cannot trigger endless skips; playback must be confirmed before Songweaver reports success
 - [x] Stabilize Spotify live-status warning: ignore transient polling gaps and Crate-owned handovers
+- [x] Switch compact Studio to Memory after a library-search pick and polish iPhone chat spacing
