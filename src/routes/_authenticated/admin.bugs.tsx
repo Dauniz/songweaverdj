@@ -73,6 +73,7 @@ function AdminBugs() {
             <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span className={r.status === "open" ? "text-primary" : ""}>{r.status}</span>
               <span>· {new Date(r.created_at).toLocaleString()}</span>
+              {r.email && <span className="font-medium text-foreground">· {r.email}</span>}
               {r.page && <span>· {r.page}</span>}
             </div>
             <p className="whitespace-pre-wrap text-sm">{r.message}</p>
