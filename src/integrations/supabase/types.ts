@@ -193,6 +193,33 @@ export type Database = {
           },
         ]
       }
+      listening_history: {
+        Row: {
+          first_played: string | null
+          last_played: string | null
+          ms_played: number
+          plays: number
+          spotify_id: string
+          user_id: string
+        }
+        Insert: {
+          first_played?: string | null
+          last_played?: string | null
+          ms_played?: number
+          plays?: number
+          spotify_id: string
+          user_id: string
+        }
+        Update: {
+          first_played?: string | null
+          last_played?: string | null
+          ms_played?: number
+          plays?: number
+          spotify_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       memory_nodes: {
         Row: {
           blob_id: string | null
