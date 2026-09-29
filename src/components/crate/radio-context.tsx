@@ -216,6 +216,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     plan: LandingPlan | null;
   } | null>(null);
   const swapping = useRef("");
+  const swapAborted = useRef(""); // you picked your own song during the end hand-over
   /** Song ids last sent to Spotify, in order — lets Crate skip re-sending when the next door is already lined up. */
   const lineup = useRef<string[]>([]);
   /** Full song info for everything in `lineup`, so a skip onto any of them is followed exactly. */
@@ -1121,6 +1122,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const cur = s.current;
       if (!cur?.spotify_id || swapping.current === cur.spotify_id) return;
       swapping.current = cur.spotify_id;
+      swapAborted.current = "";
       const deadline = Date.now() + remainingMs;
       // Use exactly the "if you finish" pick shown on screen — never a different one.
       const shown = upNextRef.current;
@@ -1147,6 +1149,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const st = await playbackFn();
         if (st.status === "ready" && st.spotifyId === cur.spotify_id && st.durationMs) {
           end = Date.now() + Math.max(0, st.durationMs - st.progressMs);
+        } else if (st.status === "ready" && st.spotifyId && st.spotifyId !== cur.spotify_id && !lineup.current.includes(st.spotifyId)) {
+          // You started another song in Spotify during the last seconds — never override it.
+          if (swapping.current === cur.spotify_id) swapping.current = "";
+          return;
         }
       } catch {
         /* keep the estimate */
@@ -1156,6 +1162,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // first song in the list. The final ~1 s of a track is almost always silence/fade.
       await new Promise((res) => setTimeout(res, Math.max(0, end - Date.now() - 1_100)));
       const now = radioRef.current;
+      if (swapAborted.current === cur.spotify_id) return; // the poll saw your own pick
       if (now.sessionId !== s.sessionId || now.current?.spotify_id !== cur.spotify_id) {
         if (swapping.current === cur.spotify_id) swapping.current = "";
         return; // you moved on yourself
@@ -1293,10 +1300,24 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         }
         // The request may have started just before Crate began a hand-over or deliberate
         // skip-spam pause. Discard that now-stale response instead of surfacing it as idle.
-        if (calmingRef.current || committing.current || swapping.current) {
+        if (calmingRef.current || committing.current) {
           idleSince.current = 0;
           idlePolls.current = 0;
           return;
+        }
+        if (swapping.current) {
+          // During the end hand-over, a song Crate never queued means you picked it yourself
+          // in Spotify: cancel the hand-over and follow your song instead of the finish door.
+          const sw = swapping.current;
+          const foreign = state.status === "ready" && !!state.spotifyId && state.spotifyId !== sw && !lineup.current.includes(state.spotifyId);
+          if (!foreign) {
+            idleSince.current = 0;
+            idlePolls.current = 0;
+            return;
+          }
+          swapAborted.current = sw;
+          swapping.current = "";
+          note("think", "You picked a song in Spotify — cancelling the finish hand-over");
         }
         const previous = lastPlayback.current;
         // Spotify occasionally reports `is_playing: false` while progress is still moving.
@@ -1449,7 +1470,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       await check();
       if (stopped) return;
       const fast = Date.now() - lastTransition.current < 15_000;
-      timer = setTimeout(() => void loop(), fast ? 800 : 1_000);
+      // Near the end of a song, watch closely so a last-second pick in Spotify wins.
+      timer = setTimeout(() => void loop(), swapping.current ? 500 : fast ? 800 : 1_000);
     };
     void loop();
     return () => {
