@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Play, Search, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +38,16 @@ export function LibrarySearch() {
   const { rerootTo } = useRadio();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
+  const [dismissed, setDismissed] = useState(false);
+  const boxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setDismissed(true);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, []);
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebounced(q.trim()), 200);
@@ -70,15 +80,16 @@ export function LibrarySearch() {
     setQ("");
   }
 
-  const open = debounced.length >= 2;
+  const open = debounced.length >= 2 && !dismissed;
 
   return (
-    <div className="relative">
+    <div ref={boxRef} className="relative">
       <div className="flex h-14 items-center gap-2 rounded-md border border-input bg-surface/90 px-4 shadow-sm focus-within:border-primary">
         <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
         <input
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => { setQ(e.target.value); setDismissed(false); }}
+          onFocus={() => setDismissed(false)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && results[0]) play(results[0]);
             if (e.key === "Escape") setQ("");

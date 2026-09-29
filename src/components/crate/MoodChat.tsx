@@ -338,7 +338,7 @@ export function MoodChat() {
                   setDeepCuts(checked === true);
                 }}
                 aria-label="Enable Deep cuts"
-                className="h-5 w-5 rounded-[3px] sm:h-[15px] sm:w-[15px] border-muted-foreground/60 data-[state=checked]:border-primary"
+                className="h-5 w-5 rounded-[4px] border-muted-foreground/60 data-[state=checked]:border-primary"
               />
             </span>
             {LENSES.map((l) => {
@@ -358,7 +358,7 @@ export function MoodChat() {
                       setLens(checked === true ? l.id : null);
                     }}
                     aria-label={`Enable ${l.name}`}
-                    className="h-5 w-5 rounded-[3px] sm:h-[15px] sm:w-[15px] border-muted-foreground/60 data-[state=checked]:border-primary"
+                    className="h-5 w-5 rounded-[4px] border-muted-foreground/60 data-[state=checked]:border-primary"
                   />
                 </span>
               );

@@ -650,16 +650,17 @@ function Door({
     <div
       className={cn(
         "rounded-xl border bg-surface p-3",
-        keep ? "border-primary/40" : "border-accent/40",
+        keep ? "border-primary/40" : "border-magenta/40",
       )}
     >
       <div
         className={cn(
           "flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide",
-          keep ? "text-primary" : "text-accent",
+          keep ? "text-primary" : "text-magenta",
         )}
       >
-        {icon} {label}
+        <span className="grid shrink-0 place-items-center">{icon}</span>
+        <span className="min-w-0 truncate">{label}</span>
       </div>
       <div className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{sublabel}</div>
       <div className="mt-2 flex items-center gap-2.5">
