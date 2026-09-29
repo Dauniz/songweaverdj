@@ -338,13 +338,13 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                   setDeepCuts(checked === true);
                 }}
                 aria-label="Enable Deep cuts"
-                className="h-5 w-5 rounded-[4px] border-muted-foreground/60 data-[state=checked]:border-primary"
+                className="h-4 w-4 rounded-[4px] border-muted-foreground/60 data-[state=checked]:border-primary"
               />
             </span>
             {LENSES.map((l) => {
               const on = lens === l.id;
               return (
-                <span key={l.id} className="flex min-h-11 w-full origin-left items-center justify-between gap-2 sm:min-h-0 sm:w-fit sm:justify-start sm:gap-1.5 transition-transform duration-150 hover:scale-110">
+                <span key={l.id} className="flex h-7 w-full items-center justify-between gap-2 transition-transform duration-150 hover:scale-105">
                   <label
                     htmlFor={`lens-${l.id}`}
                     className="cursor-pointer text-muted-foreground"
@@ -358,7 +358,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                       setLens(checked === true ? l.id : null);
                     }}
                     aria-label={`Enable ${l.name}`}
-                    className="h-5 w-5 rounded-[4px] border-muted-foreground/60 data-[state=checked]:border-primary"
+                    className="h-4 w-4 rounded-[4px] border-muted-foreground/60 data-[state=checked]:border-primary"
                   />
                 </span>
               );
@@ -370,7 +370,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                   variant="ghost"
                   size="icon-xs"
                   aria-label="About deep cuts and side roads"
-                  className="justify-self-start rounded-full text-muted-foreground sm:justify-self-auto"
+                  className="justify-self-start rounded-full text-muted-foreground"
                 >
                   <CircleHelp />
                 </Button>
