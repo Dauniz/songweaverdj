@@ -21,10 +21,17 @@ function applyCodeLens<T extends { sources: { name: string; type: string; period
   return pool;
 }
 
-/** Deep cuts: songs saved in at most one place, last added 12+ months ago (forgotten, not staples). */
-function applyDeepCuts<T extends { sources: { period: string | null }[] }>(pool: T[]): T[] {
+/** Forgotten favorite: streamed a lot (history import) but not in over a year. */
+function isForgotten(s: { plays?: number; last_played?: string | null }) {
+  if (!s.plays || s.plays < 8 || !s.last_played) return false;
+  return Date.now() - new Date(s.last_played).getTime() > 365 * 86_400_000;
+}
+
+/** Deep cuts: songs saved in at most one place, last added 12+ months ago, or forgotten favorites from history. */
+function applyDeepCuts<T extends { sources: { period: string | null }[]; plays?: number; last_played?: string | null }>(pool: T[]): T[] {
   const cutoff = Math.round(Date.now() / 86_400_000) - 365;
   const deep = pool.filter((s) => {
+    if (isForgotten(s)) return true;
     if (s.sources.length > 1) return false;
     const days = s.sources.map((x) => dayIndex(x.period)).filter((d): d is number => d !== null);
     return days.length > 0 && Math.max(...days) <= cutoff;
@@ -267,7 +274,8 @@ function buildShortlist(
 
   if (road === "vibe") {
     out.push(...take(shuffled.filter((s) => likedArtists.has(s.artists)), 20, seen));
-    out.push(...libraryWideSample(shuffled, 55, seen, true));
+    out.push(...take(shuffled.filter(isForgotten), 10, seen));
+    out.push(...libraryWideSample(shuffled, 75 - out.length, seen, true));
     return out;
   }
 
@@ -292,6 +300,7 @@ function buildShortlist(
 
   // New angle: step away from what's been playing.
   const fresh = shuffled.filter((s) => !likedArtists.has(s.artists));
+  out.push(...take(fresh.filter(isForgotten), 8, seen));
   out.push(...libraryWideSample(fresh, 45, seen));
   out.push(...take(fresh, 30, seen));
   return out;
