@@ -907,20 +907,22 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const ahead = await withTimeout(aheadP, alreadyPlaying ? 1_500 : 6_000, null);
       if (stale()) return release();
       if (alreadyPlaying) {
+        // The listener picked this song in Spotify: never re-send it alone. Only push once a
+        // skip door exists — [current, skip, ahead] at the live position replaces "next up".
+        if (!skip) {
+          pushSpotifyLog({ kind: "event", at: Date.now(), text: `ADOPT — "${current.name}" left untouched until a skip door is found` });
+          awaitingSkipPair.current = true;
+          setResendTick((n) => n + 1); // the line-up guard sends [current, skip] once found
+          setTimeout(release, 1_500);
+          return;
+        }
         const lp = lastPlayback.current;
         const pos = lp.spotifyId === startId ? Math.max(1, Math.round(lp.progressMs + (Date.now() - lp.at) + 150)) : undefined;
-        if (skip) {
-          door.current = { forId: startId, track: skip.track! };
-          preSkip.current = { forId: startId, branch: skip };
-        }
-        // Always send: replacing the playing list is what clears Spotify's playlist "next up".
-        await startSpotifyPlayback(current, true, skip?.track ?? null, pos, skip ? "adopt from Spotify" : "adopt from Spotify (clear next up)", ahead?.track ?? null, {
+        door.current = { forId: startId, track: skip.track! };
+        preSkip.current = { forId: startId, branch: skip };
+        await startSpotifyPlayback(current, true, skip.track ?? null, pos, "adopt from Spotify", ahead?.track ?? null, {
           frontierDoor: ahead ? undefined : aheadP,
         });
-        if (!skip) {
-          awaitingSkipPair.current = true;
-          setResendTick((n) => n + 1); // the line-up guard adds the skip door once found
-        }
         setTimeout(release, 1_500);
         return;
       }
