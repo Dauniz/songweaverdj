@@ -583,40 +583,32 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
     }, 1600);
   };
 
-  if (!open && done) {
-    return (
-      <button
-        type="button"
-        data-onboarding="feedbacker"
-        onClick={() => setOpen(true)}
-        className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"
-      >
-        <Check className="h-3 w-3 text-primary" /> Note saved to Walrus · add another
-      </button>
-    );
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        data-onboarding="feedbacker"
-        onClick={() => setOpen(true)}
-        className="mt-3 flex w-full items-start gap-2.5 rounded-lg border border-border bg-surface p-2.5 text-left transition-colors hover:border-primary/60 hover:bg-primary/5"
-      >
-        <NotebookPen className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-        <span className="min-w-0">
-          <span className="block text-sm font-semibold">Feedbacker</span>
-          <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-            Your feelings on this song teach Walrus the maze — helping it adapt to you over time.
-          </span>
-        </span>
-      </button>
-    );
-  }
-
   return (
-    <div className="mt-3 rounded-lg border border-primary/40 bg-primary/5 p-2.5">
+    <>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              data-onboarding="feedbacker"
+              onClick={() => {
+                if (!open) setOpen(true);
+              }}
+              aria-label={done ? "Note saved — add another" : "Feedbacker"}
+              title={done ? "Note saved — add another" : "Feedbacker"}
+              className={cn(
+                "absolute right-2.5 top-2.5 grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary",
+                done && !open && "text-primary",
+              )}
+            >
+              {done ? <Check className="h-3.5 w-3.5" /> : <NotebookPen className="h-3.5 w-3.5" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">Feedbacker</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {open && (
+        <div className="mt-3 rounded-lg border border-primary/40 bg-primary/5 p-2.5">
       <input
         autoFocus
         value={note}
