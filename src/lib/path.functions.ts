@@ -496,7 +496,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
 
     const roadRule =
       data.road === "vibe"
-        ? "Follow the VIBE: use your own music knowledge of each artist's sound — instrumentation, production, genre, tempo, vocal style, mood — and pick the candidate that sounds closest to the songs they played through, regardless of era or which playlist it sits in. Prefer finding the same sound from a different artist or a forgotten corner of their library over the obvious neighbour."
+        ? "Follow the VIBE: use your own music knowledge of each artist's sound — instrumentation, production, genre, tempo, vocal style, mood — and pick the candidate that sounds closest to the songs they played through, regardless of era or which playlist it sits in. Prefer finding the same sound from a different artist or a forgotten corner of their library over the obvious neighbour. As a light extra hint, a candidate's playlist name can reveal how the listener feels about it (e.g. a song living in 'sad songs' is probably one they consider sad) — treat it as a weak signal that can tip a close call, never as the main reason."
         : data.road === "era"
           ? "Follow the ERA: songs from the same playlists / time period as the last song they played through, filtered by their steering chips."
           : "Their last two picks were skipped. Try a fresh angle: blend era and vibe, or change direction noticeably, to figure out what they're after.";
