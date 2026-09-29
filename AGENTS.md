@@ -22,3 +22,4 @@
 - Side roads (src/lib/lenses.ts): single-select overlays; Wormhole = code pool filter, Scene/Wave/Texture = DJ prompt rule. Forgotten archive removed (dup of Deep cuts); one general tooltip in MoodChat. Why: paths without breaking the maze.
 
 - Onboarding runs once per account (flag in auth user metadata, cached per user in localStorage), anchored to live controls. Why: show it only on first Studio visit after signup or guest entry.
+- Songs started inside Spotify are never re-sent mid-song; doors show on screen and Crate takes over only at the natural-end handover. Why: mid-song resends cause an audible glitch.
