@@ -58,7 +58,7 @@ export function PathMaze() {
             <div className="mb-3 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
               <span>
-                Spotify isnt playing, press play to continue. The maze waits until music is on.
+                Spotify isn't playing, press play to continue. The maze waits until music is on.
               </span>
             </div>
           )}
