@@ -8,20 +8,20 @@ export function SessionControl() {
 
   if (sessionLive) {
     return (
-      <Button variant="outline" size="sm" className="h-8 rounded-full px-2.5 sm:px-4" onClick={endSession}>
-        <Square className="h-3.5 w-3.5" /> <span className="hidden sm:inline">End session</span>
+      <Button variant="outline" size="sm" className="h-8 rounded-full px-2.5 lg:px-4" onClick={endSession}>
+        <Square className="h-3.5 w-3.5" /> <span className="hidden lg:inline">End session</span>
       </Button>
     );
   }
   return (
     <div className="flex items-center gap-1">
       {hasLastSession && (
-        <Button variant="ghost" size="sm" className="h-8 rounded-full px-1.5 text-muted-foreground sm:px-2.5" onClick={resumeLastSession}>
-          <History className="h-3.5 w-3.5" /> <span className="hidden sm:inline">Resume last session</span>
+        <Button variant="ghost" size="sm" className="h-8 rounded-full px-1.5 text-muted-foreground lg:px-2.5" onClick={resumeLastSession}>
+          <History className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Resume last session</span>
         </Button>
       )}
-      <Button size="sm" className="h-8 rounded-full px-2 sm:px-3" onClick={() => void startSession()}>
-        <Play className="h-3.5 w-3.5" /> <span className="hidden sm:inline">{hasLastSession ? "Start new session" : "Start session"}</span>
+      <Button size="sm" className="h-8 rounded-full px-2 lg:px-3" onClick={() => void startSession()}>
+        <Play className="h-3.5 w-3.5" /> <span className="hidden lg:inline">{hasLastSession ? "Start new session" : "Start session"}</span>
       </Button>
     </div>
   );
