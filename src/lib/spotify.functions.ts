@@ -51,7 +51,7 @@ type SpotifyConnection = {
 };
 
 const tokenCache = new Map<string, { token: string; expiresAt: number }>();
-const deviceCache = new Map<string, { id: string; name: string }>();
+const deviceCache = new Map<string, { id: string; name: string; at: number }>();
 const deviceInit = new Map<string, number>();
 
 async function spotifyAccess(userId: string) {
@@ -165,7 +165,16 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
       const d = b.devices?.find((i) => i.is_active && !i.is_restricted && i.id)
         ?? b.devices?.find((i) => !i.is_restricted && i.id);
       if (!d?.id) return { fail: { status: "no_device" as const, message: "Spotify needs to be open on one of your devices." } };
-      const dev = { id: d.id, name: d.name };
+      const dev = { id: d.id, name: d.name, at: Date.now() };
+      // A sleeping desktop app can freeze when fed songs cold — wake it with an official transfer first.
+      if (!d.is_active) {
+        await fetch("https://api.spotify.com/v1/me/player", {
+          method: "PUT",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ device_ids: [d.id], play: false }),
+        }).catch(() => undefined);
+        await new Promise((r) => setTimeout(r, 500));
+      }
       deviceCache.set(context.userId, dev);
       return { dev };
     };
@@ -177,7 +186,9 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
       });
 
     // Reuse the last device (saves a round trip); only ask Spotify for devices when it fails.
-    let device = deviceCache.get(context.userId) ?? null;
+    // Only trust the cached device if it was used recently; otherwise it may have gone to sleep.
+    const cachedDev = deviceCache.get(context.userId);
+    let device = cachedDev && Date.now() - cachedDev.at < 90_000 ? cachedDev : null;
     let response: Response | null = device ? await send(device.id) : null;
     if (!response || !response.ok) {
       deviceCache.delete(context.userId);
@@ -190,17 +201,7 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
       deviceCache.delete(context.userId);
       return playbackFailure(response.status, await response.text());
     }
-    // Repeat/shuffle would loop Crate's short line-up; turn them off once per device, without waiting.
-    const initKey = `${context.userId}|${device!.id}`;
-    const last = deviceInit.get(initKey) ?? 0;
-    if (Date.now() - last > 30 * 60_000) {
-      deviceInit.set(initKey, Date.now());
-      const dev = `device_id=${encodeURIComponent(device!.id)}`;
-      void Promise.all([
-        fetch(`https://api.spotify.com/v1/me/player/repeat?state=off&${dev}`, { method: "PUT", headers }),
-        fetch(`https://api.spotify.com/v1/me/player/shuffle?state=false&${dev}`, { method: "PUT", headers }),
-      ]).catch(() => undefined);
-    }
+    deviceCache.set(context.userId, { ...device!, at: Date.now() });
     // Answer right away; the client's once-a-second poll confirms the song actually plays.
     return { status: "playing" as const, deviceName: device!.name, foreignQueued: 0 };
   });
@@ -246,8 +247,27 @@ export const getSpotifyPlayback = createServerFn({ method: "GET" })
         album?: { name?: string; images?: { url: string }[] };
         external_urls?: { spotify?: string };
       } | null;
-      device?: { name?: string };
+      device?: { id?: string | null; name?: string };
     };
+    // Repeat/shuffle would loop Crate's short line-up; turn them off once per device,
+    // only after the song is confirmed playing so a freshly woken app isn't flooded.
+    const devId = body.device?.id;
+    if (body.is_playing && devId) {
+      const initKey = `${context.userId}|${devId}`;
+      if (Date.now() - (deviceInit.get(initKey) ?? 0) > 30 * 60_000) {
+        deviceInit.set(initKey, Date.now());
+        const headers = { Authorization: `Bearer ${token}` };
+        const dev = `device_id=${encodeURIComponent(devId)}`;
+        await Promise.all([
+          fetch(`https://api.spotify.com/v1/me/player/repeat?state=off&${dev}`, { method: "PUT", headers }),
+          fetch(`https://api.spotify.com/v1/me/player/shuffle?state=false&${dev}`, { method: "PUT", headers }),
+        ]).catch(() => undefined);
+      }
+    }
+    if (devId && body.is_playing) {
+      const c = deviceCache.get(context.userId);
+      if (c?.id === devId) c.at = Date.now();
+    }
     return {
       status: "ready" as const,
       isPlaying: Boolean(body.is_playing),
