@@ -21,7 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { getMemoryStatus, refreshMemories, resetMemoryLog } from "@/lib/memory.functions";
+import { refreshMemories, resetMemoryLog } from "@/lib/memory.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { cn } from "@/lib/utils";
 import { PathMaze, CrateConsole } from "@/components/crate/PathMaze";
@@ -68,8 +68,6 @@ export function MemoryInspector() {
   const reset = useServerFn(resetMemoryLog);
   const refresh = useServerFn(refreshMemories);
   const reflect = useServerFn(synthesizeMemories);
-  const status = useServerFn(getMemoryStatus);
-  const { data: cfg } = useQuery({ queryKey: ["memwal-status"], queryFn: () => status() });
   const { data: nodes = [] } = useQuery({
     queryKey: ["memories"],
     queryFn: async () => {
@@ -105,25 +103,6 @@ export function MemoryInspector() {
           <Database className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold uppercase tracking-wider">Walrus Memory</h2>
         </div>
-        {cfg?.configured ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className="inline-flex cursor-default items-center gap-1.5 text-xs text-primary">
-                  <span className="h-1.5 w-1.5 rounded-full bg-primary" /> Connected to Walrus relayer
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="left" className="max-w-56">
-                Your taste memories are synced through the Walrus relayer, the system that keeps them safe and lets Crate recall them across sessions.
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : (
-          <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" /> Walrus keys not added
-            — memories saved locally
-          </span>
-        )}
       </div>
       <div className={cn("flex min-h-0 flex-col", consoleOpen ? "shrink" : "flex-1")}>
       <div className="scrollbar-thin min-h-0 shrink overflow-y-auto">
