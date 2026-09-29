@@ -97,7 +97,7 @@ async function transcribeVoice(file: File) {
   return result;
 }
 
-export function MoodChat() {
+export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void }) {
   const qc = useQueryClient();
   const [text, setText] = useState("");
   const [voiceState, setVoiceState] = useState<"idle" | "recording" | "transcribing">("idle");
@@ -261,7 +261,7 @@ export function MoodChat() {
       <div className="mx-auto w-full max-w-3xl">
         <div data-onboarding="prompt">
         <div className={cn("mb-4", !empty && "pt-3")}>
-          <LibrarySearch />
+          <LibrarySearch onSelect={onSearchSelection} />
         </div>
         <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90 shadow-sm">
           <PromptInputTextarea
@@ -323,8 +323,8 @@ export function MoodChat() {
         </PromptInput>
         </div>
         <TooltipProvider>
-          <div data-onboarding="side-roads" className="mt-2 grid grid-cols-3 items-center gap-x-3 gap-y-1 text-sm sm:flex sm:flex-wrap sm:gap-x-6 sm:gap-y-2 sm:text-xs">
-            <span className="flex min-h-10 w-fit origin-left items-center gap-2 sm:min-h-0 sm:gap-1.5 transition-transform duration-150 hover:scale-110">
+          <div data-onboarding="side-roads" className="mt-3 grid grid-cols-2 items-center gap-x-5 gap-y-1 px-1 text-sm sm:flex sm:flex-wrap sm:gap-x-6 sm:gap-y-2 sm:px-0 sm:text-xs">
+            <span className="flex min-h-11 w-full origin-left items-center justify-between gap-2 sm:min-h-0 sm:w-fit sm:justify-start sm:gap-1.5 transition-transform duration-150 hover:scale-110">
               <label
                 htmlFor="deep-cuts"
                 className="cursor-pointer text-muted-foreground"
@@ -344,7 +344,7 @@ export function MoodChat() {
             {LENSES.map((l) => {
               const on = lens === l.id;
               return (
-                <span key={l.id} className="flex min-h-10 w-fit origin-left items-center gap-2 sm:min-h-0 sm:gap-1.5 transition-transform duration-150 hover:scale-110">
+                <span key={l.id} className="flex min-h-11 w-full origin-left items-center justify-between gap-2 sm:min-h-0 sm:w-fit sm:justify-start sm:gap-1.5 transition-transform duration-150 hover:scale-110">
                   <label
                     htmlFor={`lens-${l.id}`}
                     className="cursor-pointer text-muted-foreground"
@@ -370,7 +370,7 @@ export function MoodChat() {
                   variant="ghost"
                   size="icon-xs"
                   aria-label="About deep cuts and side roads"
-                  className="rounded-full text-muted-foreground"
+                  className="justify-self-start rounded-full text-muted-foreground sm:justify-self-auto"
                 >
                   <CircleHelp />
                 </Button>
@@ -404,7 +404,7 @@ export function MoodChat() {
 
   if (empty) {
     return (
-      <div className="chat-enter scrollbar-thin flex h-full flex-col items-center justify-start overflow-y-auto px-4 pb-6 pt-44 sm:px-6 sm:pb-16 sm:pt-36 xl:justify-center xl:pb-24 xl:pl-0 xl:pt-0 xl:max-2xl:pl-72 [@media(max-height:850px)]:pt-40 [@media(max-height:800px)]:justify-start [@media(max-height:800px)]:pb-4 [@media(max-height:800px)]:pt-40 sm:[@media(max-height:800px)]:pt-7">
+      <div className="chat-enter scrollbar-thin flex h-full flex-col items-center justify-start overflow-y-auto px-4 pb-8 pt-32 sm:px-6 sm:pb-16 sm:pt-36 xl:justify-center xl:pb-24 xl:pl-0 xl:pt-0 xl:max-2xl:pl-72 [@media(max-height:850px)]:pt-28 [@media(max-height:800px)]:justify-start [@media(max-height:800px)]:pb-6 [@media(max-height:800px)]:pt-24 sm:[@media(max-height:800px)]:pt-7">
         <div className="flex flex-col items-center text-center">
           <img
             src={logo}
