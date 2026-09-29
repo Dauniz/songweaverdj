@@ -635,6 +635,15 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
 /** Pause/resume and next-song controls, right inside the current song box. */
 function MediaControls({ musicPlaying, disabled }: { musicPlaying: boolean; disabled: boolean }) {
   const [busy, setBusy] = useState(false);
+  // Flip the icon instantly on click; drop the override once Spotify reports the same state.
+  const [shown, setShown] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (shown === null) return;
+    if (shown === musicPlaying) { setShown(null); return; }
+    const t = setTimeout(() => setShown(null), 6000);
+    return () => clearTimeout(t);
+  }, [shown, musicPlaying]);
+  const playing = shown ?? musicPlaying;
   const pauseFn = useServerFn(pauseSpotifyPlayback);
   const resumeFn = useServerFn(resumeSpotifyPlayback);
   const { skipNow: nextFn } = useRadio();
@@ -659,13 +668,13 @@ function MediaControls({ musicPlaying, disabled }: { musicPlaying: boolean; disa
               size="icon-sm"
               className="rounded-full text-muted-foreground hover:text-foreground"
               disabled={disabled || busy}
-              aria-label={musicPlaying ? "Pause" : "Play"}
-              onClick={() => void run(musicPlaying ? pauseFn : resumeFn)}
+              aria-label={playing ? "Pause" : "Play"}
+              onClick={() => { if (busy || disabled) return; setShown(!playing); void run(playing ? pauseFn : resumeFn).catch(() => setShown(null)); }}
             >
-              {musicPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
+              {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="bottom">{musicPlaying ? "Pause" : "Play"}</TooltipContent>
+          <TooltipContent side="bottom">{playing ? "Pause" : "Play"}</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
