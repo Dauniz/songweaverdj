@@ -56,9 +56,20 @@ export function HistoryImport({ libraryIds }: { libraryIds: Set<string> }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-1 flex items-center gap-1.5 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        className={cn(
+          "mt-1 flex items-center gap-1.5 py-2 text-xs transition-colors",
+          imported ? "text-primary hover:text-primary/80" : "text-muted-foreground hover:text-foreground",
+        )}
       >
-        <History className="h-3.5 w-3.5" /> Import listening history (optional)
+        {imported ? (
+          <>
+            <Check className="h-3.5 w-3.5" /> History imported
+          </>
+        ) : (
+          <>
+            <History className="h-3.5 w-3.5" /> Import listening history (optional)
+          </>
+        )}
       </button>
     );
   }
