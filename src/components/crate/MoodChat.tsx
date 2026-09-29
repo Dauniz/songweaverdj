@@ -24,7 +24,6 @@ import { cn } from "@/lib/utils";
 import { LENSES } from "@/lib/lenses";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import logo from "@/assets/crate-logo.jpg";
 import { recordWav, type VoiceRecording } from "@/lib/record-wav";
 import { LibrarySearch } from "./LibrarySearch";
@@ -323,44 +322,33 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
         </PromptInput>
         </div>
         <TooltipProvider>
-          <div data-onboarding="side-roads" className="mt-3 grid grid-cols-2 items-center gap-x-5 gap-y-1 px-1 text-sm sm:flex sm:flex-wrap sm:gap-x-6 sm:gap-y-2 sm:px-0 sm:text-xs">
-            <span className="flex min-h-11 w-full origin-left items-center justify-between gap-2 sm:min-h-0 sm:w-fit sm:justify-start sm:gap-1.5 transition-transform duration-150 hover:scale-110">
-              <label
-                htmlFor="deep-cuts"
-                className="cursor-pointer text-muted-foreground"
-              >
-                Deep cuts
-              </label>
-              <Checkbox
-                id="deep-cuts"
-                checked={deepCuts}
-                onCheckedChange={(checked) => {
-                  setDeepCuts(checked === true);
-                }}
-                aria-label="Enable Deep cuts"
-                className="h-5 w-5 rounded-[4px] border-muted-foreground/60 data-[state=checked]:border-primary"
-              />
-            </span>
+          <div data-onboarding="side-roads" className="mt-3 flex flex-wrap items-center gap-2 px-1 text-sm sm:px-0">
+            <Button
+              type="button"
+              variant={deepCuts ? "default" : "secondary"}
+              size="sm"
+              onClick={() => setDeepCuts(!deepCuts)}
+              aria-pressed={deepCuts}
+              aria-label="Enable Deep cuts"
+              className="h-8 rounded-full px-3.5"
+            >
+              Deep cuts
+            </Button>
             {LENSES.map((l) => {
               const on = lens === l.id;
               return (
-                <span key={l.id} className="flex min-h-11 w-full origin-left items-center justify-between gap-2 sm:min-h-0 sm:w-fit sm:justify-start sm:gap-1.5 transition-transform duration-150 hover:scale-110">
-                  <label
-                    htmlFor={`lens-${l.id}`}
-                    className="cursor-pointer text-muted-foreground"
-                  >
-                    {l.name}
-                  </label>
-                  <Checkbox
-                    id={`lens-${l.id}`}
-                    checked={on}
-                    onCheckedChange={(checked) => {
-                      setLens(checked === true ? l.id : null);
-                    }}
-                    aria-label={`Enable ${l.name}`}
-                    className="h-5 w-5 rounded-[4px] border-muted-foreground/60 data-[state=checked]:border-primary"
-                  />
-                </span>
+                <Button
+                  key={l.id}
+                  type="button"
+                  variant={on ? "default" : "secondary"}
+                  size="sm"
+                  onClick={() => setLens(on ? null : l.id)}
+                  aria-pressed={on}
+                  aria-label={`Enable ${l.name}`}
+                  className="h-8 rounded-full px-3.5"
+                >
+                  {l.name}
+                </Button>
               );
             })}
             <Tooltip>
