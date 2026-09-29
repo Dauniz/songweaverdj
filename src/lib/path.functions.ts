@@ -484,7 +484,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
       : await supabase
           .from("memory_nodes")
           .select("content, origin, created_at")
-          .or("origin.eq.cross_session,origin.eq.synthesis,content.like.Note on%")
+          .or("origin.eq.cross_session,origin.eq.synthesis,origin.eq.history_profile,content.like.Note on%")
           .order("created_at", { ascending: false })
           .limit(40)
           .then((r: { data: { content: string; origin: string }[] | null }) => r.data ?? []);
@@ -499,6 +499,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const anchors = learned.filter((m) => m.origin === "cross_session").slice(0, 6);
     const observations = learned.filter((m) => m.origin === "synthesis").slice(0, 4);
     const notes = learned.filter((m) => m.content.startsWith("Note on")).slice(0, 8);
+    const profile = learned.filter((m) => m.origin === "history_profile").slice(0, 7);
     const seen = new Set(learned.map((m) => m.content));
     const walrus = recalled.filter((m: { text: string }) => ![...seen].some((c) => m.text.includes(c.slice(0, 40))));
     const bullets = (xs: { content: string }[]) => xs.map((m) => `- ${m.content}`).join("\n") || "- (none yet)";
@@ -520,6 +521,8 @@ Call pick_next exactly once with one code from the candidate list.
 What you have learned about this listener over time — use it to make the pick personal:
 Durable patterns across many sessions (strongest; apply them, especially rituals matching the listener's current day and time):
 ${bullets(anchors)}
+Long-term profile from years of their Spotify streaming history (baseline — compare this session against it; tonight may confirm or break the habit):
+${bullets(profile)}
 Recent single-session observations (weaker hints):
 ${bullets(observations)}
 Things they told you about specific songs (Feedbacker — their own words, trust them):
