@@ -5,7 +5,7 @@ import type { RadioTrack } from "@/components/crate/radio-context";
 import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Pause, Play, Route, SkipForward, Sparkles } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
-import { nextSpotifyTrack, pauseSpotifyPlayback, resumeSpotifyPlayback } from "@/lib/spotify.functions";
+import { pauseSpotifyPlayback, resumeSpotifyPlayback } from "@/lib/spotify.functions";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -637,7 +637,7 @@ function MediaControls({ musicPlaying, disabled }: { musicPlaying: boolean; disa
   const [busy, setBusy] = useState(false);
   const pauseFn = useServerFn(pauseSpotifyPlayback);
   const resumeFn = useServerFn(resumeSpotifyPlayback);
-  const nextFn = useServerFn(nextSpotifyTrack);
+  const { skipNow: nextFn } = useRadio();
 
   const run = async (fn: () => Promise<unknown>) => {
     if (busy || disabled) return;

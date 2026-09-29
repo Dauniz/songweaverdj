@@ -11,7 +11,7 @@ import { nextPathTrack } from "@/lib/path.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
 import { pushSpotifyLog, ackSpotifySend, observeSpotify } from "@/lib/spotify-log";
-import { endSpotifySession, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyPlayback, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
+import { endSpotifySession, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyPlayback, nextSpotifyTrack, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
 import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
@@ -71,6 +71,8 @@ type RadioContextValue = {
   rerootTo: (track: CardTrack, prompt?: string) => void;
   stopRadio: () => void;
   next: (outcome: Outcome) => void;
+  /** Media "next" button: always lands on Crate's skip door, never your own Spotify queue. */
+  skipNow: () => Promise<void>;
   toggleChip: (chip: string) => void;
   lens: LensId | null;
   setLens: (lens: LensId | null) => void;
@@ -158,6 +160,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const playFn = useServerFn(playSpotifyTrack);
   const queueCountFn = useServerFn(getForeignQueueCount);
   const pauseFn = useServerFn(pauseSpotifyPlayback);
+  const nextTrackFn = useServerFn(nextSpotifyTrack);
   const playbackFn = useServerFn(getSpotifyPlayback);
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const qc = useQueryClient();
@@ -1063,6 +1066,30 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [log, note, noteMove, planLanding, landOnFrontier],
   );
 
+  /** Media "next": if Crate's skip door already sits right behind the current song in Spotify,
+   *  a plain Spotify "next" is enough. Otherwise (e.g. a song you started in Spotify, still on
+   *  your own queue) wait briefly for the door and play it directly, counted as a skip. */
+  const skipNow = useCallback(async () => {
+    const inLine = () => {
+      const d = upSkipRef.current?.track.spotify_id;
+      const cur = lastPlayback.current.spotifyId;
+      const at = cur ? lineup.current.indexOf(cur) : -1;
+      return !!d && at >= 0 && lineup.current[at + 1] === d;
+    };
+    const until = Date.now() + 5_000;
+    while (!inLine() && !upSkipRef.current && Date.now() < until) await new Promise((r) => setTimeout(r, 250));
+    if (inLine()) { await nextTrackFn(); return; }
+    // Give an in-flight adopt send a moment to land the pair.
+    const settle = Date.now() + 1_500;
+    while (!inLine() && Date.now() < settle && Date.now() < until) await new Promise((r) => setTimeout(r, 250));
+    if (inLine()) { await nextTrackFn(); return; }
+    const d = upSkipRef.current;
+    if (!d?.track.spotify_id || !radioRef.current.current) { await nextTrackFn(); return; }
+    pushSpotifyLog({ kind: "event", at: Date.now(), text: `NEXT BUTTON — skip door not in Spotify's queue yet, playing "${d.track.name}" directly` });
+    acceptObserved(d.track, "skipped", false);
+    await startSpotifyPlayback(d.track, true, null, undefined, "next button");
+  }, [nextTrackFn, acceptObserved, startSpotifyPlayback]);
+
   // Line up exactly one song behind the current one: the "if you skip" door.
   // Spotify then lands on it if you skip; near the end Crate swaps in the "if you finish" pick.
   useEffect(() => {
@@ -1898,6 +1925,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         rerootTo,
         stopRadio,
         next,
+        skipNow,
         toggleChip,
         lens,
         setLens,
