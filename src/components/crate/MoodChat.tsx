@@ -323,8 +323,8 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
         </PromptInput>
         </div>
         <TooltipProvider>
-          <div data-onboarding="side-roads" className="mt-3 grid grid-cols-2 items-center gap-x-5 gap-y-1 px-1 text-sm sm:flex sm:flex-wrap sm:gap-x-6 sm:gap-y-2 sm:px-0 sm:text-xs">
-            <span className="flex min-h-11 w-full origin-left items-center justify-between gap-2 sm:min-h-0 sm:w-fit sm:justify-start sm:gap-1.5 transition-transform duration-150 hover:scale-110">
+          <div data-onboarding="side-roads" className="mt-3 flex flex-col items-stretch gap-y-0.5 px-1 text-xs">
+            <span className="flex h-7 w-full items-center justify-between gap-2 transition-transform duration-150 hover:scale-105">
               <label
                 htmlFor="deep-cuts"
                 className="cursor-pointer text-muted-foreground"
