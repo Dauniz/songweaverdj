@@ -29,6 +29,7 @@ export function BugReportButton() {
     }
     const { error } = await supabase.from("bug_reports").insert({
       user_id: data.user.id,
+      email: data.user.email ?? null,
       message: text.slice(0, 4000),
       page: window.location.pathname,
       user_agent: navigator.userAgent.slice(0, 500),
