@@ -51,7 +51,6 @@ function Studio() {
   return (
     <RadioProvider>
       <StudioLayout mobileTab={mobileTab} onTab={setMobileTab} onSignOut={signOut} />
-      <BugReportButton />
       {/* Spotify live log hidden for now — re-enable by rendering <SpotifyLogPanel /> */}
     </RadioProvider>
   );
@@ -73,9 +72,10 @@ function StudioLayout({
   return (
     <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background">
       <header className="relative flex shrink-0 items-center justify-between gap-2 border-b px-3 py-2.5 sm:grid sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:px-4">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <img src={logo} alt="Songweaver" width={32} height={32} className="h-8 w-8 shrink-0 rounded-lg" />
           <span className="hidden truncate font-display text-lg font-bold sm:block">Songweaver</span>
+          <BugReportButton />
         </div>
         <nav className="absolute left-1/2 flex min-w-0 -translate-x-1/2 justify-center gap-1 xl:hidden">
           {(["chat", "memory"] as const).map((t) => (
