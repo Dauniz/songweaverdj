@@ -26,7 +26,7 @@ export const Route = createFileRoute("/crate-info")({
 const SKILLS = [
   {
     name: "User input",
-    how: "Everything you type or say in the chat — a mood, a setting, an artist, a memory — is written to Walrus as a taste note. Next session, Crate recalls it before picking a single song.",
+    how: "When you tell Crate something meaningful in the chat — a mood, a setting, an artist, a memory — it writes it to Walrus as a taste note. Next session, Crate recalls it before picking a single song.",
   },
   {
     name: "Listening",
@@ -34,15 +34,23 @@ const SKILLS = [
   },
   {
     name: "Steer",
-    how: "Small chips like Svenskt, Engelskt, Nostalgi or Instrumental let you nudge the maze without stopping the music. Playing a song spontaneously works the same way — the maze continues from there. A chip you reach for in three or more sessions becomes a permanent taste memory.",
+    how: "Every twenty minutes or so of listening, Crate offers small chips like Svenskt, Engelskt, Nostalgi or Instrumental to nudge the maze without stopping the music. Searching for a song, sending a new prompt or picking a song straight in Spotify works the same way — the maze continues from there. A chip you reach for in three or more sessions becomes a permanent taste memory.",
   },
   {
     name: "Feedbacker",
     how: "The sharpest signal Crate gets: a few free words about the song playing right now. \"Nostalgi, högstadiet, sommarens första dag\" ties a feeling to a track forever, and Walrus carries it into every future session.",
   },
   {
+    name: "Side roads",
+    how: "One side road at a time can bend the maze: Wormhole jumps between chapters of your life through songs saved in several playlists, Scene follows collaborations and regional scenes, Wave builds energy over three songs then calms for two, and Texture keeps the same sound texture. Crate waits about a second after you toggle one — in case you change your mind — then replaces both doors.",
+  },
+  {
+    name: "Listening history",
+    how: "Optional: drop the Spotify history files you requested for stats.fm into the Spotify panel. They're read on your device and only play counts are saved, so Crate knows which songs you once played a hundred times but haven't heard in years — and brings them back.",
+  },
+  {
     name: "Deep cuts",
-    how: "With Deep cuts on, Crate ignores everything you've heard in the last 60 days and digs into playlists a year old or more — the songs you loved and forgot.",
+    how: "With Deep cuts on, Crate only picks songs you saved more than a year ago and kept in just one place — the songs you loved and forgot, never the staples.",
   },
 ];
 
@@ -94,9 +102,14 @@ function CrateInfoPage() {
             </li>
           </ul>
           <p className="mt-3 leading-relaxed text-muted-foreground">
-            Both doors are always prepared in advance, so a skip is instant. The
-            Maze box in the Studio shows the path so far, where you are, and the
-            two songs waiting behind each door — with the reason for each pick.
+            Both doors are always prepared in advance, so a skip is instant:
+            Spotify already holds the current song, the "if you skip" song and
+            the song behind that one. The Maze box in the Studio shows where you
+            are, the one song waiting behind each door and which road it came
+            from. Change song in Spotify, search, or send a new prompt mid-session
+            and Crate re-plans the maze from that song within seconds. Leave the
+            music paused for more than 90 seconds and the session ends — you can
+            start fresh or resume where Crate was in the maze.
           </p>
 
           <div className="mt-6 space-y-3">
@@ -116,7 +129,7 @@ function CrateInfoPage() {
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 The time road. Crate walks through the same playlist and the
                 same months the current song came from — the period of your life
-                when you saved it. No AI guesses here: it follows your own
+                when you saved it. Candidates are ranked by plain rules — same playlist, songs saved within two weeks or a month of each other — so it follows your own
                 library's history, so it surfaces songs you actually lived
                 through together. Crate aims for this road when the anchor song
                 or your prompt points at a period, a playlist or a memory.
@@ -186,7 +199,7 @@ function CrateInfoPage() {
             <div className="rounded-lg border bg-surface p-4">
               <h3 className="font-semibold">Session observation</h3>
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Written during and at the end of a single session. Every seventh
+                Written during and at the end of a single session. Every tenth
                 listening event — and again when you stop the radio — Crate
                 steps back and reads the trace of that sitting: what was played
                 to the end, what was skipped and after how many seconds, which
