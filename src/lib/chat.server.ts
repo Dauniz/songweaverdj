@@ -107,11 +107,30 @@ export async function handleChat(request: Request) {
       .limit(2000);
     for (const e of ev ?? []) recentKeys.add(`${e.track_name}|${e.artists}`.toLowerCase());
   }
+  // Imported listening history (optional): plays + when last streamed.
+  const hist = new Map<string, { plays: number; last: string | null }>();
+  const idToSpotify = new Map<string, string>();
+  {
+    const ids = await supabase.from("library_tracks").select("id, spotify_id").limit(6000);
+    for (const r of ids.data ?? []) idToSpotify.set(r.id, r.spotify_id);
+    for (let from = 0; from < 200000; from += 1000) {
+      const { data: h } = await supabase
+        .from("listening_history")
+        .select("spotify_id, plays, last_played")
+        .order("spotify_id")
+        .range(from, from + 999);
+      if (!h?.length) break;
+      for (const x of h) hist.set(x.spotify_id, { plays: x.plays, last: x.last_played });
+      if (h.length < 1000) break;
+    }
+  }
   const index = new Map<string, (typeof tracks)[number]>();
   const libLines = tracks.map((t, i) => {
     const code = `T${i}`;
     index.set(code, t);
-    return `${code} | ${t.name} — ${t.artists} | ${t.source_name}${t.source_period ? ` (${fmtPeriod(t.source_period)})` : ""}${recentKeys.has(`${t.name}|${t.artists}`.toLowerCase()) ? " | HEARD RECENTLY" : ""}`;
+    const h = hist.get(idToSpotify.get(t.id) ?? "");
+    const hx = h ? ` | ${h.plays}x, last ${h.last?.slice(0, 7) ?? "?"}` : "";
+    return `${code} | ${t.name} — ${t.artists} | ${t.source_name}${t.source_period ? ` (${fmtPeriod(t.source_period)})` : ""}${hx}${recentKeys.has(`${t.name}|${t.artists}`.toLowerCase()) ? " | HEARD RECENTLY" : ""}`;
   });
 
   // Walrus memory recall + local mirror (for skip lists etc.)
