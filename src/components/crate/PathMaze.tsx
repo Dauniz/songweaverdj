@@ -307,6 +307,7 @@ function JunctionTree({
               <span className="font-semibold text-foreground">Why Crate chose it:</span> {shown.current.why}
             </p>
           )}
+          <MediaControls musicPlaying={musicPlaying} disabled={!controlsEnabled} />
           <SongNote key={shown.current.spotify_id} trackName={shown.current.name} artists={shown.current.artists} />
         </div>
       </motion.div>
