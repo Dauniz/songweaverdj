@@ -68,8 +68,6 @@ export function MemoryInspector() {
   const reset = useServerFn(resetMemoryLog);
   const refresh = useServerFn(refreshMemories);
   const reflect = useServerFn(synthesizeMemories);
-  const status = useServerFn(getMemoryStatus);
-  const { data: cfg } = useQuery({ queryKey: ["memwal-status"], queryFn: () => status() });
   const { data: nodes = [] } = useQuery({
     queryKey: ["memories"],
     queryFn: async () => {
