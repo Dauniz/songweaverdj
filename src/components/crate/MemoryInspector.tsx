@@ -21,7 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { getMemoryStatus, refreshMemories, resetMemoryLog } from "@/lib/memory.functions";
+import { refreshMemories, resetMemoryLog } from "@/lib/memory.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { cn } from "@/lib/utils";
 import { PathMaze, CrateConsole } from "@/components/crate/PathMaze";
