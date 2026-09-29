@@ -261,7 +261,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
       <div className="mx-auto w-full max-w-3xl">
         <div data-onboarding="prompt">
         <div className={cn("mb-4", !empty && "pt-3")}>
-          <LibrarySearch onSelect={onSearchSelection} />
+          <LibrarySearch {...(onSearchSelection ? { onSelect: onSearchSelection } : {})} />
         </div>
         <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90 shadow-sm">
           <PromptInputTextarea
