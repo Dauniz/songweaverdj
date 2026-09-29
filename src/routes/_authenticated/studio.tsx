@@ -51,7 +51,6 @@ function Studio() {
   return (
     <RadioProvider>
       <StudioLayout mobileTab={mobileTab} onTab={setMobileTab} onSignOut={signOut} />
-      <BugReportButton />
       {/* Spotify live log hidden for now — re-enable by rendering <SpotifyLogPanel /> */}
     </RadioProvider>
   );
