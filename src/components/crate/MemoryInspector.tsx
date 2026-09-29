@@ -126,7 +126,7 @@ export function MemoryInspector() {
         )}
       </div>
       <div className={cn("flex min-h-0 flex-col", consoleOpen ? "shrink" : "flex-1")}>
-      <div className="scrollbar-thin min-h-0 shrink overflow-y-auto">
+      <div className="scrollbar-thin min-h-0 shrink basis-3/4 overflow-y-auto">
         <PathMaze />
       </div>
       <div className={cn("shrink-0 px-4 pt-3 pb-3 text-xs", (consoleOpen || consoleAnimating) && "hidden")}>
