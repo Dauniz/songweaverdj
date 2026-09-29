@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
-import { History, Loader2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, History, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { parseHistoryFiles, saveHistory } from "@/lib/listening-history";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +14,18 @@ export function HistoryImport({ libraryIds }: { libraryIds: Set<string> }) {
   const [over, setOver] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+
+  const { data: imported } = useQuery({
+    queryKey: ["listening-history"],
+    staleTime: 60 * 60_000,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("listening_history")
+        .select("spotify_id", { count: "exact", head: true });
+      if (error) throw error;
+      return (count ?? 0) > 0;
+    },
+  });
 
   async function handle(files: File[]) {
     if (!files.length) return;
