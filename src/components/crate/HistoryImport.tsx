@@ -43,7 +43,7 @@ export function HistoryImport({ libraryIds }: { libraryIds: Set<string> }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        className="mt-1 flex items-center gap-1.5 py-2 text-xs text-muted-foreground transition-colors hover:text-foreground"
       >
         <History className="h-3.5 w-3.5" /> Import listening history (optional)
       </button>

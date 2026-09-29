@@ -323,8 +323,8 @@ export function MoodChat() {
         </PromptInput>
         </div>
         <TooltipProvider>
-          <div data-onboarding="side-roads" className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
-            <span className="flex w-fit origin-left items-center gap-1.5 transition-transform duration-150 hover:scale-110">
+          <div data-onboarding="side-roads" className="mt-2 grid grid-cols-3 items-center gap-x-3 gap-y-1 text-sm sm:flex sm:flex-wrap sm:gap-x-6 sm:gap-y-2 sm:text-xs">
+            <span className="flex min-h-10 w-fit origin-left items-center gap-2 sm:min-h-0 sm:gap-1.5 transition-transform duration-150 hover:scale-110">
               <label
                 htmlFor="deep-cuts"
                 className="cursor-pointer text-muted-foreground"
@@ -338,13 +338,13 @@ export function MoodChat() {
                   setDeepCuts(checked === true);
                 }}
                 aria-label="Enable Deep cuts"
-                className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
+                className="h-5 w-5 rounded-[3px] sm:h-[15px] sm:w-[15px] border-muted-foreground/60 data-[state=checked]:border-primary"
               />
             </span>
             {LENSES.map((l) => {
               const on = lens === l.id;
               return (
-                <span key={l.id} className="flex w-fit origin-left items-center gap-1.5 transition-transform duration-150 hover:scale-110">
+                <span key={l.id} className="flex min-h-10 w-fit origin-left items-center gap-2 sm:min-h-0 sm:gap-1.5 transition-transform duration-150 hover:scale-110">
                   <label
                     htmlFor={`lens-${l.id}`}
                     className="cursor-pointer text-muted-foreground"
@@ -358,7 +358,7 @@ export function MoodChat() {
                       setLens(checked === true ? l.id : null);
                     }}
                     aria-label={`Enable ${l.name}`}
-                    className="h-[15px] w-[15px] rounded-[3px] border-muted-foreground/60 data-[state=checked]:border-primary"
+                    className="h-5 w-5 rounded-[3px] sm:h-[15px] sm:w-[15px] border-muted-foreground/60 data-[state=checked]:border-primary"
                   />
                 </span>
               );
@@ -495,10 +495,10 @@ export function MoodChat() {
               </MessageContent>
             </Message>
           ))}
-          {status === "submitted" && (
+          {busy && (messages.at(-1)?.role !== "assistant" || status === "submitted" || !messages.at(-1)?.parts.some((p) => p.type === "text" && p.text)) && (
             <Message from="assistant" className="!max-w-full">
               <MessageContent className="bg-transparent">
-                <Shimmer>Listening to your vibe…</Shimmer>
+                <Shimmer>Crate is digging through your library…</Shimmer>
               </MessageContent>
             </Message>
           )}
