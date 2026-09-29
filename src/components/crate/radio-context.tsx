@@ -1533,6 +1533,93 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     };
   }, [sessionLive, radio.active, radio.sessionId, playbackIssue, playbackFn, next, acceptObserved, stopRadio, handOver, startSpotifyPlayback, calmDown, log, note]);
 
+  // iOS pauses hidden tabs: while Songweaver was in the background Crate heard nothing.
+  // On return, freeze the time away (it must not count as a pause) and re-sync with
+  // what Spotify actually plays now instead of judging the jump with stale snapshots.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.hidden) {
+        hiddenAt.current = Date.now();
+        return;
+      }
+      const away = hiddenAt.current ? Date.now() - hiddenAt.current : 0;
+      hiddenAt.current = 0;
+      if (!sessionLive || !radioRef.current.active) return;
+      // Freeze background time: shift the pause/device timers forward by the time away.
+      if (away > 0) {
+        if (idleSince.current) idleSince.current += away;
+        if (noDeviceSince.current) noDeviceSince.current += away;
+        idlePolls.current = 0;
+      }
+      // A hand-over that was mid-flight when the tab froze is long past — drop it.
+      if (swapping.current && away > 5_000) swapping.current = "";
+      // Re-sync immediately with Spotify's real state.
+      void (async () => {
+        try {
+          const state = await playbackFn();
+          if (state.status !== "ready" || !state.spotifyId) return;
+          const current = radioRef.current.current;
+          lastPlayback.current = {
+            spotifyId: state.spotifyId,
+            ratio: state.durationMs ? state.progressMs / state.durationMs : 0,
+            observed: true,
+            progressMs: state.progressMs,
+            durationMs: state.durationMs,
+            at: Date.now(),
+          };
+          if (current?.spotify_id && state.spotifyId !== current.spotify_id && !lineup.current.includes(state.spotifyId)) {
+            // Songs moved while we were away and this one is none of Crate's: follow it fresh.
+            note("think", "Welcome back — following what Spotify is playing now");
+            adoptPlaying(state);
+          }
+        } catch {
+          // The regular poll recovers on its own.
+        }
+      })();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [sessionLive, playbackFn, adoptPlaying, note]);
+
+  // Keep the screen on during a live session so the tab isn't backgrounded as easily.
+  // Supported in Safari on iOS 16.4+; silently skipped where unavailable or denied.
+  useEffect(() => {
+    if (!sessionLive) return;
+    let cancelled = false;
+    const acquire = async () => {
+      if (document.hidden || wakeLock.current) return;
+      try {
+        const nav = navigator as Navigator & {
+          wakeLock?: { request: (type: "screen") => Promise<{ release: () => Promise<void>; addEventListener: (t: "release", cb: () => void) => void }> };
+        };
+        const sentinel = await nav.wakeLock?.request("screen");
+        if (!sentinel) return;
+        if (cancelled) {
+          void sentinel.release().catch(() => {});
+          return;
+        }
+        wakeLock.current = sentinel;
+        sentinel.addEventListener("release", () => {
+          if (wakeLock.current === sentinel) wakeLock.current = null;
+        });
+      } catch {
+        // Wake lock can be denied — listening works without it.
+      }
+    };
+    void acquire();
+    const onVis = () => {
+      if (!document.hidden) void acquire();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVis);
+      const sentinel = wakeLock.current;
+      wakeLock.current = null;
+      void sentinel?.release().catch(() => {});
+    };
+  }, [sessionLive]);
+
   /** Turn what Spotify is playing into the session seed without restarting it. */
   const adoptPlaying = useCallback(
     (state: { spotifyId?: string | null; name?: string | null; artists?: string; album?: string | null; imageUrl?: string | null; spotifyUrl?: string | null; progressMs: number; durationMs: number; isPlaying: boolean }) => {
