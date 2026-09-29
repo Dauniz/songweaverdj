@@ -43,7 +43,13 @@ const rank = (origin: string) => (origin === "cross_session" ? 2 : origin === "s
 
 function AdminMemory() {
   const fetchAll = useServerFn(getAllTesterMemories);
-  const { data, isLoading, error } = useQuery({ queryKey: ["admin-memory"], queryFn: () => fetchAll(), retry: false });
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["admin-memory"],
+    queryFn: () => fetchAll(),
+    retry: false,
+    refetchInterval: 60 * 60 * 1000,
+    refetchIntervalInBackground: true,
+  });
   const [open, setOpen] = useState<string | null>(null);
 
   if (isLoading) return <div className="p-8 text-muted-foreground">Loading…</div>;
@@ -95,8 +101,15 @@ function AdminMemory() {
         </Button>
       </div>
 
+      {([
+        ["Songweaver testers", data.users.filter((u) => !u.isGuest)],
+        ["Demo testers", data.users.filter((u) => u.isGuest)],
+      ] as const).map(([title, list]) => (
+      <section key={title} className="mb-8">
+        <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-muted-foreground">{title} · {list.length}</h2>
+        {list.length === 0 && <p className="text-sm text-muted-foreground">None yet.</p>}
       <ul className="space-y-3">
-        {data.users.map((u) => (
+        {list.map((u) => (
           <li key={u.id} className="rounded-lg border bg-card">
             <button className="flex w-full flex-wrap items-center justify-between gap-2 p-4 text-left" onClick={() => setOpen(open === u.id ? null : u.id)}>
               <div>
@@ -135,12 +148,13 @@ function AdminMemory() {
                     </li>
                   ))}
                 </ul>
-
               </div>
             )}
           </li>
         ))}
       </ul>
+      </section>
+      ))}
     </div>
   );
 }

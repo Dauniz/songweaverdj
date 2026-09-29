@@ -81,6 +81,16 @@ export function MemoryInspector() {
     },
   });
 
+  const { data: isAdmin = false } = useQuery({
+    queryKey: ["is-admin"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return false;
+      const { data } = await supabase.from("user_roles").select("role").eq("user_id", u.user.id).eq("role", "admin").maybeSingle();
+      return !!data;
+    },
+  });
+
   const hasPending = nodes.some((n) => n.status === "pending");
   useEffect(() => {
     if (!hasPending) return;
@@ -253,6 +263,7 @@ export function MemoryInspector() {
         >
           <Info className="h-3 w-3" /> How Crate uses Walrus
         </Link>
+        {isAdmin && (
         <button
           type="button"
           onClick={() => {
@@ -263,6 +274,7 @@ export function MemoryInspector() {
         >
           <Trash2 className="h-3 w-3" /> Reset Walrus log
         </button>
+        )}
       </div>
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
         <AlertDialogContent>
