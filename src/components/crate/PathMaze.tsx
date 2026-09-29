@@ -1,9 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { motion, useReducedMotion } from "motion/react";
 import type { RadioTrack } from "@/components/crate/radio-context";
-import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Route, SkipForward, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Pause, Play, Route, SkipForward, Sparkles } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
+import { nextSpotifyTrack, pauseSpotifyPlayback, resumeSpotifyPlayback } from "@/lib/spotify.functions";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const ROAD: Record<Road, { name: string }> = {
@@ -78,6 +87,7 @@ export function PathMaze() {
             upNext={upNext}
             upSkip={upSkip}
             musicPlaying={musicPlaying}
+            controlsEnabled={sessionLive && !calming}
           />
 
         </div>
