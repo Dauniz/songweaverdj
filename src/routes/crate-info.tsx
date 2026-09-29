@@ -111,6 +111,34 @@ function CrateInfoPage() {
             music paused for more than 90 seconds and the session ends — you can
             start fresh or resume where Crate was in the maze.
           </p>
+          <p className="mt-3 leading-relaxed text-muted-foreground">
+            Behind the scenes, Crate plans a full branch ahead of every move.
+            While a song is playing, the "if you skip" song is already waiting in
+            Spotify's queue, and Crate has also picked the skip song behind that
+            one — so a skip lands on a song that already has its own next step
+            lined up. The moment a song is skipped, or plays all the way out,
+            Crate sends the matching pair — the new current song together with
+            its own skip door — and immediately starts looking for the next
+            finish and skip songs behind it. That's why there is always a
+            relevant song waiting in "next up", no matter which way you turn at
+            the junction. Starting a session through the search bar or a prompt,
+            or picking a song straight in Spotify, is the one moment the queue
+            starts empty: there Crate first has to find the skip door for the
+            song you just started before the chain can begin.
+          </p>
+          <p className="mt-3 leading-relaxed text-muted-foreground">
+            One honest limitation: when Crate replaces what Spotify has lined
+            up — most often when you start a song directly in Spotify and Crate
+            swaps the queue behind it — you may hear a tiny gap, roughly a fifth
+            of a second, as Spotify reloads the stream. There is no fix for it:
+            Spotify's app treats any new play command as a fresh start and
+            re-buffers, and the Web API offers no way to edit the queue without
+            it. During a session where Crate drives, this is rare — handovers
+            happen in the quiet tail of the ending song. So for the best
+            listening experience, let Crate reach his flow state: start the
+            session, then resist picking songs yourself mid-session, and the
+            music will roll from song to song without a seam.
+          </p>
 
           <div className="mt-6 space-y-3">
             <div className="rounded-lg border bg-surface p-4">
