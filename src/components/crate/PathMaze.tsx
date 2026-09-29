@@ -683,7 +683,7 @@ function MediaControls({ musicPlaying, disabled }: { musicPlaying: boolean; disa
           <TooltipContent side="bottom">Next song</TooltipContent>
         </Tooltip>
       </TooltipProvider>
-ag  </div>
+    </div>
   );
 }
 
