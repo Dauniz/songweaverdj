@@ -69,7 +69,11 @@ type Row = {
 };
 
 /** One unique song across all playlists, remembering every place it lives. */
-type Song = Row & { sources: { name: string; type: string; period: string | null }[] };
+type Song = Row & {
+  sources: { name: string; type: string; period: string | null }[];
+  plays?: number;
+  last_played?: string | null;
+};
 
 // Short-lived per-worker cache of the merged library (plain cache, not state).
 const poolCache = new Map<string, { at: number; songs: Song[] }>();
@@ -101,6 +105,23 @@ async function loadPool(supabase: any, userId: string): Promise<Song[]> {
     } else {
       bySpotify.set(r.spotify_id, { ...r, sources: [src] });
     }
+  }
+  // Optional imported listening history (Spotify Extended Streaming History / stats.fm files).
+  for (let from = 0; from < 200000; from += 1000) {
+    const { data } = await supabase
+      .from("listening_history")
+      .select("spotify_id, plays, last_played")
+      .order("spotify_id")
+      .range(from, from + 999);
+    if (!data?.length) break;
+    for (const h of data) {
+      const s = bySpotify.get(h.spotify_id);
+      if (s) {
+        s.plays = h.plays;
+        s.last_played = h.last_played;
+      }
+    }
+    if (data.length < 1000) break;
   }
   const songs = [...bySpotify.values()];
   poolCache.set(userId, { at: Date.now(), songs });
@@ -178,7 +199,8 @@ function describe(s: Song) {
   const period = src?.period ? ` ${src.period.slice(0, 7)}` : "";
   const tag = src ? ` [${src.name.slice(0, 28)}${period}]` : "";
   const g = s.genres ? ` {${s.genres}}` : "";
-  return `${s.name}—${s.artists}${g}${tag}`;
+  const h = s.plays ? ` (${s.plays}x, last ${s.last_played?.slice(0, 7) ?? "?"})` : "";
+  return `${s.name}—${s.artists}${g}${tag}${h}`;
 }
 
 /** Pick up to n items from a list, skipping ones already chosen. */
@@ -503,7 +525,7 @@ Played through (the road that works): ${liked.map((h) => `${h.name} — ${h.arti
 Skipped (wrong turns, avoid similar): ${skipped.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(none)"}
 ${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
 ${roadRule}
-${lensRule(data.lens, data.history.length)}${data.deepCuts ? "\nDEEP CUTS: prefer forgotten songs they saved long ago and rarely return to — never the obvious staples." : ""}
+${lensRule(data.lens, data.history.length)}\nHISTORY: "(Nx, last yyyy-mm)" = how often they streamed it and when last. Many plays but not for a long time = a forgotten favorite, great to resurface.${data.deepCuts ? "\nDEEP CUTS: prefer forgotten songs they saved long ago and rarely return to — never the obvious staples." : ""}
 Other Walrus Memory relevant right now:
 ${walrus.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
 
