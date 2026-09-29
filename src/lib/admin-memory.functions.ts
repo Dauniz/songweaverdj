@@ -43,6 +43,7 @@ export const getAllTesterMemories = createServerFn({ method: "GET" })
       return {
         id: u.id,
         email: u.email ?? null,
+        isGuest: Boolean((u as { is_anonymous?: boolean }).is_anonymous) || !u.email,
         spotifyName: connBy.get(u.id)?.display_name ?? null,
         spotifyConnected: connBy.has(u.id),
         createdAt: u.created_at,
