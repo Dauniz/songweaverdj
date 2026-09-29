@@ -125,7 +125,8 @@ function JunctionTree({
   upNext,
   upSkip,
   musicPlaying,
-}: TreeSnapshot & { musicPlaying: boolean }) {
+  controlsEnabled,
+}: TreeSnapshot & { musicPlaying: boolean; controlsEnabled: boolean }) {
   const reduced = useReducedMotion();
   const [shown, setShown] = useState<TreeSnapshot>({ current, road, consecutiveSkips, upNext, upSkip });
   const [anim, setAnim] = useState<TreeAnim>(null);
