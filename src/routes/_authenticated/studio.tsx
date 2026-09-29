@@ -77,7 +77,7 @@ function StudioLayout({
           <img src={logo} alt="Songweaver" width={32} height={32} className="h-8 w-8 shrink-0 rounded-lg" />
           <span className="hidden truncate font-display text-lg font-bold sm:block">Songweaver</span>
         </div>
-        <nav className="absolute left-1/2 flex min-w-0 -translate-x-1/2 justify-center gap-1 sm:static sm:col-start-2 sm:translate-x-0 xl:hidden">
+        <nav className="absolute left-1/2 flex min-w-0 -translate-x-1/2 justify-center gap-1 xl:hidden">
           {(["chat", "memory"] as const).map((t) => (
             <Button
               key={t}
