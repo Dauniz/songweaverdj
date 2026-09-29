@@ -609,23 +609,23 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
       </TooltipProvider>
       {open && (
         <div className="mt-3 rounded-lg border border-primary/40 bg-primary/5 p-2.5">
-      <input
-        autoFocus
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") void save();
-          if (e.key === "Escape") setOpen(false);
-        }}
-        placeholder='What does this song make you feel?'
-        maxLength={200}
-        className="w-full rounded-md border bg-background px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground/70 focus:border-primary"
-      />
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
-        {saved
-          ? "Saved to Walrus Memory ✓"
-          : "A couple of words is plenty — Walrus learns your puzzle either way. Enter to save · Esc to close"}
-      </p>
+          <input
+            autoFocus
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void save();
+              if (e.key === "Escape") setOpen(false);
+            }}
+            placeholder='What does this song make you feel?'
+            maxLength={200}
+            className="w-full rounded-md border bg-background px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground/70 focus:border-primary"
+          />
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            {saved
+              ? "Saved to Walrus Memory ✓"
+              : "A couple of words is plenty — Walrus learns your puzzle either way. Enter to save · Esc to close"}
+          </p>
         </div>
       )}
     </>
