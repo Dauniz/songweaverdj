@@ -18,8 +18,6 @@
 - Crate is Songweaver's AI companion; product-facing branding uses Songweaver while assistant and DJ language uses Crate. Why: the product and its AI have distinct identities.
 - Radio playback uses server-side Spotify Connect commands and observes the active Spotify device; Songweaver renders no audio player. Why: listening stays in Spotify while Crate controls the path without exposing OAuth tokens.
 - Sessions start only via Start, search or prompt; detours replan via `rerootTo`; pause >90 s ends. Why: predictable, fast.
-- Spotify holds `[current, skip, skip-ahead?]`; a `LandingPlan` is kept for the list's last song and sent at ~0:00 when you land on it; a manual pick resends once. Why: resends re-buffer audibly.
-- Side roads (src/lib/lenses.ts): single-select overlays; Wormhole = code pool filter, Scene/Wave/Texture = DJ prompt rule. Forgotten archive removed (dup of Deep cuts); one general tooltip in MoodChat. Why: paths without breaking the maze.
-
-- Onboarding runs once per account (flag in auth user metadata, cached per user in localStorage), anchored to live controls. Why: show it only on first Studio visit after signup or guest entry.
-- Songs started inside Spotify are never re-sent mid-song; doors show on screen and Crate takes over only at the natural-end handover. Why: mid-song resends cause an audible glitch.
+- Spotify holds `[current, skip]`; both doors' own skips are pre-planned (landing plan, `finishSkip`) and sent as a pair on finish/landing; Spotify-started songs are re-sent once with their skip door. Why: Spotify never runs dry or plays the wrong door.
+- Side roads (src/lib/lenses.ts): single-select; Wormhole filters the pool, Scene/Wave/Texture are DJ prompt rules. Why: paths without breaking the maze.
+- Onboarding runs once per account (auth metadata flag). Why: first Studio visit only.
