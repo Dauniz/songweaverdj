@@ -1140,13 +1140,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         return;
       }
       const afterState = { ...advance(s, "played"), current: finishB.track, road: finishB.road };
-      const skipB = await withTimeout(fetchBranch(advance(afterState, "skipped")), Math.max(0, deadline - Date.now() - 4_000), null);
-      // One step ahead: the finish song's skip door gets its own skip song in the same list.
-      // If it isn't ready in time, that same search continues as the landing plan for the door.
-      const aheadP: Promise<Branch> = skipB?.track && isPlayable(skipB.track)
-        ? scoutAhead(afterState, skipB, [cur.spotify_id])
-        : Promise.resolve(null);
-      const aheadB = await withTimeout(aheadP, Math.max(0, deadline - Date.now() - 3_000), null);
+      // v: the finish door's own skip song, normally pre-planned while this song played.
+      const okSkip = (b: Branch) => (b?.track.spotify_id && isPlayable(b.track) && b.track.spotify_id !== finishB!.track.spotify_id && b.track.spotify_id !== cur.spotify_id ? b : null);
+      const pre = branches.current?.key.startsWith(`${cur.id}|`) ? branches.current.finishSkip : undefined;
+      let skipB: Branch = pre ? okSkip(await withTimeout(pre.catch(() => null), Math.max(0, deadline - Date.now() - 2_500), null)) : null;
+      if (!skipB) skipB = okSkip(await withTimeout(fetchBranch(advance(afterState, "skipped")), Math.max(0, deadline - Date.now() - 2_500), null));
+      // Never leave Spotify's "next up" empty: fall back to the current skip door.
+      if (!skipB && door.current?.forId === cur.spotify_id) skipB = okSkip({ track: door.current.track, road: advance(afterState, "skipped").road });
       // Get close to the end, then re-read Spotify's real position so the swap lands
       // right as the song ends — not seconds early, and not after the skip door has started.
       let end = deadline;
@@ -1183,11 +1183,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       try {
         ok = await startSpotifyPlayback(
           finishB.track, true,
-          skipB?.track && isPlayable(skipB.track) ? skipB.track : null,
+          skipB?.track ?? null,
           undefined,
           "finish handover",
-          aheadB?.track ?? null,
-          { stateAt: afterState, frontierDoor: aheadB ? undefined : aheadP },
+          null,
+          { stateAt: afterState },
         );
       } finally {
         committing.current = false;
@@ -1222,7 +1222,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       lastTransition.current = Date.now();
       swapping.current = ""; // hand-over done — keep watching for your skips
     },
-    [fetchBranch, log, note, startSpotifyPlayback, noteMove, playbackFn, scoutAhead],
+    [fetchBranch, log, note, startSpotifyPlayback, noteMove, playbackFn],
   );
 
   /** A second skip before the first skip's new pair is accepted: pause and rebuild cleanly. */
@@ -1255,17 +1255,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const doorB = planned ?? (await withTimeout(fetchBranch(advance(now, "skipped")), 8_000, null));
       if (!doorB?.track.spotify_id || radioRef.current.sessionId !== s.sessionId) return;
       calmingRef.current = false;
-      const aheadP = scoutAhead(now, doorB, []);
-      const aheadB = await withTimeout(aheadP, 5_000, null);
       if (radioRef.current.sessionId !== s.sessionId) return;
       // The skip door is decided here: the re-scout after resume must reuse it, not replace it
       // (a different pick on screen would trigger another re-send a few seconds in).
       preSkip.current = { forId: fresh.spotify_id ?? "", branch: doorB };
       if (
-        await startSpotifyPlayback(fresh, true, doorB.track, undefined, "cooldown resume", aheadB?.track ?? null, {
-          stateAt: now,
-          frontierDoor: aheadB ? undefined : aheadP,
-        })
+        await startSpotifyPlayback(fresh, true, doorB.track, undefined, "cooldown resume", null, { stateAt: now })
       ) {
         setUpSkip(doorB);
         awaitingSkipPair.current = false;
@@ -1278,7 +1273,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       calmingRef.current = false;
       cooldownUntil.current = Date.now() + 600;
     }
-  }, [pauseFn, fetchBranch, startSpotifyPlayback, note, scoutAhead]);
+  }, [pauseFn, fetchBranch, startSpotifyPlayback, note]);
 
   // Spotify owns playback. While a session is live, mirror what Spotify plays —
   // skips, finishes and songs you pick yourself inside the Spotify app.
@@ -1417,6 +1412,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (previous.spotifyId !== current.spotify_id) return;
         // Song ran out naturally while the end hand-over is lined up — let it finish the job.
         if (swapping.current === current.spotify_id && previous.ratio >= 0.9) return;
+        // The song ended but the hand-over didn't land in time, so Spotify rolled onto the skip
+        // door. That was a finish, not a skip: send [finish, its skip] now.
+        if (
+          previous.ratio >= 0.9 && state.status === "ready" && state.spotifyId &&
+          state.spotifyId !== current.spotify_id && lineup.current.includes(state.spotifyId)
+        ) {
+          pushSpotifyLog({ kind: "event", at: Date.now(), text: "LATE FINISH — song ended onto the skip door, sending the finish pair" });
+          void handOver(0);
+          return;
+        }
         const sinceMove = Date.now() - lastTransition.current;
         const rapid = sinceMove < 15_000;
         // Not seen playing yet: only a rapid skip (after Spotify had time to start it) counts.
