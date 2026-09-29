@@ -253,6 +253,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // Require several fresh, visible-tab snapshots before calling Spotify idle.
   // A single stale `is_playing: false` response is common around device/track handovers.
   const idlePolls = useRef(0);
+  // When the tab was last hidden (iOS pauses hidden tabs) — used to freeze background time.
+  const hiddenAt = useRef(0);
+  // Keeps the screen on during a live session so the tab isn't backgrounded as easily.
+  const wakeLock = useRef<{ release: () => Promise<void>; addEventListener: (t: "release", cb: () => void) => void } | null>(null);
   const [events, setEvents] = useState<MazeEvent[]>([]);
   const eventsRef = useRef(events);
   eventsRef.current = events;
