@@ -157,7 +157,7 @@ export function MemoryInspector() {
           type="button"
           aria-expanded={showLog}
           onClick={() => setShowLog((v) => !v)}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           {showLog ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           {showLog ? "Hide Walrus log" : "Show Walrus log"}
@@ -178,7 +178,7 @@ export function MemoryInspector() {
               setTimeout(() => setReflectMsg(null), 6000);
             }
           }}
-          className="ml-3 mt-3 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 font-medium text-chart-4 hover:bg-accent disabled:opacity-60"
+          className="ml-3 mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-chart-4 hover:bg-accent disabled:opacity-60"
         >
           <Sparkle className="h-3.5 w-3.5" />
           {reflecting ? "Crate is reflecting…" : "Let Crate reflect"}
@@ -270,7 +270,7 @@ export function MemoryInspector() {
       <div className="flex shrink-0 items-center justify-between border-t px-4 py-2">
         <Link
           to="/crate-info"
-          className="inline-flex items-center gap-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          className="inline-flex min-h-8 items-center gap-1 py-1.5 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
         >
           <Info className="h-3 w-3" /> How Crate uses Walrus
         </Link>
@@ -280,7 +280,7 @@ export function MemoryInspector() {
             setResetText("");
             setResetOpen(true);
           }}
-          className="inline-flex items-center gap-1 text-[11px] text-destructive/80 underline-offset-2 hover:text-destructive hover:underline"
+          className="inline-flex min-h-8 items-center gap-1 py-1.5 text-[11px] text-destructive/80 underline-offset-2 hover:text-destructive hover:underline"
         >
           <Trash2 className="h-3 w-3" /> Reset Walrus log
         </button>
