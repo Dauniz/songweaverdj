@@ -626,7 +626,64 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
           ? "Saved to Walrus Memory ✓"
           : "A couple of words is plenty — Walrus learns your puzzle either way. Enter to save · Esc to close"}
       </p>
-    </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Pause/resume and next-song controls, right inside the current song box. */
+function MediaControls({ musicPlaying, disabled }: { musicPlaying: boolean; disabled: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const pauseFn = useServerFn(pauseSpotifyPlayback);
+  const resumeFn = useServerFn(resumeSpotifyPlayback);
+  const nextFn = useServerFn(nextSpotifyTrack);
+
+  const run = async (fn: () => Promise<unknown>) => {
+    if (busy || disabled) return;
+    setBusy(true);
+    try {
+      await fn();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 flex items-center gap-1">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="rounded-full text-muted-foreground hover:text-foreground"
+              disabled={disabled || busy}
+              aria-label={musicPlaying ? "Pause" : "Play"}
+              onClick={() => void run(musicPlaying ? pauseFn : resumeFn)}
+            >
+              {musicPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{musicPlaying ? "Pause" : "Play"}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="rounded-full text-muted-foreground hover:text-foreground"
+              disabled={disabled || busy}
+              aria-label="Next song"
+              onClick={() => void run(nextFn)}
+            >
+              <SkipForward className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Next song</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+ag  </div>
   );
 }
 
