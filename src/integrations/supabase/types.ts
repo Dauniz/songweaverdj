@@ -44,6 +44,7 @@ export type Database = {
       bug_reports: {
         Row: {
           created_at: string
+          email: string | null
           id: string
           message: string
           page: string | null
@@ -53,6 +54,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          email?: string | null
           id?: string
           message: string
           page?: string | null
@@ -62,6 +64,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          email?: string | null
           id?: string
           message?: string
           page?: string | null
