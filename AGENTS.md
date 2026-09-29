@@ -21,3 +21,4 @@
 - Spotify holds `[current, skip]`; both doors' own skips are pre-planned (landing plan, `finishSkip`) and sent as a pair on finish/landing; Spotify-started songs are re-sent once with their skip door. Why: Spotify never runs dry or plays the wrong door.
 - Side roads (src/lib/lenses.ts): single-select; Wormhole filters the pool, Scene/Wave/Texture are DJ prompt rules. Why: paths without breaking the maze.
 - Onboarding runs once per account (auth metadata flag). Why: first Studio visit only.
+- Backgrounded tabs (iOS pauses them): on return, away-time is frozen (never counts toward the 90 s pause rule) and Crate re-syncs with Spotify's real state, adopting a foreign song fresh; a screen wake lock is held while a session is live. Why: sessions must survive leaving the preview on phones.
