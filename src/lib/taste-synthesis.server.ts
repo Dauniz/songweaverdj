@@ -191,6 +191,13 @@ export async function synthesizeTasteMemories(
     .limit(30);
   const notes = (noteRows ?? []).map((n) => `- ${hhmm(n.created_at, tz)} | ${n.content}`);
 
+  const { data: profRows } = await supabase
+    .from("memory_nodes")
+    .select("content")
+    .eq("origin", "history_profile")
+    .limit(7);
+  const profile = (profRows ?? []).map((p) => `- ${p.content}`);
+
   const sessions = new Set(events.map((e) => e.session_id)).size;
   const skips = events.filter((e) => e.event === "early_skip").length;
   const plays = events.filter((e) => e.event === "play_through").length;
@@ -237,7 +244,8 @@ ${known.length ? known.map((c) => `- ${c}`).join("\n") : "- (none)"}`;
   const prompt = `Listening trace (${events.length} events across ${sessions} session(s); ${plays} played through, ${skips} skipped early). Local times.
 ${cross ? `\nSessions:\n${sessionLines(events, tz).join("\n")}\n` : ""}
 ${traceLines(events, meta, tz).join("\n")}
-${notes.length ? `\nFeedbacker notes (their own words):\n${notes.join("\n")}` : ""}`;
+${notes.length ? `\nFeedbacker notes (their own words):\n${notes.join("\n")}` : ""}
+${profile.length ? `\nLong-term baseline from their years of Spotify streaming history. Evaluate the trace against it: where does this listening confirm, deepen or break the long-term habit? A break (new time of day, a faded artist returning, a usually-skipped artist finished) is a strong memory candidate — say what changed compared to the baseline. Never restate the baseline itself:\n${profile.join("\n")}` : ""}`;
 
   const runIdFetch = createLovableAiGatewayRunIdFetch();
   const provider = createOpenAI({

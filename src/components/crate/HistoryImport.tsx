@@ -4,6 +4,8 @@ import { Check, History, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { parseHistoryFiles, saveHistory } from "@/lib/listening-history";
+import { useServerFn } from "@tanstack/react-start";
+import { studyHistory } from "@/lib/history-learning.functions";
 import { cn } from "@/lib/utils";
 
 /** Optional: drop Spotify Extended Streaming History (the same files stats.fm uses). Parsed locally. */
@@ -14,6 +16,7 @@ export function HistoryImport({ libraryIds }: { libraryIds: Set<string> }) {
   const [over, setOver] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const study = useServerFn(studyHistory);
 
   const { data: imported } = useQuery({
     queryKey: ["listening-history"],
@@ -32,16 +35,20 @@ export function HistoryImport({ libraryIds }: { libraryIds: Set<string> }) {
     setResult(null);
     try {
       setStatus("Reading files…");
-      const { stats, streams, minYear, maxYear } = await parseHistoryFiles(files);
+      const { stats, streams, minYear, maxYear, digest } = await parseHistoryFiles(files);
       if (!stats.length) throw new Error("No song plays found — use the Extended Streaming History files (.zip or .json).");
       await saveHistory(stats, (d) => setStatus(`Saving ${d} / ${stats.length} songs…`));
       const now = Date.now();
       const forgotten = stats.filter(
         (s) => libraryIds.has(s.spotify_id) && s.plays >= 10 && now - Date.parse(s.last_played) > 365 * 86_400_000,
       ).length;
+      setStatus("Crate is studying your listening habits…");
+      const { saved } = await study({ data: digest }).catch(() => ({ saved: 0 }));
       setResult(
-        `${streams.toLocaleString()} plays from ${minYear}–${maxYear}. ${forgotten} forgotten favorites unlocked for Crate.`,
+        `${streams.toLocaleString()} plays from ${minYear}–${maxYear}. ${forgotten} forgotten favorites unlocked for Crate.` +
+          (saved ? ` Crate learned ${saved} long-term patterns and saved them to Walrus Memory.` : ""),
       );
+      qc.invalidateQueries({ queryKey: ["memories"] });
       qc.invalidateQueries({ queryKey: ["listening-history"] });
       toast.success("Listening history imported");
     } catch (e) {
