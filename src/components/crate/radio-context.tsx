@@ -216,6 +216,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     plan: LandingPlan | null;
   } | null>(null);
   const swapping = useRef("");
+  // After a finish hand-over: detects Spotify jumping straight past the finish song onto its
+  // skip door (never seen playing) vs. a real skip by the user (finish song was seen playing).
+  const handoverGuard = useRef<{
+    finish: RadioTrack; skip: RadioTrack | null; stateAt: RadioState; sentAt: number; finishSeen: boolean; recovered: boolean;
+  } | null>(null);
   const swapAborted = useRef(""); // you picked your own song during the end hand-over
   /** Song ids last sent to Spotify, in order — lets Crate skip re-sending when the next door is already lined up. */
   const lineup = useRef<string[]>([]);
@@ -1166,7 +1171,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // Fire a beat before the last millisecond: the round-trip to Spotify takes time, and
       // sending while the track is in its final moments makes Spotify skip straight past the
       // first song in the list. The final ~1 s of a track is almost always silence/fade.
-      await new Promise((res) => setTimeout(res, Math.max(0, end - Date.now() - 1_100)));
+      // ~3 s early: if Spotify's own "track ended → next" overlaps the new list, it skips
+      // straight past the finish song. Losing ~3 s of fade-out is the lesser evil.
+      await new Promise((res) => setTimeout(res, Math.max(0, end - Date.now() - 3_000)));
       const now = radioRef.current;
       if (swapAborted.current === cur.spotify_id) return; // the poll saw your own pick
       if (now.sessionId !== s.sessionId || now.current?.spotify_id !== cur.spotify_id) {
@@ -1200,6 +1207,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         note("think", `Couldn't hand "${finishB.track.name}" to Spotify in time — retrying`);
         return;
       }
+      handoverGuard.current = {
+        finish: finishB.track, skip: skipB?.track ?? null, stateAt: afterState,
+        sentAt: Date.now(), finishSeen: false, recovered: false,
+      };
       if (skipB) preSkip.current = { forId: finishB.track.spotify_id, branch: skipB };
       // The finish song starts with its skip door ALREADY queued in Spotify (sent in the
       // hand-over call). Point the screen and the door guard at that exact song right away —
@@ -1390,6 +1401,33 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           idlePolls.current = 0;
           noDeviceSince.current = 0;
           setSpotifyIdle(false);
+        }
+        const hg = handoverGuard.current;
+        if (hg && state.status === "ready" && state.spotifyId) {
+          if (state.spotifyId === hg.finish.spotify_id) {
+            hg.finishSeen = true; // from now on any move is the user's own skip
+            if (hg.recovered) handoverGuard.current = null;
+          } else if (
+            !hg.finishSeen && !hg.recovered && hg.skip?.spotify_id === state.spotifyId &&
+            Date.now() - hg.sentAt < 1_500 && current.spotify_id === hg.finish.spotify_id
+          ) {
+            // Spotify jumped past the finish song before it ever played: not a skip. Re-send once.
+            hg.recovered = true;
+            hg.sentAt = Date.now();
+            pushSpotifyLog({ kind: "event", at: Date.now(), text: `FINISH RECOVERED — Spotify jumped past "${hg.finish.name}", re-sending` });
+            noPlayFor.current = hg.finish.spotify_id ?? "";
+            lastTransition.current = Date.now();
+            lastPlayback.current = { spotifyId: hg.finish.spotify_id, ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: Date.now() };
+            committing.current = true;
+            try {
+              await startSpotifyPlayback(hg.finish, true, hg.skip, undefined, "finish recover", null, { stateAt: hg.stateAt });
+            } finally {
+              committing.current = false;
+            }
+            return;
+          } else if (Date.now() - hg.sentAt > 6_000) {
+            handoverGuard.current = null;
+          }
         }
         if (state.status === "ready" && state.spotifyId === current.spotify_id) {
           // Spotify ran off the end of Crate's list and looped back to the first song.
