@@ -85,7 +85,7 @@ function StudioLayout({
               variant="ghost"
               size="xs"
               className={cn(
-                "rounded-full px-2.5 text-xs capitalize sm:px-3",
+                "h-9 rounded-full px-3 text-xs capitalize sm:h-7",
                 mobileTab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground",
               )}
             >
@@ -111,7 +111,7 @@ function StudioLayout({
         <LibraryPanel />
         <main
           className={cn(
-            "min-w-0 overflow-hidden bg-glow xl:flex-none xl:transition-[width] xl:duration-500 xl:ease-in-out",
+            "min-w-0 overflow-hidden bg-glow pt-12 xl:pt-0 xl:flex-none xl:transition-[width] xl:duration-500 xl:ease-in-out",
             mobileTab === "chat" ? "block" : "hidden xl:block",
             live
               ? "w-full xl:w-2/3"
@@ -122,7 +122,7 @@ function StudioLayout({
         </main>
         <aside
           className={cn(
-            "w-full min-h-0 overflow-hidden border-l bg-sidebar xl:flex-none xl:transition-[width] xl:duration-500 xl:ease-in-out",
+            "w-full min-h-0 overflow-hidden border-l bg-sidebar pt-12 xl:pt-0 xl:flex-none xl:transition-[width] xl:duration-500 xl:ease-in-out",
             mobileTab === "memory" ? "block" : "hidden xl:block",
             live
               ? "xl:w-1/3"
