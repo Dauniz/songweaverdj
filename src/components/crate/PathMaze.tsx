@@ -1,9 +1,18 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { motion, useReducedMotion } from "motion/react";
 import type { RadioTrack } from "@/components/crate/radio-context";
-import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Route, SkipForward, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Pause, Play, Route, SkipForward, Sparkles } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
+import { nextSpotifyTrack, pauseSpotifyPlayback, resumeSpotifyPlayback } from "@/lib/spotify.functions";
+import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 const ROAD: Record<Road, { name: string }> = {
@@ -78,6 +87,7 @@ export function PathMaze() {
             upNext={upNext}
             upSkip={upSkip}
             musicPlaying={musicPlaying}
+            controlsEnabled={sessionLive && !calming}
           />
 
         </div>
@@ -115,7 +125,8 @@ function JunctionTree({
   upNext,
   upSkip,
   musicPlaying,
-}: TreeSnapshot & { musicPlaying: boolean }) {
+  controlsEnabled,
+}: TreeSnapshot & { musicPlaying: boolean; controlsEnabled: boolean }) {
   const reduced = useReducedMotion();
   const [shown, setShown] = useState<TreeSnapshot>({ current, road, consecutiveSkips, upNext, upSkip });
   const [anim, setAnim] = useState<TreeAnim>(null);
@@ -266,8 +277,8 @@ function JunctionTree({
         animate={{ scale: 1, opacity: promoting ? 0 : 1 }}
         transition={{ duration: promoting ? 0.3 : 0.32, ease: TREE_EASE }}
       >
-        <div className="rounded-xl border border-primary/40 bg-primary/5 p-3.5">
-          <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide text-primary">
+        <div className="relative rounded-xl border border-primary/40 bg-primary/5 p-3.5">
+          <div className="flex items-center gap-2 pr-7 text-[11px] font-medium uppercase tracking-wide text-primary">
             <span className="flex h-3.5 items-end gap-[2px]" aria-hidden>
               {[0, 1, 2, 3].map((i) => (
                 <span
@@ -296,6 +307,7 @@ function JunctionTree({
               <span className="font-semibold text-foreground">Why Crate chose it:</span> {shown.current.why}
             </p>
           )}
+          <MediaControls musicPlaying={musicPlaying} disabled={!controlsEnabled} />
           <SongNote key={shown.current.spotify_id} trackName={shown.current.name} artists={shown.current.artists} />
         </div>
       </motion.div>
@@ -571,57 +583,106 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
     }, 1600);
   };
 
-  if (!open && done) {
-    return (
-      <button
-        type="button"
-        data-onboarding="feedbacker"
-        onClick={() => setOpen(true)}
-        className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"
-      >
-        <Check className="h-3 w-3 text-primary" /> Note saved to Walrus · add another
-      </button>
-    );
-  }
+  return (
+    <>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              data-onboarding="feedbacker"
+              onClick={() => {
+                if (!open) setOpen(true);
+              }}
+              aria-label={done ? "Note saved — add another" : "Feedbacker"}
+              title={done ? "Note saved — add another" : "Feedbacker"}
+              className={cn(
+                "absolute right-2.5 top-2.5 grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary",
+                done && !open && "text-primary",
+              )}
+            >
+              {done ? <Check className="h-3.5 w-3.5" /> : <NotebookPen className="h-3.5 w-3.5" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left">Feedbacker</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {open && (
+        <div className="mt-3 rounded-lg border border-primary/40 bg-primary/5 p-2.5">
+          <input
+            autoFocus
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void save();
+              if (e.key === "Escape") setOpen(false);
+            }}
+            placeholder='What does this song make you feel?'
+            maxLength={200}
+            className="w-full rounded-md border bg-background px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground/70 focus:border-primary"
+          />
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            {saved
+              ? "Saved to Walrus Memory ✓"
+              : "A couple of words is plenty — Walrus learns your puzzle either way. Enter to save · Esc to close"}
+          </p>
+        </div>
+      )}
+    </>
+  );
+}
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        data-onboarding="feedbacker"
-        onClick={() => setOpen(true)}
-        className="mt-3 flex w-full items-start gap-2.5 rounded-lg border border-border bg-surface p-2.5 text-left transition-colors hover:border-primary/60 hover:bg-primary/5"
-      >
-        <NotebookPen className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-        <span className="min-w-0">
-          <span className="block text-sm font-semibold">Feedbacker</span>
-          <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-            Your feelings on this song teach Walrus the maze — helping it adapt to you over time.
-          </span>
-        </span>
-      </button>
-    );
-  }
+/** Pause/resume and next-song controls, right inside the current song box. */
+function MediaControls({ musicPlaying, disabled }: { musicPlaying: boolean; disabled: boolean }) {
+  const [busy, setBusy] = useState(false);
+  const pauseFn = useServerFn(pauseSpotifyPlayback);
+  const resumeFn = useServerFn(resumeSpotifyPlayback);
+  const nextFn = useServerFn(nextSpotifyTrack);
+
+  const run = async (fn: () => Promise<unknown>) => {
+    if (busy || disabled) return;
+    setBusy(true);
+    try {
+      await fn();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
-    <div className="mt-3 rounded-lg border border-primary/40 bg-primary/5 p-2.5">
-      <input
-        autoFocus
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") void save();
-          if (e.key === "Escape") setOpen(false);
-        }}
-        placeholder='What does this song make you feel?'
-        maxLength={200}
-        className="w-full rounded-md border bg-background px-2.5 py-2 text-sm outline-none placeholder:text-muted-foreground/70 focus:border-primary"
-      />
-      <p className="mt-1.5 text-[11px] text-muted-foreground">
-        {saved
-          ? "Saved to Walrus Memory ✓"
-          : "A couple of words is plenty — Walrus learns your puzzle either way. Enter to save · Esc to close"}
-      </p>
+    <div className="mt-3 flex items-center gap-1">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="rounded-full text-muted-foreground hover:text-foreground"
+              disabled={disabled || busy}
+              aria-label={musicPlaying ? "Pause" : "Play"}
+              onClick={() => void run(musicPlaying ? pauseFn : resumeFn)}
+            >
+              {musicPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 fill-current" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">{musicPlaying ? "Pause" : "Play"}</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="rounded-full text-muted-foreground hover:text-foreground"
+              disabled={disabled || busy}
+              aria-label="Next song"
+              onClick={() => void run(nextFn)}
+            >
+              <SkipForward className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Next song</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }
