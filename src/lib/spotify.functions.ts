@@ -115,6 +115,32 @@ export const pauseSpotifyPlayback = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Resume Spotify where it was paused — for the play button in the maze. */
+export const resumeSpotifyPlayback = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const token = await spotifyAccess(context.userId);
+    if (!token) return { ok: false };
+    await fetch("https://api.spotify.com/v1/me/player/play", {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => undefined);
+    return { ok: true };
+  });
+
+/** Skip to the next song — acts exactly like the listener pressing next in Spotify. */
+export const nextSpotifyTrack = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const token = await spotifyAccess(context.userId);
+    if (!token) return { ok: false };
+    await fetch("https://api.spotify.com/v1/me/player/next", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => undefined);
+    return { ok: true };
+  });
+
 /** Plays Crate's song as a fresh two-song list: [now, "if you skip"] — this replaces
  *  whatever album/playlist Spotify was running, so a skip lands on Crate's pick. */
 export const playSpotifyTrack = createServerFn({ method: "POST" })
