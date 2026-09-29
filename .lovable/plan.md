@@ -11,10 +11,10 @@ A
 └─ skip   → C ─ skip → w
 ```
 
-- While A plays, Crate finds B and C, then immediately precomputes v and w.
+- When A starts inside the maze, C is already pushed and waiting in Next Up. While A plays, Crate finds B, v, and w.
 - Spotify holds A with C as the immediate skip door. Crate keeps B, v, and w ready in memory.
 - When A finishes, Crate sends `[B, v]` and promotes B to current.
-- When A is skipped, Spotify lands on C and Crate immediately sends `[C, w]` at the transition, then promotes C to current.
+- When A is skipped, Spotify moves to the already-queued C; Crate immediately sends w behind C, then promotes C to current.
 
 The promoted song gets a new plan immediately:
 
