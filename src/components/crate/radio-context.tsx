@@ -907,35 +907,39 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const b = branches.current?.key.startsWith(prefix) ? branches.current : null;
         // A song started inside Spotify brings its playlist/album along as "next up". Take over
         // fast so Spotify doesn't drift into that list (and Crate chase it) while Crate thinks.
-        branch = await Promise.race([
+        branch = await withTimeout(
           (b ? b.skipped : fetchBranch(advance(radioRef.current, "skipped"))).catch(() => null),
-          new Promise<Branch>((res) => setTimeout(() => res(null), alreadyPlaying ? 4_000 : 10_000)),
-        ]);
+          15_000,
+          null,
+        );
       }
       if (stale()) return;
       const skip = branch?.track && isPlayable(branch.track) && branch.track.spotify_id !== current.spotify_id ? branch : null;
       if (skip) setUpSkip(skip);
-      const finishId = upNextRef.current?.spotify_id;
-      const aheadP: Promise<Branch> = skip && !alreadyPlaying ? scoutAhead(radioRef.current, skip, [finishId]) : Promise.resolve(null);
-      const ahead = await withTimeout(aheadP, alreadyPlaying ? 1_500 : 6_000, null);
-      if (stale()) return release();
+      // Entry point (prompt, search, or a song started in Spotify): push [A, C] now. The landing
+      // plan (w) and the finish side (B, v) keep being prepared in the background.
+      let pos: number | undefined;
       if (alreadyPlaying) {
-        // You picked this song in Spotify: leave playback untouched (no mid-song resend = no
-        // glitch). Doors show on screen; Crate takes over only when the song ends naturally.
-        passiveFor.current = startId;
-        awaitingSkipPair.current = false;
-        pushSpotifyLog({ kind: "event", at: Date.now(), text: `ADOPT — "${current.name}" left untouched; Crate takes over at its natural end` });
-        setTimeout(release, 1_500);
-        return;
+        try {
+          const t0 = Date.now();
+          const st = await playbackFn();
+          if (st.status === "ready" && st.spotifyId === startId) pos = st.progressMs + Math.round((Date.now() - t0) / 2) + 150;
+        } catch { /* estimate below */ }
+        if (pos === undefined) {
+          const lp = lastPlayback.current;
+          pos = lp.spotifyId === startId ? lp.progressMs + (Date.now() - lp.at) : undefined;
+        }
+        if (stale()) return release();
+        pushSpotifyLog({ kind: "event", at: Date.now(), text: `ADOPT — "${current.name}" re-sent once with its skip door` });
       }
-      await startSpotifyPlayback(current, false, skip?.track ?? null, undefined, "session start", ahead?.track ?? null, {
-        frontierDoor: ahead ? undefined : aheadP,
-      });
-      // Give Spotify a moment to report the new song before the mirror resumes.
-      lastPlayback.current = { spotifyId: startId, ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: Date.now() };
+      await startSpotifyPlayback(current, false, skip?.track ?? null, pos ? Math.max(1, Math.round(pos)) : undefined, alreadyPlaying ? "adopt" : "session start", null);
+      if (!alreadyPlaying) {
+        // Give Spotify a moment to report the new song before the mirror resumes.
+        lastPlayback.current = { spotifyId: startId, ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: Date.now() };
+      }
       setTimeout(release, 1_500);
     })();
-  }, [sessionLive, radio.active, radio.current?.spotify_id, startSpotifyPlayback, fetchBranch, scoutAhead]);
+  }, [sessionLive, radio.active, radio.current?.spotify_id, startSpotifyPlayback, fetchBranch, playbackFn]);
 
 
   /** You landed on the last song Spotify had lined up. Send its prepared pair right away, at
