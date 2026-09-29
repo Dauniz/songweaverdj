@@ -892,9 +892,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (stale()) return;
         }
         const b = branches.current?.key.startsWith(prefix) ? branches.current : null;
+        // A song started inside Spotify brings its playlist/album along as "next up". Take over
+        // fast so Spotify doesn't drift into that list (and Crate chase it) while Crate thinks.
         branch = await Promise.race([
           (b ? b.skipped : fetchBranch(advance(radioRef.current, "skipped"))).catch(() => null),
-          new Promise<Branch>((res) => setTimeout(() => res(null), 10_000)),
+          new Promise<Branch>((res) => setTimeout(() => res(null), alreadyPlaying ? 4_000 : 10_000)),
         ]);
       }
       if (stale()) return;
@@ -902,17 +904,23 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (skip) setUpSkip(skip);
       const finishId = upNextRef.current?.spotify_id;
       const aheadP: Promise<Branch> = skip ? scoutAhead(radioRef.current, skip, [finishId]) : Promise.resolve(null);
-      const ahead = await withTimeout(aheadP, 6_000, null);
+      const ahead = await withTimeout(aheadP, alreadyPlaying ? 1_500 : 6_000, null);
       if (stale()) return release();
       if (alreadyPlaying) {
-        if (!skip) return release();
         const lp = lastPlayback.current;
         const pos = lp.spotifyId === startId ? Math.max(1, Math.round(lp.progressMs + (Date.now() - lp.at) + 150)) : undefined;
-        door.current = { forId: startId, track: skip.track! };
-        preSkip.current = { forId: startId, branch: skip };
-        await startSpotifyPlayback(current, true, skip.track, pos, "adopt from Spotify", ahead?.track ?? null, {
+        if (skip) {
+          door.current = { forId: startId, track: skip.track! };
+          preSkip.current = { forId: startId, branch: skip };
+        }
+        // Always send: replacing the playing list is what clears Spotify's playlist "next up".
+        await startSpotifyPlayback(current, true, skip?.track ?? null, pos, skip ? "adopt from Spotify" : "adopt from Spotify (clear next up)", ahead?.track ?? null, {
           frontierDoor: ahead ? undefined : aheadP,
         });
+        if (!skip) {
+          awaitingSkipPair.current = true;
+          setResendTick((n) => n + 1); // the line-up guard adds the skip door once found
+        }
         setTimeout(release, 1_500);
         return;
       }
