@@ -1596,6 +1596,54 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [startRadio],
   );
 
+  // iOS pauses hidden tabs: while Songweaver was in the background Crate heard nothing.
+  // On return, freeze the time away (it must not count as a pause) and re-sync with
+  // what Spotify actually plays now instead of judging the jump with stale snapshots.
+  useEffect(() => {
+    const onVis = () => {
+      if (document.hidden) {
+        hiddenAt.current = Date.now();
+        return;
+      }
+      const away = hiddenAt.current ? Date.now() - hiddenAt.current : 0;
+      hiddenAt.current = 0;
+      if (!sessionLive || !radioRef.current.active) return;
+      // Freeze background time: shift the pause/device timers forward by the time away.
+      if (away > 0) {
+        if (idleSince.current) idleSince.current += away;
+        if (noDeviceSince.current) noDeviceSince.current += away;
+        idlePolls.current = 0;
+      }
+      // A hand-over that was mid-flight when the tab froze is long past — drop it.
+      if (swapping.current && away > 5_000) swapping.current = "";
+      // Re-sync immediately with Spotify's real state.
+      void (async () => {
+        try {
+          const state = await playbackFn();
+          if (state.status !== "ready" || !state.spotifyId) return;
+          const current = radioRef.current.current;
+          lastPlayback.current = {
+            spotifyId: state.spotifyId,
+            ratio: state.durationMs ? state.progressMs / state.durationMs : 0,
+            observed: true,
+            progressMs: state.progressMs,
+            durationMs: state.durationMs,
+            at: Date.now(),
+          };
+          if (current?.spotify_id && state.spotifyId !== current.spotify_id && !lineup.current.includes(state.spotifyId)) {
+            // Songs moved while we were away and this one is none of Crate's: follow it fresh.
+            note("think", "Welcome back — following what Spotify is playing now");
+            adoptPlaying(state);
+          }
+        } catch {
+          // The regular poll recovers on its own.
+        }
+      })();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [sessionLive, playbackFn, adoptPlaying, note]);
+
   // "Open Spotify" issue: retry reconnecting every 5 s; give up after the grace.
   useEffect(() => {
     if (!sessionLive || playbackIssue?.status !== "no_device") return;
