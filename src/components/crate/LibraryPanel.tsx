@@ -36,7 +36,8 @@ export function LibraryPanel() {
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
-    setCollapsed(localStorage.getItem("spotify-card-collapsed") === "1");
+    const saved = localStorage.getItem("spotify-card-collapsed");
+    setCollapsed(saved ? saved === "1" : window.innerWidth < 640);
   }, []);
   const [syncing, setSyncing] = useState(false);
   const [summary, setSummary] = useState<{
@@ -232,7 +233,7 @@ export function LibraryPanel() {
           type="button"
           onClick={toggleCollapsed}
           aria-label="Minimize Spotify panel"
-          className="rounded-sm p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+          className="-m-1.5 rounded-sm p-2 text-muted-foreground transition-colors hover:text-foreground"
         >
           <ChevronUp className="h-4 w-4" />
         </button>
