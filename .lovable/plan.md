@@ -30,6 +30,10 @@ After skip: C
 
 Only the pair for the outcome that actually happened is sent to Spotify. The other branch remains prepared but unsent.
 
+### Session entry vs. inside the maze
+- **Entry (prompt, search, or a song played directly in Spotify):** no skip door is queued yet, so Crate finds **four** tracks for A: B, C, v, and w. It pushes `[A, C]` as soon as C is ready (for a direct Spotify song, at its current position), then keeps B, v, and w ready.
+- **Inside the maze (the normal case):** the new current song's skip door is already waiting in Next Up, so Crate finds only **three** tracks (for example P, u, and x after a finish, or G, H, and J after a skip).
+
 ## Implementation
 
 ### 1. Replace overlapping queue flags with one authoritative plan
