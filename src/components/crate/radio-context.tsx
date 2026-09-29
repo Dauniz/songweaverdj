@@ -888,7 +888,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     // Already playing in Spotify (started there): keep it going, only add Crate's skip songs.
     const alreadyPlaying = noPlayFor.current === startId;
     noPlayFor.current = "";
-    passiveFor.current = alreadyPlaying ? startId : "";
+    passiveFor.current = "";
     // Adopted songs already play in Spotify, so the mirror keeps watching for your next switch.
     if (!alreadyPlaying) startingFor.current = { id: startId, at: Date.now() };
     const release = () => {
