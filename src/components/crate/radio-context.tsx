@@ -634,7 +634,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     },
     [fetchBranch, note],
   );
-  const checkPlanRef = useRef(checkPlan);
   checkPlanRef.current = checkPlan;
   useEffect(() => {
     if (!sessionLive || calming) return;
@@ -872,6 +871,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     },
     [scoutAhead, note],
   );
+  planLandingRef.current = planLanding;
 
   const startSpotifyPlayback = useCallback(
     async (
