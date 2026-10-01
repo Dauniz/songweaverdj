@@ -23,3 +23,4 @@
 - Onboarding runs once per account (auth metadata flag). Why: first Studio visit only.
 - Backgrounded tabs (iOS pauses them): on return, away-time is frozen (never counts toward the 90 s pause rule) and Crate re-syncs with Spotify's real state, adopting a foreign song fresh; a screen wake lock is held while a session is live. Why: sessions must survive leaving the preview on phones.
 - Songweaver "Next" button uses skipNow: plain Spotify next only when Crate's skip door is lined up behind the current song, else plays the door directly as a skip. Why: your own Spotify queue must never decide the skip.
+- Spotify pushes take the fast path: no position lookup first (aim from the last poll plus measured latency), and the browser sends the live device ID. When a lined-up song starts, Crate checks Spotify's "next up" and pushes its skip door again only if it's missing. Why: a short push keeps the re-buffer glitch small, and a skip door must always be next.
