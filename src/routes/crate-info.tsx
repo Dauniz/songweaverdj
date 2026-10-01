@@ -34,7 +34,7 @@ const SKILLS = [
   },
   {
     name: "Steer",
-    how: "Every twenty minutes or so of listening, Crate offers small chips like Svenskt, Engelskt, Nostalgi or Instrumental to nudge the maze without stopping the music. Searching for a song, sending a new prompt or picking a song straight in Spotify works the same way — the maze continues from there. A chip you reach for in three or more sessions becomes a permanent taste memory.",
+    how: "Every twenty minutes or so of listening, Crate offers small chips like Svenskt, Engelskt, Nostalgi or Instrumental to nudge the maze without stopping the music. After a prompt, Crate's six picks play back to back as long as you finish them (press play on any card to start from there), starting on Vibe Road for a mood or Era Road for nostalgia; a skip sends you back into the maze. Searching for a song, sending a new prompt or picking a song straight in Spotify works the same way — the maze continues from there. A chip you reach for in three or more sessions becomes a permanent taste memory.",
   },
   {
     name: "Feedbacker",
