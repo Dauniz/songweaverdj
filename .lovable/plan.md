@@ -1,60 +1,19 @@
-# Side roads rework: Texture, Deep cuts and Scene become their own roads
+# Sync recent data when starting or resuming a session
 
-## What changes for you
-- **New names:** side roads become **Alternative roads**. Vibe Road, Era Road and New Angle become **Default roads**. The new names are used everywhere: the side-road buttons, tooltips, the maze, and the "How Crate works" page.
-- **Wave is removed.** You can't pick it anymore, and a saved session that used it resumes with no side road.
-- **A side road takes over the maze.** While one is on, Crate stops using Vibe Road and Era Road. He still prepares B, v, C and w ahead of time. Finishing a song keeps you on the side road.
-- **Wormhole** becomes its own road too (see below).
-- **Turning a side road off** goes back to the normal Vibe/Era maze, from the song that's playing. The ~1.2 s misclick buffer stays.
-- **Small shortlist:** for every door, Crate first narrows your whole library down to about 15 relevant songs in code, then the AI picks from those. That keeps running costs low.
+## What you get
+- When you press **Start session** or **Resume last session**, a small popup asks: **"Sync recent data first?"** with two choices: **Sync & start** and **Skip**. It also shows when you last synced, for example "Last synced 3 days ago".
+- The popup only shows if your last sync was more than about 6 hours ago. Otherwise the session starts right away, like today.
+- **Sync & start** brings in what's new since your last sync, then starts the session:
+  1. **New saved songs and playlist changes:** the same library sync as today. Songs you added since last time show up in the maze.
+  2. **Recent listening:** the songs you've played in Spotify outside Songweaver are added to your listening history, with play counts and "last played" dates. That way Crate knows you just heard them and won't count them as forgotten favorites.
+- A short status line shows progress ("Syncing your recent listening…"), and Crate starts as soon as the sync is done.
 
-## Wormhole
-- **Which songs count:** songs you keep coming back to over the years. A song counts if its points reach 30. Each year it was streamed gives points: 1 point per stream, up to 15 per year, plus a bonus of 3 for every year it was played at all. Gaps between years are fine. Some examples that count:
-  - 5 plays a year for 3 years
-  - 1 play a year for 10 years
-  - 40 plays in one year
-  - 15 plays a year for 2 years
-- **Finish and skip:** both play another Wormhole song. There are no skip rules and no New Angle. The usual rules still apply: no songs heard recently, plus artist cool-down and blocking.
-- **Needs your imported history.** Today Crate only stores your total plays and the first and last time you played a song, not plays per year. So after this update, you need to import your history file once more. Without plays per year, Crate falls back to today's rule (songs saved in several playlists) and says so in the Crate console.
-
-## Texture
-- **Finish:** a song with the same texture (piano stays piano, acoustic stays acoustic, electronic stays electronic).
-- **1 skip:** another song with the same texture.
-- **2 skips in a row:** a new texture, for example acoustic to electronic. The count starts over, so every 2 skips gives a new texture.
-- No New Angle.
-- Crate knows the current texture and shows it on the door, for example "Texture · acoustic".
-
-## Deep cuts
-- **Which songs count:** streamed at least 15 times in total, played 3 times or fewer in the last year, and never played in the last year as a regular favorite. This needs your imported history. Without it, Crate falls back to songs saved over a year ago that sit in only one playlist (today's rule), and the Crate console says so.
-- **Finish:** another deep cut from the same era.
-- **1 skip:** another deep cut from the same era.
-- **2 skips in a row:** a new era, still more than a year back. Every 2 skips gives a new era.
-- No New Angle.
-
-## Scene
-Crate picks an **original artist**: the artist of the song playing when you turn Scene on.
-- **Finish:** a song by the original artist, or one of their collaborators. Featured artists are allowed too.
-- **1 skip:** if the skipped song was by a featured artist, Crate goes back to the original artist. Otherwise he plays another song by the original artist. If there isn't one left, he picks the collaborator they share the most songs with.
-- **2 skips:** a featured artist of the original artist. Artists featured on several of their songs come first.
-- **3 skips:** a different featured artist.
-- **4 skips:** New Angle. Crate picks a new original artist, from the same regional scene if possible (same genre tags and country/scene words).
-- **Limit:** your library and Spotify know who sings on a song, but not producers or directors. "Collaborators" means artists credited together on the same songs in your library.
-
-## Skip rules that still apply
-Songs heard in the last 50 are left out. Artists cool down after a skip and are blocked after 5 skips (on Scene, the original artist is never cooled or blocked). The early door checks (DOOR CHECK) and "never swap a door that has opened" stay the same.
-
-## Text
-- New tooltips for Texture, Deep cuts and Scene that describe the rules above. Wave's tooltip goes away.
-- On the "How Crate works" page, the side-roads section is rewritten: each road gets a short paragraph with its finish and skip rules.
+## An honest limit
+Spotify only shares your **last 50 plays** with apps like Songweaver. If you've listened to more than 50 songs since your last sync, the older plays can't be fetched. The full history still has to come from the .zip/.json import. Syncing more often keeps the gap small. The popup will mention this in one short line.
 
 ## Technical details
-- Wormhole data: a migration adds `plays_by_year jsonb` (`{"2019": 12, ...}`) to `listening_history`. `listening-history.ts` fills it during import. In `path.functions.ts`, the wormhole score is `sum(min(plays, 15) + 3)` over the years a song was played, with a threshold of 30. It has no ladder (same/shift are ignored).
-- `lenses.ts`: drop `wave`, rewrite `info` text. Resume and saved state turn an unknown lens into `null`.
-- `radio-context.tsx`: when a lens or deepCuts is on, `advance()` uses a per-road ladder instead of the Vibe/Era ladder. The new state `sideState` holds `{ texture?, era?, originArtist?, featuredUsed[] }`, plus a counter of skips in a row. It is saved with the live session and reset by `startRadio` and by toggling. The same "what if" projection is used for C and w (in `projectedCounts`/`doorProblem`). The road label on doors becomes the side-road name plus its current texture, era or artist.
-- `path.functions.ts`: new `sideRoad` input `{ kind: "texture"|"deep"|"scene", step: "same"|"shift"|"featured"|"newAngle", texture?, era?, originArtist?, exclude[] }`. Each kind gets a code prefilter that picks about 15 songs from the whole library:
-  - texture: genre tags mapped to texture buckets (acoustic, piano, electronic, rock, hip-hop, ambient…). For a shift, songs come from a different bucket.
-  - deep: history filter (plays ≥15, ≤3 plays and no recent play in the last year), grouped by era (the year of `source_period`/first_played). For a shift, songs come from a different era group.
-  - scene: a collaborator graph built from the comma-separated `artists` field, counting shared songs. Featured artists are the co-artists on the original artist's songs, ranked by count. For New Angle, the new original artist's genre tags overlap with the old one's.
-  - One small AI call picks from the 15, and the DJ prompt rule for that road replaces `lensRule`. Era and Vibe road logic is skipped while a side road is on.
-- Prefetching both branches and `checkPlan` work unchanged, now fed by the side-road ladder.
-- Update `src/components/crate/AGENTS.md` (side-road ladders) and the project's side-road notes. Update `crate-info.tsx`.
+- New server function `syncRecentListening` (spotify.functions.ts): `GET /me/player/recently-played?limit=50&after=<last recent sync ms>`. The `user-read-recently-played` scope is already requested. Plays are grouped by track. Each one is upserted into `listening_history`: plays and ms_played are added on, last_played is set to the latest play, first_played is kept, and the current year is bumped in `plays_by_year`. A play is only counted if it's newer than the stored last_played, so nothing is counted twice.
+- New column `spotify_connections.last_recent_sync_at` (migration) stores the cursor.
+- Library part reuses `syncSpotifyLibrary` as-is.
+- `SessionControl.tsx`: the Start and Resume buttons open a `SyncRecentDialog` when `last_synced_at` is older than 6 h. The dialog runs both syncs, invalidates the library and listening-history queries, then calls `startSession()` or `resumeLastSession()`. Skip calls them directly.
+- No change to maze, door or push mechanics.
