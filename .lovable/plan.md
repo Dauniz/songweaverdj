@@ -1,6 +1,7 @@
 # Side roads rework: Texture, Deep cuts and Scene become their own roads
 
 ## What changes for you
+- **New names:** side roads become **Alternative roads**. Vibe Road, Era Road and New Angle become **Default roads**. The new names are used everywhere: the side-road buttons, tooltips, the maze, and the "How Crate works" page.
 - **Wave is removed.** You can't pick it anymore, and a saved session that used it resumes with no side road.
 - **A side road takes over the maze.** While one is on, Crate stops using Vibe Road and Era Road. He still prepares B, v, C and w ahead of time. Finishing a song keeps you on the side road.
 - **Wormhole** is not part of this change and works as it does today. Tell me if you want it reworked too.
