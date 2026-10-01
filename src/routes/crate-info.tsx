@@ -41,8 +41,8 @@ const SKILLS = [
     how: "The sharpest signal Crate gets: a few free words about the song playing right now. \"Nostalgi, högstadiet, sommarens första dag\" ties a feeling to a track forever, and Walrus carries it into every future session.",
   },
   {
-    name: "Side roads",
-    how: "One side road at a time can bend the maze: Wormhole jumps between chapters of your life through songs saved in several playlists, Scene follows collaborations and regional scenes, Wave builds energy over three songs then calms for two, and Texture keeps the same sound texture. Crate waits about a second after you toggle one — in case you change your mind — then replaces both doors.",
+    name: "Alternative roads",
+    how: "One alternative road at a time can replace the default roads (Vibe, Era, New Angle). As long as you finish songs, Crate keeps walking that road; skips follow its own rules (below). Crate narrows your whole library to about 15 songs that fit the road, then picks one. He waits about a second after you toggle one — in case you change your mind — then replaces the doors.",
   },
   {
     name: "Listening history",
@@ -181,6 +181,26 @@ function CrateInfoPage() {
               </p>
             </div>
           </div>
+
+          <h3 className="mt-8 text-lg font-semibold">Alternative roads</h3>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            Vibe Road, Era Road and New Angle are the default roads. Turn on an alternative road and it
+            replaces them until you turn it off. Crate still lines up the finish and skip doors ahead,
+            but he picks them from about 15 songs in your whole library that fit the road.
+          </p>
+          <div className="mt-4 space-y-3">
+            {[
+              ["Wormhole", "Only songs you keep coming back to over the years: lots of streams, or streams spread across many years (5 plays a year for three years, or one play a year for ten). Finish or skip, the next song is another returner. There are no skip rules. Needs your imported streaming history; without it, Crate uses songs saved in several playlists."],
+              ["Deep cuts", "Old favorites you haven't played in over a year: songs streamed at least 15 times that were a favorite years ago. 1 skip: another deep cut from the same era. 2 skips: a new era, still more than a year back, and so on. Needs your imported streaming history. Without it, it still works, but it plays songs saved over a year ago that sit in only one playlist, so songs in several playlists are left out."],
+              ["Texture", "Keeps the sound texture: piano stays piano, acoustic stays acoustic, electronic stays electronic. 1 skip: another song with the same texture. 2 skips: a new texture, and so on. Texture works from Spotify's genre tags, so songs without tags are left out."],
+              ["Scene", "Stays with one artist and their web: their own songs, collaborators and featured artists. Finishing a featured artist's song can carry the maze there. 1 skip: back to the original artist (or their closest collaborator). 2 skips: an artist featured with them, the more songs together the better. 3 skips: another featured artist. 4 skips: New Angle, a new artist from the same scene. Collaborators are the artists credited together on songs in your library; producers aren't known."],
+            ].map(([n, d]) => (
+              <div key={n} className="rounded-lg border bg-surface p-4">
+                <h4 className="font-semibold">{n}</h4>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{d}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className="mt-10">
@@ -236,7 +256,7 @@ function CrateInfoPage() {
                 listening event — and again when you stop the radio — Crate
                 steps back and reads the trace of that sitting: what was played
                 to the end, what was skipped and after how many seconds, which
-                road and side road you were on, which playlist and month each
+                road and alternative road you were on, which playlist and month each
                 song came from, and the local time of every move. It may write
                 at most two conclusions, and only about what happened right
                 then. If the session was mostly untouched playback with no real

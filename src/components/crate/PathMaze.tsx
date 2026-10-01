@@ -14,12 +14,19 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { lensName } from "@/lib/lenses";
 
 const ROAD: Record<Road, { name: string }> = {
   vibe: { name: "Vibe Road" },
   era: { name: "Era Road" },
   mixed: { name: "New Angle" },
 };
+
+/** Door/road label: an alternative road's name replaces the default road while it's on. */
+function useRoadName() {
+  const { lens, deepCuts } = useRadio();
+  return (r: Road) => (deepCuts ? "Deep cuts" : lens ? lensName(lens) : ROAD[r].name);
+}
 
 function Art({ src, alt, className }: { src: string | null | undefined; alt: string; className?: string }) {
   if (src) {
@@ -127,6 +134,7 @@ function JunctionTree({
   musicPlaying,
   controlsEnabled,
 }: TreeSnapshot & { musicPlaying: boolean; controlsEnabled: boolean }) {
+  const roadName = useRoadName();
   const reduced = useReducedMotion();
   const [shown, setShown] = useState<TreeSnapshot>({ current, road, consecutiveSkips, upNext, upSkip });
   const [anim, setAnim] = useState<TreeAnim>(null);
@@ -293,7 +301,7 @@ function JunctionTree({
                 />
               ))}
             </span>
-            You are here · {ROAD[shown.road].name}
+            You are here · {roadName(shown.road)}
           </div>
           <div className="mt-2.5 flex items-center gap-3">
             <Art src={shown.current.image_url} alt={shown.current.name} className="h-14 w-14" />
@@ -711,6 +719,7 @@ function Door({
   image?: string | null | undefined;
   icon: React.ReactNode;
 }) {
+  const roadName = useRoadName();
   const keep = tone === "keep";
   return (
     <div
@@ -738,7 +747,7 @@ function Door({
       </div>
       <div className="mt-2 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
         <CornerDownRight className="mt-0.5 h-3 w-3 shrink-0" />
-        <span>{ROAD[road].name}</span>
+        <span>{roadName(road)}</span>
       </div>
     </div>
   );

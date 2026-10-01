@@ -470,6 +470,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             avoidArtists: avoidArtists(s).slice(0, 30),
             coolArtists: coolArtists(s).slice(0, 10),
             eraShift: Boolean(s.eraShift),
+            currentId: s.current?.spotify_id ?? null,
             excludeSpotifyIds: [
               ...played.current.slice(-50),
               ...(s.current?.spotify_id ? [s.current.spotify_id] : []),
@@ -558,7 +559,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const avoid = avoidArtists();
       const cool = coolArtists();
       const ctx = [
-        lensRef.current ? `side road ${lensRef.current}` : null,
+        lensRef.current ? `alternative road ${lensRef.current}` : null,
         s.chips.length ? `steering ${s.chips.join(", ")}` : null,
         avoid.length ? `blocked ${avoid.join(", ")}` : null,
         cool.length ? `cooling ${cool.join(", ")}` : null,
@@ -2085,7 +2086,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         landingPlan.current = snap.plan;
         setUpNext(snap.upNext);
         setUpSkip(snap.upSkip);
-        note("steer", "Side road toggled back → keeping the original doors");
+        note("steer", "Alternative road toggled back → keeping the original doors");
         return;
       }
       if (!s.active) {
@@ -2114,7 +2115,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         setUpNext(null);
         setUpSkip(null);
         const label = l ?? (d ? "deep cuts" : null);
-        note("steer", label ? `Side road ${label} on → rewiring both doors` : "Side road off → back to the main roads");
+        note("steer", label ? `Alternative road ${label} on → rewiring both doors` : "Alternative road off → back to the default roads");
         setRadio({ ...cur });
       }, 1200);
     },

@@ -202,6 +202,7 @@ export type Database = {
           last_played: string | null
           ms_played: number
           plays: number
+          plays_by_year: Json | null
           spotify_id: string
           user_id: string
         }
@@ -210,6 +211,7 @@ export type Database = {
           last_played?: string | null
           ms_played?: number
           plays?: number
+          plays_by_year?: Json | null
           spotify_id: string
           user_id: string
         }
@@ -218,6 +220,7 @@ export type Database = {
           last_played?: string | null
           ms_played?: number
           plays?: number
+          plays_by_year?: Json | null
           spotify_id?: string
           user_id?: string
         }

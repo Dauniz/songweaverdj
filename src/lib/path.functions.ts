@@ -4,22 +4,8 @@ import { stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { recallMemories } from "./memwal.server";
-import { LENS_IDS, lensName, type LensId } from "./lenses";
-
-const distinctPlaylists = (s: { sources: { name: string; type: string }[] }) =>
-  new Set(s.sources.filter((x) => x.type === "playlist").map((x) => x.name)).size;
-
-/** Code lenses narrow the pool before any road runs; AI lenses add a rule to the DJ prompt. */
-function applyCodeLens<T extends { sources: { name: string; type: string; period: string | null }[] }>(
-  lens: LensId | null,
-  pool: T[],
-): T[] {
-  if (lens === "wormhole") {
-    const hubs = pool.filter((s) => distinctPlaylists(s) >= 2);
-    return hubs.length >= 15 ? hubs : pool;
-  }
-  return pool;
-}
+import { LENS_IDS, type LensId } from "./lenses";
+import { altPool, planAltRoad, type AltKind } from "./alt-roads";
 
 /** Forgotten favorite: streamed a lot (history import) but not in over a year. */
 function isForgotten(s: { plays?: number; last_played?: string | null }) {
@@ -27,36 +13,9 @@ function isForgotten(s: { plays?: number; last_played?: string | null }) {
   return Date.now() - new Date(s.last_played).getTime() > 365 * 86_400_000;
 }
 
-/** Deep cuts: songs saved in at most one place, last added 12+ months ago, or forgotten favorites from history. */
-function applyDeepCuts<T extends { sources: { period: string | null }[]; plays?: number; last_played?: string | null }>(pool: T[]): T[] {
-  const cutoff = Math.round(Date.now() / 86_400_000) - 365;
-  const deep = pool.filter((s) => {
-    if (isForgotten(s)) return true;
-    if (s.sources.length > 1) return false;
-    const days = s.sources.map((x) => dayIndex(x.period)).filter((d): d is number => d !== null);
-    return days.length > 0 && Math.max(...days) <= cutoff;
-  });
-  return deep.length >= 15 ? deep : pool;
-}
-
-function lensRule(lens: LensId | null, step: number) {
-  switch (lens) {
-    case "wormhole":
-      return "LENS Wormhole: every candidate lives in several playlists. Prefer one that opens a DIFFERENT playlist/period than the anchor, to jump between chapters of their life.";
-    case "scene":
-      return "LENS Scene: follow the artist web — collaborators, featured artists, same label or same regional scene as the anchor.";
-    case "wave": {
-      const phase = step % 5;
-      return phase < 3
-        ? `LENS Wave: building phase (${phase + 1}/3). Pick something a notch MORE energetic than the anchor.`
-        : "LENS Wave: release phase. Pick something calmer to let the energy come down.";
-    }
-    case "texture":
-      return "LENS Texture: match the sonic texture of the anchor — acoustic/organic stays acoustic, synth/electronic stays electronic — regardless of era.";
-    default:
-      return "";
-  }
-}
+/** Which alternative road is on (they replace the default roads). */
+const altKind = (lens: LensId | null, deepCuts: boolean): AltKind | null =>
+  deepCuts ? "deep" : lens === "wormhole" || lens === "texture" || lens === "scene" ? lens : null;
 
 const MODEL = "openai/gpt-6-luna";
 
@@ -80,6 +39,8 @@ type Song = Row & {
   sources: { name: string; type: string; period: string | null }[];
   plays?: number;
   last_played?: string | null;
+  first_played?: string | null;
+  plays_by_year?: Record<string, number> | null;
 };
 
 // Short-lived per-worker cache of the merged library (plain cache, not state).
@@ -117,7 +78,7 @@ async function loadPool(supabase: any, userId: string): Promise<Song[]> {
   for (let from = 0; from < 200000; from += 1000) {
     const { data } = await supabase
       .from("listening_history")
-      .select("spotify_id, plays, last_played")
+      .select("spotify_id, plays, last_played, first_played, plays_by_year")
       .order("spotify_id")
       .range(from, from + 999);
     if (!data?.length) break;
@@ -126,6 +87,8 @@ async function loadPool(supabase: any, userId: string): Promise<Song[]> {
       if (s) {
         s.plays = h.plays;
         s.last_played = h.last_played;
+        s.first_played = h.first_played;
+        s.plays_by_year = (h.plays_by_year as Record<string, number> | null) ?? null;
       }
     }
     if (data.length < 1000) break;
@@ -366,7 +329,9 @@ export const pathReserves = createServerFn({ method: "POST" })
         !s.spotify_id.startsWith("demo-") &&
         (!playableOnly || !s.spotify_id.startsWith("demo-") || s.preview_url),
     );
-    const available = data.deepCuts ? applyDeepCuts(unlensed) : applyCodeLens(data.lens, unlensed);
+    const kind = altKind(data.lens, data.deepCuts);
+    const alt = kind ? altPool(kind, unlensed).songs : [];
+    const available = kind && alt.length >= 5 ? alt : unlensed;
     if (!available.length) return { tracks: [] };
     const anchor = pool.find((s) => s.spotify_id === data.seed.spotifyId);
     const shortlist = buildShortlist(data.road, anchor, available, new Set([data.seed.artists]));
@@ -411,6 +376,7 @@ const inputSchema = z.object({
   avoidArtists: z.array(z.string().max(300)).max(30).default([]),
   coolArtists: z.array(z.string().max(300)).max(10).default([]),
   eraShift: z.boolean().default(false),
+  currentId: z.string().nullable().default(null),
   excludeSpotifyIds: z.array(z.string()).max(600).default([]),
 });
 
@@ -432,12 +398,9 @@ export const nextPathTrack = createServerFn({ method: "POST" })
         (!playableOnly || !s.spotify_id.startsWith("demo-") || s.preview_url),
     );
     const cool = new Set(data.coolArtists);
-    const lensed = data.deepCuts ? applyDeepCuts(unlensed) : applyCodeLens(data.lens, unlensed);
     // Cooling artists (skipped in the last 5 songs) go to the back: still possible, less likely.
-    const available = cool.size ? [...lensed.filter((x) => !cool.has(x.artists)), ...lensed.filter((x) => cool.has(x.artists))] : lensed;
-    const lensLabel = data.deepCuts ? "Deep cuts" : lensName(data.lens);
-    const withLens = (why: string) => (lensLabel ? `${lensLabel} · ${why}` : why);
-    const aiLens = data.lens === "scene" || data.lens === "wave" || data.lens === "texture";
+    const available = cool.size ? [...unlensed.filter((x) => !cool.has(x.artists)), ...unlensed.filter((x) => cool.has(x.artists))] : unlensed;
+    const kind = altKind(data.lens, data.deepCuts);
     if (!available.length) return { track: null, road: data.road, why: "Library exhausted" };
 
     // Anchor = last song played through, else the seed
@@ -445,6 +408,14 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const anchor =
       bySpotify.get(lastPlayed?.spotifyId ?? data.seed.spotifyId) ??
       bySpotify.get(data.seed.spotifyId);
+
+    // Alternative road: replaces Vibe/Era. Skips in a row = trailing skips in the history.
+    let skips = 0;
+    for (let i = data.history.length - 1; i >= 0 && data.history[i]!.outcome === "skipped"; i--) skips++;
+    const current = data.currentId ? bySpotify.get(data.currentId) : undefined;
+    const altPlan = kind ? planAltRoad(kind, pool, available, current ?? anchor, anchor, skips) : null;
+    const alt = altPlan && altPlan.list.length ? altPlan : null;
+    const withLens = (why: string) => (alt ? `${alt.label} · ${why}` : altPlan ? `${altPlan.label} (none left) · ${why}` : why);
 
     const toTrack = (s: Song, why: string, road: "vibe" | "era" | "mixed") => ({
       road,
@@ -465,7 +436,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     });
 
     // ERA road without chips: pure code, instant.
-    if (data.road === "era" && anchor && !data.chips.length && !aiLens) {
+    if (!alt && data.road === "era" && anchor && !data.chips.length) {
       const warm = available.filter((x) => !cool.has(x.artists));
       const shifted = data.eraShift ? eraShiftCandidates(anchor, warm.length >= 10 ? warm : available) : [];
       const cands = shifted.length ? shifted : eraCandidates(anchor, warm.length >= 10 ? warm : available);
@@ -489,7 +460,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const skipped = data.history.filter((h) => h.outcome === "skipped").slice(-6);
     const likedArtists = new Set([data.seed.artists, ...liked.map((h) => h.artists)]);
 
-    const shortlist = buildShortlist(data.road, anchor, available, likedArtists);
+    const shortlist = alt ? alt.list : buildShortlist(data.road, anchor, available, likedArtists);
     const index = new Map<string, Song>();
     const lines = shortlist.map((s, i) => {
       index.set(`T${i}`, s);
@@ -533,8 +504,9 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const walrus = recalled.filter((m: { text: string }) => ![...seen].some((c) => m.text.includes(c.slice(0, 40))));
     const bullets = (xs: { content: string }[]) => xs.map((m) => `- ${m.content}`).join("\n") || "- (none yet)";
 
-    const roadRule =
-      data.road === "vibe"
+    const roadRule = alt
+      ? alt.rule
+      : data.road === "vibe"
         ? "Follow the VIBE: use your own music knowledge of each artist's sound — instrumentation, production, genre, tempo, vocal style, mood — and pick the candidate that sounds closest to the songs they played through, regardless of era or which playlist it sits in. Prefer finding the same sound from a different artist or a forgotten corner of their library over the obvious neighbour. As a light extra hint, a candidate's playlist name can reveal how the listener feels about it (e.g. a song living in 'sad songs' is probably one they consider sad) — treat it as a weak signal that can tip a close call, never as the main reason."
         : data.road === "era"
           ? "Follow the ERA: songs from the same playlists / time period as the last song they played through, filtered by their steering chips."
@@ -566,7 +538,7 @@ Played through (the road that works): ${liked.map((h) => `${h.name} — ${h.arti
 Skipped (wrong turns, avoid similar): ${skipped.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(none)"}
 ${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
 ${roadRule}
-${data.eraShift ? "ERA HOP: the last era didn't land — pick from a nearby era, roughly 1–3 years earlier or later than the anchor's period.\n" : ""}${data.coolArtists.length ? `COOLING (skipped recently, prefer other artists unless one is clearly the best fit): ${data.coolArtists.join("; ")}\n` : ""}${lensRule(data.lens, data.history.length)}\nHISTORY: "(Nx, last yyyy-mm)" = how often they streamed it and when last. Many plays but not for a long time = a forgotten favorite, great to resurface.${data.deepCuts ? "\nDEEP CUTS: prefer forgotten songs they saved long ago and rarely return to — never the obvious staples." : ""}
+${!alt && data.eraShift ? "ERA HOP: the last era didn't land — pick from a nearby era, roughly 1–3 years earlier or later than the anchor's period.\n" : ""}${data.coolArtists.length ? `COOLING (skipped recently, prefer other artists unless one is clearly the best fit): ${data.coolArtists.join("; ")}\n` : ""}HISTORY: "(Nx, last yyyy-mm)" = how often they streamed it and when last. Many plays but not for a long time = a forgotten favorite, great to resurface.
 Other Walrus Memory relevant right now:
 ${walrus.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
 
