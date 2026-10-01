@@ -26,19 +26,10 @@ export type SpotifyPlaybackIssue = {
 };
 
 /** Spotify Connect can play only real Spotify catalog tracks. */
-export function isPlayable(t: CardTrack) {
+function isPlayable(t: CardTrack) {
   return Boolean(t.spotify_id && !t.spotify_id.startsWith("demo-"));
 }
 
-export const STEER_CHIPS = [
-  "Svenskt",
-  "Engelskt",
-  "UK",
-  "Nostalgi",
-  "Instrumental",
-  "Lugnare",
-  "Mer energi",
-] as const;
 
 export type MazeEvent = { at: number; kind: "start" | "finish" | "skip" | "pick" | "reroot" | "think" | "door" | "steer"; text: string };
 const ROAD_NAME: Record<Road, string> = { vibe: "Vibe road", era: "Era road", mixed: "New angle" };
