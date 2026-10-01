@@ -57,7 +57,7 @@ export type RadioState = {
   /** Last Era/Vibe road, used for "if you finish" after a New angle. */
   baseRoad?: Road;
   /** Road the current run of skips started on (the skip ladder). */
-  ladderStart?: Road;
+  ladderStart?: Road | undefined;
   /** Era Road step that hops to a nearby era instead of the closest days. */
   eraShift?: boolean;
   sessionId: string;
