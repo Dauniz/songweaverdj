@@ -334,7 +334,9 @@ export const pathReserves = createServerFn({ method: "POST" })
     const available = kind && alt.length >= 5 ? alt : unlensed;
     if (!available.length) return { tracks: [] };
     const anchor = pool.find((s) => s.spotify_id === data.seed.spotifyId);
-    const shortlist = buildShortlist(data.road, anchor, available, new Set([data.seed.artists]));
+    // Alternative road on: reserves come from that road's own shortlist, no Vibe/Era ranking.
+    const altList = kind && alt.length >= 5 ? planAltRoad(kind, pool, available, anchor, anchor, 0).list : [];
+    const shortlist = altList.length ? altList : buildShortlist(data.road, anchor, available, new Set([data.seed.artists]));
     const picks = shuffle(shortlist.slice(0, 80)).slice(0, data.count);
     return {
       tracks: picks.map((s) => ({
@@ -515,7 +517,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     // Cache-friendly order: fixed rules + learned memory first (stable across picks),
     // then candidates, and the live per-pick state last in the user message.
     const system = `You are Crate's radio DJ, picking ONE next song at a time like solving a maze.
-Priority: live signals in this session (skips, chips, road, side road) beat learned memory. When live signals are neutral, let a matching learned pattern tip the choice. Favorites are hints about taste, not a rotation list.
+Priority: live signals in this session (skips, chips, ${alt ? "the alternative road's rule" : "road"}) beat learned memory. When live signals are neutral, let a matching learned pattern tip the choice. Favorites are hints about taste, not a rotation list.
 If your pick was driven by a learned memory, say so briefly in "why" (e.g. "Your Sunday-evening Swedish ritual").
 Call pick_next exactly once with one code from the candidate list.
 
@@ -534,7 +536,7 @@ ${lines.join("\n")}`;
 
     const live = `It is ${nowLabel} (${weekday} ${partOfDay}) for the listener right now.
 Seed song: "${data.seed.name}" by ${data.seed.artists}.${data.seedPrompt ? `\nThe session started from: "${data.seedPrompt}".` : ""}
-Played through (the road that works): ${liked.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(only the seed so far)"}
+Played through${alt ? "" : " (the road that works)"}: ${liked.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(only the seed so far)"}
 Skipped (wrong turns, avoid similar): ${skipped.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(none)"}
 ${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
 ${roadRule}

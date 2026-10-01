@@ -132,6 +132,9 @@ function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
   return Promise.race([p, new Promise<T>((res) => setTimeout(() => res(fallback), ms))]);
 }
 
+/** Whether an alternative road (lens or deep cuts) is on; wired to the provider's refs. */
+let altRoadOn: () => boolean = () => false;
+
 /** Pure road logic: what the next state looks like after an outcome. */
 function advance(s: RadioState, outcome: "played" | "skipped"): RadioState {
   const cur = s.current!;
@@ -143,6 +146,9 @@ function advance(s: RadioState, outcome: "played" | "skipped"): RadioState {
   const base: Road = s.road !== "mixed" ? s.road : (s.baseRoad ?? "vibe");
   if (outcome === "played") return { ...s, history, consecutiveSkips: 0, road: base, baseRoad: base, ladderStart: undefined, eraShift: false };
   const skips = s.consecutiveSkips + 1;
+  // Alternative road on: it owns the skip ladder (read server-side from trailing skips),
+  // so the default Vibe/Era/New-angle ladder is suspended.
+  if (altRoadOn()) return { ...s, history, consecutiveSkips: skips, road: base, baseRoad: base, ladderStart: undefined, eraShift: false };
   // Skip ladder: 1 = same road (era hops to a nearby era), 2-3 = the other road
   // (era steps hop eras), 4+ = New angle.
   const start: Road = skips === 1 ? base : (s.ladderStart ?? base);
@@ -192,6 +198,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [deepCuts, setDeepCutsState] = useState(false);
   const deepCutsRef = useRef(false);
   deepCutsRef.current = deepCuts;
+  altRoadOn = () => !!lensRef.current || deepCutsRef.current;
   const artistSkips = useRef<Map<string, number>>(new Map());
   const played = useRef<string[]>([]);
   // Two prefetched branches per song: one assuming you finish it, one assuming you skip it.
