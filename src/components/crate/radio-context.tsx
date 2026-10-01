@@ -542,7 +542,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const entry = branches.current;
         if (repairing.current || swapping.current || !s.active || !s.current?.spotify_id || !entry) return;
         if (!entry.key.startsWith(`${s.current.id}|`) || lensTimer.current) return;
-        if (!lastPlayback.current.isPlaying) return;
+        if (!lastPlayback.current.observed || Date.now() - lastPlayback.current.at > 15_000) return;
         repairing.current = true;
         try {
           const key = entry.key;
@@ -556,7 +556,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             const nb = await fetchBranch(advance(s, "played"), undefined, [c?.track.spotify_id].filter(Boolean) as string[]);
             if (branches.current?.key !== key || !nb) return;
             finish = nb;
-            branches.current = { ...branches.current, played: Promise.resolve(nb), finishSkip: undefined };
+            branches.current = { key: branches.current.key, played: Promise.resolve(nb), skipped: branches.current.skipped };
             setUpNext(nb.track);
             note("door", `PLAN REPAIRED: picked missing finish door "${nb.track.name}"`);
           }
