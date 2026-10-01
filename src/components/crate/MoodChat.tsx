@@ -24,6 +24,15 @@ import { cn } from "@/lib/utils";
 import { DEEP_CUTS_INFO, LENSES } from "@/lib/lenses";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import logo from "@/assets/crate-logo.jpg";
 import { recordWav, type VoiceRecording } from "@/lib/record-wav";
 import { LibrarySearch } from "./LibrarySearch";
@@ -104,6 +113,20 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   const recordingRef = useRef<VoiceRecording | null>(null);
   const stoppingRef = useRef(false);
   const { startRadio, lens, setLens, deepCuts, setDeepCuts } = useRadio();
+  const [wormholeBlocked, setWormholeBlocked] = useState(false);
+  const { data: hasYearHistory } = useQuery({
+    queryKey: ["listening-history", "years"],
+    staleTime: 60 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("listening_history")
+        .select("spotify_id")
+        .not("plays_by_year", "is", null)
+        .limit(1);
+      if (error) throw error;
+      return (data?.length ?? 0) > 0;
+    },
+  });
   const lastUserText = useRef("");
   const { data: promptMemories = [] } = useQuery({
     queryKey: ["prompt-memories"],
@@ -336,21 +359,43 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             </Button>
             {LENSES.map((l) => {
               const on = lens === l.id;
+              const locked = l.id === "wormhole" && !on && hasYearHistory === false;
               return (
                 <Button
                   key={l.id}
                   type="button"
                   variant={on ? "default" : "secondary"}
                   size="sm"
-                  onClick={() => setLens(on ? null : l.id)}
+                  onClick={() => {
+                    if (l.id === "wormhole" && !on && !hasYearHistory) {
+                      setWormholeBlocked(true);
+                      return;
+                    }
+                    setLens(on ? null : l.id);
+                  }}
                   aria-pressed={on}
                   aria-label={`Enable ${l.name}`}
-                  className="h-8 rounded-full px-3.5"
+                  className={cn("h-8 rounded-full px-3.5", locked && "opacity-60")}
                 >
                   {l.name}
                 </Button>
               );
             })}
+            <AlertDialog open={wormholeBlocked} onOpenChange={setWormholeBlocked}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Wormhole needs your listening history</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Wormhole only plays songs you keep coming back to over the years, so Crate needs your Spotify
+                    streaming history first. Import your .zip or .json files with "Import listening history" in the
+                    Spotify panel, then try again. If you imported before this update, import the file once more.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogAction>Got it</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
