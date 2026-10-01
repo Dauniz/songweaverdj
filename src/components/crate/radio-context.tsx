@@ -811,7 +811,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const ordered = [...tracks.slice(startAt), ...tracks.slice(0, startAt)];
       const first = ordered.find(isPlayable);
       if (first) {
-        if (startRoad) setRadio((r) => ({ ...r, road: startRoad }));
+        if (startRoad) radioRef.current = { ...radioRef.current, road: startRoad }; // rerootTo carries it into state
         rerootTo(first, seedPrompt);
       }
     },
