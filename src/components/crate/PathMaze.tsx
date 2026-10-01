@@ -134,6 +134,7 @@ function JunctionTree({
   musicPlaying,
   controlsEnabled,
 }: TreeSnapshot & { musicPlaying: boolean; controlsEnabled: boolean }) {
+  const roadName = useRoadName();
   const reduced = useReducedMotion();
   const [shown, setShown] = useState<TreeSnapshot>({ current, road, consecutiveSkips, upNext, upSkip });
   const [anim, setAnim] = useState<TreeAnim>(null);
@@ -718,6 +719,7 @@ function Door({
   image?: string | null | undefined;
   icon: React.ReactNode;
 }) {
+  const roadName = useRoadName();
   const keep = tone === "keep";
   return (
     <div
