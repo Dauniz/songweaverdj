@@ -33,12 +33,18 @@ export function usePreparedSpotifyUrl(fetchUrl: () => Promise<{ url: string }>) 
   return { get, refresh };
 }
 
+/** True on iPhone / iPad / iPod touch (including iPads that report as Mac). */
+export function isAppleTouchDevice() {
+  return (
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
 /** Open a Spotify authorize URL right inside the user's tap. */
 export function openSpotifyAuth(url: string, name: string) {
   const framed = window.top !== window.self;
-  const ios =
-    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const ios = isAppleTouchDevice();
   if (ios && !framed) {
     window.location.assign(url);
     return;
