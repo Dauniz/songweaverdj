@@ -792,8 +792,8 @@ export const syncRecentSpotify = createServerFn({ method: "POST" })
             spotify_id: id,
             plays: (old?.plays ?? 0) + fresh.length,
             ms_played: Number(old?.ms_played ?? 0) + Math.round(avgMs * fresh.length),
-            first_played: old?.first_played ?? fresh[0],
-            last_played: fresh[fresh.length - 1],
+            first_played: old?.first_played ?? fresh[0] ?? null,
+            last_played: fresh[fresh.length - 1] ?? null,
             plays_by_year: pby,
           });
         }
