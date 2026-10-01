@@ -526,8 +526,20 @@ export function CrateConsole({
               </>
             )}
           </div>
-        </div>
       </div>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-accent/50"
+      >
+        <MessagesSquare className="h-4 w-4 text-primary" />
+        <span className="text-sm font-bold uppercase tracking-wider">Crate console</span>
+        <span className="ml-auto flex items-center gap-2 text-[10px] text-muted-foreground">
+          {events.length > 0 && <span>{events.length} steps</span>}
+          {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
+        </span>
+      </button>
     </div>
   );
 }
