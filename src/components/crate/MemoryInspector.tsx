@@ -25,6 +25,7 @@ import { refreshMemories, resetMemoryLog } from "@/lib/memory.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { cn } from "@/lib/utils";
 import { PathMaze, CrateConsole } from "@/components/crate/PathMaze";
+import { DoorDebug } from "@/components/crate/DoorDebug";
 
 const KIND_LABEL: Record<string, string> = {
   taste: "Taste",
@@ -117,6 +118,7 @@ export function MemoryInspector() {
       <div className={cn("flex min-h-0 flex-col", consoleOpen ? "shrink" : "flex-1")}>
       <div className="scrollbar-thin min-h-0 shrink overflow-y-auto">
         <PathMaze />
+        {isAdmin && <DoorDebug />}
       </div>
       <div className={cn("shrink-0 px-4 pt-3 pb-3 text-xs", (consoleOpen || consoleAnimating) && "hidden")}>
         <div className="flex flex-wrap gap-1.5">
