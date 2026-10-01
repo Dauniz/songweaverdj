@@ -31,7 +31,7 @@ export function DoorDebug() {
   );
 
   return (
-    <div className="mx-4 mb-2 rounded-lg border border-dashed border-border bg-card/60 px-3 py-2 font-mono text-[11px]">
+    <div className="mx-4 mt-3 mb-2 rounded-lg border border-dashed border-border bg-card/60 px-3 py-2 font-mono text-[11px]">
       <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-1.5 text-muted-foreground">
         {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         <Bug className="h-3 w-3" /> Door debug (admin)
