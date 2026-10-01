@@ -443,7 +443,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
     // Only playlists the user created themselves (skip followed/saved ones by others)
     setP({ stage: "Fetching your playlists…" });
     const me = await spotifyGet<{ id: string }>(token, "/me");
-    type Pl = { id: string; name: string; owner?: { id?: string } };
+    type Pl = { id: string; name: string; snapshot_id?: string; owner?: { id?: string } };
     const allPlaylists: Pl[] = [];
     let plNext: string | null = "/me/playlists?limit=50";
     let limited = false;
@@ -584,6 +584,13 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       .from("spotify_connections")
       .update({ last_synced_at: new Date().toISOString() })
       .eq("user_id", context.userId);
+    // Remember playlist versions so quick syncs can skip unchanged playlists.
+    if (!limited) {
+      const snaps = allPlaylists
+        .filter((p) => p.snapshot_id)
+        .map((p) => ({ user_id: context.userId, playlist_id: p.id, snapshot_id: p.snapshot_id!, updated_at: new Date().toISOString() }));
+      if (snaps.length) await supabaseAdmin.from("spotify_playlist_snapshots").upsert(snaps);
+    }
 
     const result = {
       imported: unique.length,
@@ -600,4 +607,211 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       });
       throw e;
     }
+  });
+
+/**
+ * Quick sync: only what's new since the last sync — newly liked songs, additions to playlists
+ * whose version changed, and the last (max 50) plays. Never re-reads the whole library.
+ */
+export const syncRecentSpotify = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const uid = context.userId;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: conn } = await supabaseAdmin
+      .from("spotify_connections")
+      .select("*")
+      .eq("user_id", uid)
+      .maybeSingle();
+    if (!conn) throw new Error("Spotify is not connected.");
+    let token = conn.access_token;
+    if (new Date(conn.expires_at).getTime() < Date.now() + 60_000) {
+      const t = await exchangeToken({ grant_type: "refresh_token", refresh_token: conn.refresh_token });
+      token = t.access_token;
+      await supabaseAdmin
+        .from("spotify_connections")
+        .update({
+          access_token: t.access_token,
+          refresh_token: t.refresh_token ?? conn.refresh_token,
+          expires_at: new Date(Date.now() + t.expires_in * 1000).toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", uid);
+    }
+    const pace = (ms = 300) => new Promise((r) => setTimeout(r, ms));
+    const since = conn.last_synced_at ? Date.parse(conn.last_synced_at) : 0;
+    const rows: IngestRow[] = [];
+    let newLiked = 0;
+    let changedPlaylists = 0;
+
+    // 1) Newly liked songs — newest first, stop at the first one already seen.
+    for (let offset = 0; offset < 1000; offset += 50) {
+      const saved: { items: { added_at: string; track: Parameters<typeof toRow>[0] }[]; next: string | null } =
+        await spotifyGet(token, `/me/tracks?limit=50&offset=${offset}`);
+      let reachedOld = false;
+      for (const it of saved.items ?? []) {
+        if (Date.parse(it.added_at) <= since) {
+          reachedOld = true;
+          break;
+        }
+        const r = toRow(it.track, "saved", "Liked Songs", `${it.added_at.slice(0, 7)}-01`);
+        if (r) {
+          rows.push(r);
+          newLiked += 1;
+        }
+      }
+      if (reachedOld || !saved.next || !since) break;
+      await pace();
+    }
+
+    // 2) Playlists whose version changed since last time.
+    try {
+      const me = await spotifyGet<{ id: string }>(token, "/me");
+      type Pl = { id: string; name: string; snapshot_id?: string; owner?: { id?: string } };
+      const mine: Pl[] = [];
+      let next: string | null = "/me/playlists?limit=50";
+      while (next) {
+        const page: { items: (Pl | null)[]; next: string | null } = await spotifyGet(token, next);
+        for (const p of page.items ?? []) if (p && p.owner?.id === me.id) mine.push(p);
+        next = page.next;
+        if (next) await pace();
+      }
+      const { data: snapRows } = await supabaseAdmin
+        .from("spotify_playlist_snapshots")
+        .select("playlist_id, snapshot_id")
+        .eq("user_id", uid);
+      const known = new Map((snapRows ?? []).map((s) => [s.playlist_id, s.snapshot_id]));
+      const firstRun = known.size === 0; // no versions saved yet: just record them
+      type PlItems = {
+        items: { added_at: string; track?: Parameters<typeof toRow>[0]; item?: Parameters<typeof toRow>[0] }[];
+        next: string | null;
+      };
+      if (!firstRun) {
+        for (const pl of mine) {
+          if (known.get(pl.id) === pl.snapshot_id) continue;
+          changedPlaylists += 1;
+          await pace(400);
+          let page: PlItems;
+          try {
+            page = await spotifyGet<PlItems>(token, `/playlists/${pl.id}/items?limit=100`);
+          } catch {
+            page = await spotifyGet<PlItems>(token, `/playlists/${pl.id}/tracks?limit=100`);
+          }
+          const items = [...(page.items ?? [])];
+          let n = page.next;
+          while (n) {
+            await pace();
+            const p: PlItems = await spotifyGet(token, n);
+            items.push(...(p.items ?? []));
+            n = p.next;
+          }
+          const firstAdded = items[0]?.added_at?.slice(0, 7);
+          const period = guessPeriod(pl.name) ?? (firstAdded ? `${firstAdded}-01` : null);
+          const isNew = !known.has(pl.id);
+          for (const it of items) {
+            if (!isNew && it.added_at && Date.parse(it.added_at) <= since) continue;
+            const r = toRow(it.track ?? it.item, "playlist", pl.name, period);
+            if (r) rows.push(r);
+          }
+        }
+      }
+      const snaps = mine
+        .filter((p) => p.snapshot_id)
+        .map((p) => ({ user_id: uid, playlist_id: p.id, snapshot_id: p.snapshot_id!, updated_at: new Date().toISOString() }));
+      if (snaps.length) await supabaseAdmin.from("spotify_playlist_snapshots").upsert(snaps);
+    } catch (e) {
+      console.error("quick playlist sync failed", e);
+    }
+
+    // Save new library rows (with genres for new artists only).
+    const seen = new Set<string>();
+    const unique = rows.filter((r) => {
+      const k = `${r.spotify_id}|${r.source_name}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    const artistIds = [...new Set(unique.map((r) => r.artist_id).filter((x): x is string => !!x))];
+    const genresBy = new Map<string, string>();
+    for (let i = 0; i < artistIds.length; i += 50) {
+      try {
+        const res = await spotifyGet<{ artists: ({ id: string; genres?: string[] } | null)[] }>(
+          token,
+          `/artists?ids=${artistIds.slice(i, i + 50).join(",")}`,
+        );
+        for (const a of res.artists ?? []) if (a?.genres?.length) genresBy.set(a.id, a.genres.slice(0, 4).join(", "));
+      } catch {
+        break;
+      }
+    }
+    for (const r of unique) r.genres = r.artist_id ? (genresBy.get(r.artist_id) ?? null) : null;
+    if (unique.length) {
+      const { error } = await context.supabase.from("library_tracks").upsert(
+        unique.map((r) => ({ ...r, user_id: uid, is_demo: false })),
+        { onConflict: "user_id,spotify_id,source_name" },
+      );
+      if (error) throw new Error(error.message);
+    }
+
+    // 3) Recent plays (Spotify shares at most the last 50).
+    let recentPlays = 0;
+    try {
+      const after = conn.last_recent_sync_at ? Date.parse(conn.last_recent_sync_at) : 0;
+      const rp: { items: { played_at: string; track: { id: string; duration_ms?: number } | null }[] } =
+        await spotifyGet(token, `/me/player/recently-played?limit=50${after ? `&after=${after}` : ""}`);
+      const byId = new Map<string, { plays: string[]; ms: number }>();
+      for (const it of rp.items ?? []) {
+        if (!it.track?.id) continue;
+        const g = byId.get(it.track.id) ?? { plays: [], ms: 0 };
+        g.plays.push(it.played_at);
+        g.ms += it.track.duration_ms ?? 0;
+        byId.set(it.track.id, g);
+      }
+      const ids = [...byId.keys()];
+      if (ids.length) {
+        const { data: existing } = await context.supabase
+          .from("listening_history")
+          .select("spotify_id, plays, ms_played, first_played, last_played, plays_by_year")
+          .in("spotify_id", ids);
+        const ex = new Map((existing ?? []).map((e) => [e.spotify_id, e]));
+        const upserts = [];
+        for (const [id, g] of byId) {
+          const old = ex.get(id);
+          const oldLast = old?.last_played ? Date.parse(old.last_played) : 0;
+          const fresh = g.plays.filter((p) => Date.parse(p) > oldLast).sort();
+          if (!fresh.length) continue;
+          const avgMs = g.ms / g.plays.length;
+          const pby = { ...((old?.plays_by_year as Record<string, number> | null) ?? {}) };
+          for (const p of fresh) {
+            const y = p.slice(0, 4);
+            pby[y] = (pby[y] ?? 0) + 1;
+          }
+          recentPlays += fresh.length;
+          upserts.push({
+            user_id: uid,
+            spotify_id: id,
+            plays: (old?.plays ?? 0) + fresh.length,
+            ms_played: Number(old?.ms_played ?? 0) + Math.round(avgMs * fresh.length),
+            first_played: old?.first_played ?? fresh[0] ?? null,
+            last_played: fresh[fresh.length - 1] ?? null,
+            plays_by_year: pby,
+          });
+        }
+        if (upserts.length) {
+          const { error } = await context.supabase
+            .from("listening_history")
+            .upsert(upserts, { onConflict: "user_id,spotify_id" });
+          if (error) console.error("recent history save failed", error.message);
+        }
+      }
+    } catch (e) {
+      console.error("recently-played failed", e);
+    }
+
+    const now = new Date().toISOString();
+    await supabaseAdmin
+      .from("spotify_connections")
+      .update({ last_synced_at: now, last_recent_sync_at: now })
+      .eq("user_id", uid);
+    return { newSongs: unique.length, newLiked, changedPlaylists, recentPlays };
   });

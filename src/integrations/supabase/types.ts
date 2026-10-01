@@ -264,6 +264,7 @@ export type Database = {
           access_token: string
           display_name: string | null
           expires_at: string
+          last_recent_sync_at: string | null
           last_synced_at: string | null
           refresh_token: string
           updated_at: string
@@ -273,6 +274,7 @@ export type Database = {
           access_token: string
           display_name?: string | null
           expires_at: string
+          last_recent_sync_at?: string | null
           last_synced_at?: string | null
           refresh_token: string
           updated_at?: string
@@ -282,8 +284,30 @@ export type Database = {
           access_token?: string
           display_name?: string | null
           expires_at?: string
+          last_recent_sync_at?: string | null
           last_synced_at?: string | null
           refresh_token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      spotify_playlist_snapshots: {
+        Row: {
+          playlist_id: string
+          snapshot_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          playlist_id: string
+          snapshot_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          playlist_id?: string
+          snapshot_id?: string
           updated_at?: string
           user_id?: string
         }
