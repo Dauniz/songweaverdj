@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { X } from "lucide-react";
-import { STEER_CHIPS } from "./radio-context";
+import { STEER_CHIPS } from "./steer-chips";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
