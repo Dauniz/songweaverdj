@@ -44,8 +44,8 @@ export function PathMaze() {
         <h3 className="text-xs font-bold uppercase tracking-wider">The maze</h3>
       </div>
       <p className="mt-1.5 min-h-[3.75rem] text-xs leading-relaxed text-muted-foreground">
-        Every song is a junction. Finish it → Crate keeps walking the same road. Skip it → Crate
-        turns. Two skips → a new angle. Lessons are written to Walrus.
+        Every song is a junction. Finish it → Crate keeps walking the same road. Skip it → another song on the same road;
+        two skips → the other road; four → a new angle. Lessons are written to Walrus.
       </p>
 
       {!radio.active || !radio.current ? (
@@ -220,7 +220,7 @@ function JunctionTree({
   const doorsTop = oH + LEVEL_GAP;
   const ready = geo !== null && w > 0 && oH > 0;
 
-  const skipRoad = shown.upSkip?.road ?? (shown.consecutiveSkips >= 1 ? "mixed" : shown.road === "vibe" ? "era" : "vibe");
+  const skipRoad = shown.upSkip?.road ?? (shown.consecutiveSkips >= 3 ? "mixed" : shown.consecutiveSkips >= 1 ? (shown.road === "vibe" ? "era" : "vibe") : shown.road);
   const promoting = anim?.type === "promote" ? anim.side : null;
   const resetting = anim?.type === "reset-out";
 
