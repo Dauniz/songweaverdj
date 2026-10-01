@@ -60,10 +60,15 @@ export type RadioState = {
 
 type Outcome = "played" | "skipped" | "replay";
 
+export type DoorSlot = { name: string; artists: string; road: string } | null | undefined;
+export type DoorPeek = { current: string | null; B: DoorSlot; v: DoorSlot; C: DoorSlot; w: DoorSlot };
+
 type RadioContextValue = {
   radio: RadioState;
   upNext: RadioTrack | null;
   upSkip: { track: RadioTrack; road: Road } | null;
+  /** Debug (read-only): snapshot of the prepared doors. undefined = still choosing, null = none. */
+  peekDoors: () => Promise<DoorPeek>;
   thinking: boolean;
   askSteer: boolean;
   dismissSteer: () => void;
@@ -1976,9 +1981,27 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [applySideRoad],
   );
 
+  const peekDoors = useCallback(async (): Promise<DoorPeek> => {
+    const NOT_YET = Symbol("pending");
+    const peek = async (p: Promise<Branch> | undefined): Promise<DoorSlot> => {
+      if (!p) return undefined;
+      const r = await Promise.race([p.catch(() => null), new Promise<typeof NOT_YET>((res) => setTimeout(() => res(NOT_YET), 0))]);
+      if (r === NOT_YET) return undefined;
+      return r ? { name: r.track.name, artists: r.track.artists, road: r.road } : null;
+    };
+    const cur = radioRef.current.current;
+    const b = branches.current && cur && branches.current.key.startsWith(`${cur.id}|`) ? branches.current : null;
+    const [B, v, C] = await Promise.all([peek(b?.played), peek(b?.finishSkip), peek(b?.skipped)]);
+    const lp = landingPlan.current;
+    const cId = C && b ? (await b.skipped.catch(() => null))?.track.spotify_id : undefined;
+    const w = lp && cId && lp.forId === cId ? await peek(lp.door) : undefined;
+    return { current: cur ? `${cur.name} — ${cur.artists}` : null, B, v, C, w };
+  }, []);
+
   return (
     <RadioContext.Provider
       value={{
+        peekDoors,
         radio,
         upNext,
         upSkip,
