@@ -188,6 +188,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const branches = useRef<{ key: string; played: Promise<Branch>; skipped: Promise<Branch>; finishSkip?: Promise<Branch> } | null>(
     null,
   );
+  // Late-bound helpers so earlier callbacks can reach functions declared further down.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const planLandingRef = useRef<((...a: any[]) => { door: Promise<Branch> } | null) | null>(null);
+  const checkPlanRef = useRef<((reason: "recheck" | "interval") => Promise<void>) | null>(null);
   const [upNext, setUpNext] = useState<RadioTrack | null>(null);
   const upNextRef = useRef<RadioTrack | null>(null);
   upNextRef.current = upNext;
@@ -514,6 +518,25 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (branches.current?.key !== key) return;
         setUpSkip(b ?? null);
         note("door", b ? `Skip door ready: "${b.track.name}" by ${b.track.artists}${b.track.why ? ` — ${b.track.why}` : ""}` : "Skip door: nothing fits, will fall back");
+        // w: start choosing C's own skip song now, unless a plan for C already exists.
+        const lpNow = landingPlan.current;
+        const cId = b?.track.spotify_id;
+        if (b && cId && !(lpNow && lpNow.forId === cId && lpNow.sessionId === s.sessionId && lpNow.doorVal !== null)) {
+          void playedB.then((f) => {
+            if (branches.current?.key !== key) return;
+            const again = landingPlan.current;
+            if (again && again.forId === cId && again.sessionId === s.sessionId && again.doorVal !== null) return;
+            planLandingRef.current?.(s, b, [cid, f?.track.spotify_id]);
+          });
+        }
+      });
+      // Once every door is decided, do a quick recheck that B, v, C and w are all there.
+      void Promise.allSettled([playedB, skippedB, finishSkip]).then(async () => {
+        await new Promise((r) => setTimeout(r, 300));
+        const c = await skippedB.catch(() => null);
+        const lpW = landingPlan.current;
+        if (lpW && c?.track.spotify_id === lpW.forId) await lpW.door.catch(() => null);
+        if (branches.current?.key === key) void checkPlanRef.current?.("recheck");
       });
       playedB.then((b) => {
         if (branches.current?.key !== key) return;
@@ -535,63 +558,89 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     return undefined;
   }, [radio, prefetch, settleTick]);
 
-  // Plan check: every 10 s while a song plays, make sure the finish door (B), its own
-  // skip song (v) and the skip door (C) are all picked. Repairs only prepare picks —
-  // nothing is sent to Spotify mid-song.
+  // Plan check: right after the doors are decided, and every 10 s while a song plays, make
+  // sure B (finish), v (B's skip), C (skip) and w (C's skip) are all picked. Repairs only
+  // prepare picks — nothing is sent to Spotify mid-song.
   const repairing = useRef(false);
+  const checkPlan = useCallback(
+    async (reason: "recheck" | "interval") => {
+      const s = radioRef.current;
+      const entry = branches.current;
+      if (repairing.current || swapping.current || calmingRef.current || !s.active || !s.current?.spotify_id || !entry) return;
+      if (!entry.key.startsWith(`${s.current.id}|`) || lensTimer.current) return;
+      if (reason === "interval" && (!lastPlayback.current.observed || Date.now() - lastPlayback.current.at > 15_000)) return;
+      repairing.current = true;
+      try {
+        const key = entry.key;
+        const cid = s.current.spotify_id;
+        const settled = <T,>(p: Promise<T> | undefined) => (p ? withTimeout(p.catch(() => null), 1_500, undefined as unknown as T) : Promise.resolve(null as T));
+        const [b, c, v] = await Promise.all([settled(entry.played), settled(entry.skipped), settled(entry.finishSkip)]);
+        // undefined = still being picked; leave it alone.
+        if (b === undefined || c === undefined || v === undefined) return;
+        const repaired: string[] = [];
+        let finish = b;
+        if (!finish?.track.spotify_id) {
+          const nb = await fetchBranch(advance(s, "played"), undefined, [c?.track.spotify_id].filter(Boolean) as string[]);
+          if (branches.current?.key !== key || !nb) return;
+          finish = nb;
+          branches.current = { key: branches.current.key, played: Promise.resolve(nb), skipped: branches.current.skipped };
+          setUpNext(nb.track);
+          note("door", `PLAN REPAIRED: picked missing finish door B "${nb.track.name}"`);
+          repaired.push("B");
+        }
+        let skip = c;
+        if (!skip?.track.spotify_id) {
+          const nc = await fetchBranch(advance(s, "skipped"), undefined, [finish.track.spotify_id].filter(Boolean) as string[]);
+          if (branches.current?.key !== key || !nc) return;
+          skip = nc;
+          branches.current = { ...branches.current, skipped: Promise.resolve(nc) };
+          setUpSkip(nc);
+          note("door", `PLAN REPAIRED: picked missing skip door C "${nc.track.name}"`);
+          repaired.push("C");
+        }
+        const fid = finish.track.spotify_id;
+        const sid = skip.track.spotify_id!;
+        const vv = branches.current?.finishSkip === entry.finishSkip ? v : null;
+        const vOk = vv?.track.spotify_id && vv.track.spotify_id !== fid && vv.track.spotify_id !== cid && vv.track.spotify_id !== sid;
+        if (!vOk) {
+          const onFinish: RadioState = { ...advance(s, "played"), current: finish.track, road: finish.road };
+          const nv = await fetchBranch(advance(onFinish, "skipped"), undefined, [cid, fid, sid].filter(Boolean) as string[]);
+          if (branches.current?.key !== key || !nv?.track.spotify_id || !isPlayable(nv.track) || nv.track.spotify_id === fid) return;
+          branches.current = { ...branches.current, finishSkip: Promise.resolve(nv) };
+          note("door", `PLAN REPAIRED: picked missing v (skip after B) "${nv.track.name}"`);
+          repaired.push("v");
+        }
+        // w: C's own skip song, kept in the landing plan for C.
+        const lp = landingPlan.current;
+        const lpMatches = lp && lp.forId === sid && lp.sessionId === s.sessionId;
+        const wPending = lpMatches && lp.doorVal === undefined;
+        const wVal = lpMatches ? lp.doorVal : null;
+        const wOk = wVal?.track.spotify_id && wVal.track.spotify_id !== sid && wVal.track.spotify_id !== cid;
+        if (!wPending && !wOk) {
+          const plan = planLandingRef.current?.(s, skip, [cid, fid]);
+          const nw = plan ? await plan.door : null;
+          if (branches.current?.key !== key) return;
+          if (nw) {
+            note("door", `PLAN REPAIRED: picked missing w (skip after C) "${nw.track.name}"`);
+            repaired.push("w");
+          }
+        }
+        if (reason === "recheck" && !repaired.length && !wPending) note("door", "PLAN CHECK: B, v, C and w all picked");
+      } catch {
+        /* try again next check */
+      } finally {
+        repairing.current = false;
+      }
+    },
+    [fetchBranch, note],
+  );
+  const checkPlanRef = useRef(checkPlan);
+  checkPlanRef.current = checkPlan;
   useEffect(() => {
     if (!sessionLive || calming) return;
-    const t = setInterval(() => {
-      void (async () => {
-        const s = radioRef.current;
-        const entry = branches.current;
-        if (repairing.current || swapping.current || !s.active || !s.current?.spotify_id || !entry) return;
-        if (!entry.key.startsWith(`${s.current.id}|`) || lensTimer.current) return;
-        if (!lastPlayback.current.observed || Date.now() - lastPlayback.current.at > 15_000) return;
-        repairing.current = true;
-        try {
-          const key = entry.key;
-          const cid = s.current.spotify_id;
-          const settled = <T,>(p: Promise<T> | undefined) => (p ? withTimeout(p.catch(() => null), 1_500, undefined as unknown as T) : Promise.resolve(null as T));
-          const [b, c, v] = await Promise.all([settled(entry.played), settled(entry.skipped), settled(entry.finishSkip)]);
-          // undefined = still being picked; leave it alone.
-          if (b === undefined || c === undefined || v === undefined) return;
-          let finish = b;
-          if (!finish?.track.spotify_id) {
-            const nb = await fetchBranch(advance(s, "played"), undefined, [c?.track.spotify_id].filter(Boolean) as string[]);
-            if (branches.current?.key !== key || !nb) return;
-            finish = nb;
-            branches.current = { key: branches.current.key, played: Promise.resolve(nb), skipped: branches.current.skipped };
-            setUpNext(nb.track);
-            note("door", `PLAN REPAIRED: picked missing finish door "${nb.track.name}"`);
-          }
-          if (!c?.track.spotify_id) {
-            const nc = await fetchBranch(advance(s, "skipped"), undefined, [finish.track.spotify_id].filter(Boolean) as string[]);
-            if (branches.current?.key !== key || !nc) return;
-            branches.current = { ...branches.current, skipped: Promise.resolve(nc) };
-            setUpSkip(nc);
-            note("door", `PLAN REPAIRED: picked missing skip door "${nc.track.name}"`);
-          }
-          const vv = branches.current?.finishSkip === entry.finishSkip ? v : null;
-          const fid = finish.track.spotify_id;
-          const cNow = (await branches.current?.skipped)?.track.spotify_id;
-          const vOk = vv?.track.spotify_id && vv.track.spotify_id !== fid && vv.track.spotify_id !== cid && vv.track.spotify_id !== cNow;
-          if (!vOk) {
-            const onFinish: RadioState = { ...advance(s, "played"), current: finish.track, road: finish.road };
-            const nv = await fetchBranch(advance(onFinish, "skipped"), undefined, [cid, fid, cNow].filter(Boolean) as string[]);
-            if (branches.current?.key !== key || !nv?.track.spotify_id || !isPlayable(nv.track) || nv.track.spotify_id === fid) return;
-            branches.current = { ...branches.current, finishSkip: Promise.resolve(nv) };
-            note("door", `PLAN REPAIRED: picked missing skip song for the finish door "${nv.track.name}"`);
-          }
-        } catch {
-          /* try again next check */
-        } finally {
-          repairing.current = false;
-        }
-      })();
-    }, 10_000);
+    const t = setInterval(() => void checkPlan("interval"), 10_000);
     return () => clearInterval(t);
-  }, [sessionLive, calming, fetchBranch, note]);
+  }, [sessionLive, calming, checkPlan]);
 
   const startRadio = useCallback(
     (tracks: CardTrack[], seedPrompt: string, startAt = 0) => {
