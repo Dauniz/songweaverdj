@@ -15,6 +15,7 @@ import { MemoryInspector } from "@/components/crate/MemoryInspector";
 import { SessionControl } from "@/components/crate/SessionControl";
 import { cn } from "@/lib/utils";
 import { BugReportButton } from "@/components/BugReportButton";
+import { IosBackgroundNotice } from "@/components/crate/IosBackgroundNotice";
 import { OnboardingTour } from "@/components/crate/OnboardingTour";
 import logo from "@/assets/crate-logo.jpg";
 import { Button } from "@/components/ui/button";
@@ -51,6 +52,7 @@ function Studio() {
   return (
     <RadioProvider>
       <StudioLayout mobileTab={mobileTab} onTab={setMobileTab} onSignOut={signOut} />
+      <IosBackgroundNotice />
       {/* Spotify live log hidden for now — re-enable by rendering <SpotifyLogPanel /> */}
     </RadioProvider>
   );
