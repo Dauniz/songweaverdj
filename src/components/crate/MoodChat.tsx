@@ -161,7 +161,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
     autoStarted.current.add(last.id);
     for (const part of last.parts) {
       if (part.type === "tool-recommend_tracks" && part.state === "output-available") {
-        const out = part.output as { vibe_title: string; tracks: CardTrack[] };
+        const out = part.output as { vibe_title: string; start_road?: "vibe" | "era"; tracks: CardTrack[] };
         if (out.tracks.length) {
           // Start on the song the user actually named, if it's among the picks.
           const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, "").trim();
@@ -170,7 +170,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             const n = norm(t.name.replace(/\s*[([-].*$/, ""));
             return n.length > 1 && asked.includes(n);
           });
-          startRadio(out.tracks, lastUserText.current || out.vibe_title, Math.max(0, idx));
+          startRadio(out.tracks, lastUserText.current || out.vibe_title, Math.max(0, idx), out.start_road);
         }
         break;
       }
@@ -445,7 +445,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                   if (part.type === "tool-recommend_tracks") {
                     const out =
                       part.state === "output-available"
-                        ? (part.output as { vibe_title: string; tracks: CardTrack[] })
+                        ? (part.output as { vibe_title: string; start_road?: "vibe" | "era"; tracks: CardTrack[] })
                         : null;
                     return (
                       <div key={i} className="song-results-reveal my-1 w-full">
@@ -461,7 +461,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                                   track={t}
                                   index={j}
                                   onPlay={() =>
-                                    startRadio(out.tracks, lastUserText.current || out.vibe_title, j)
+                                    startRadio(out.tracks, lastUserText.current || out.vibe_title, j, out.start_road)
                                   }
                                 />
                               ))}
