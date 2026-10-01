@@ -108,19 +108,19 @@ export function MemoryInspector() {
   );
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-4 py-3">
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <Database className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold uppercase tracking-wider">Walrus Memory</h2>
         </div>
       </div>
-      <div className={cn("flex min-h-0 flex-col", consoleOpen ? "shrink" : "flex-1")}>
-      <div className="scrollbar-thin min-h-0 shrink overflow-y-auto">
+      <div className="scrollbar-thin flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="shrink-0">
         <PathMaze />
         {isAdmin && <DoorDebug />}
       </div>
-      <div className={cn("shrink-0 px-4 pt-3 pb-3 text-xs", (consoleOpen || consoleAnimating) && "hidden")}>
+      <div className="shrink-0 px-4 pt-3 pb-3 text-xs">
         <div className="flex flex-wrap gap-1.5">
           {Object.entries(counts).filter(([k]) => KIND_LABEL[k]).map(([k, v]) => (
             <span key={k} className="inline-flex items-center gap-1">
@@ -176,8 +176,8 @@ export function MemoryInspector() {
         </button>
         {reflectMsg && <p className="mt-1.5 text-[11px] text-muted-foreground">{reflectMsg}</p>}
       </div>
-      {showLog && !consoleOpen && !consoleAnimating && (
-      <div className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto border-t px-4 py-3">
+      {showLog && (
+      <div className="space-y-2 border-t px-4 py-3">
         {nodes.length === 0 && (
           <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
             No memory nodes yet. Start a session and get Crate to work.
