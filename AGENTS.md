@@ -18,8 +18,7 @@
 - Crate is Songweaver's AI companion; product-facing branding uses Songweaver while assistant and DJ language uses Crate. Why: the product and its AI have distinct identities.
 - Radio playback uses server-side Spotify Connect commands and observes the active Spotify device; Songweaver renders no audio player. Why: listening stays in Spotify while Crate controls the path without exposing OAuth tokens.
 - Sessions start via Start/search/prompt; compact search opens Memory; pause >90 s ends. Why: show the maze promptly.
-- Spotify holds `[current, skip]`; both doors' own skips are pre-planned (landing plan, `finishSkip`) and sent as a pair on finish/landing; Spotify-started songs are re-sent once with their skip door. Why: Spotify never runs dry or plays the wrong door.
 - Side roads (src/lib/lenses.ts): single-select; Wormhole filters the pool, Scene/Wave/Texture are DJ prompt rules. Why: paths without breaking the maze.
 - Onboarding runs once per account (auth metadata flag). Why: first Studio visit only.
-- Backgrounded tabs (iOS pauses them): on return, away-time is frozen (never counts toward the 90 s pause rule) and Crate re-syncs with Spotify's real state, adopting a foreign song fresh; a screen wake lock is held while a session is live. Why: sessions must survive leaving the preview on phones.
-- Songweaver "Next" button uses skipNow: plain Spotify next only when Crate's skip door is lined up behind the current song, else plays the door directly as a skip. Why: your own Spotify queue must never decide the skip.
+
+- Radio playback/queue rules live in src/components/crate/AGENTS.md. Why: scoped to radio-context.

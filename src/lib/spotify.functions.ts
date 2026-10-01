@@ -54,9 +54,9 @@ const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 const deviceCache = new Map<string, { id: string; name: string; at: number }>();
 const deviceInit = new Map<string, number>();
 
-async function spotifyAccess(userId: string) {
+async function spotifyAccess(userId: string, marginMs = 60_000) {
   const cached = tokenCache.get(userId);
-  if (cached && cached.expiresAt >= Date.now() + 60_000) return cached.token;
+  if (cached && cached.expiresAt >= Date.now() + marginMs) return cached.token;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin
     .from("spotify_connections")
@@ -69,8 +69,8 @@ async function spotifyAccess(userId: string) {
     return null;
   }
   const exp = new Date(conn.expires_at).getTime();
-  if (exp >= Date.now() + 60_000) {
-    tokenCache.set(userId, { token: conn.access_token, expiresAt: Math.min(exp, Date.now() + 5 * 60_000) });
+  if (exp >= Date.now() + marginMs) {
+    tokenCache.set(userId, { token: conn.access_token, expiresAt: exp });
     return conn.access_token;
   }
   const refreshed = await exchangeToken({ grant_type: "refresh_token", refresh_token: conn.refresh_token });
@@ -83,7 +83,7 @@ async function spotifyAccess(userId: string) {
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", userId);
-  tokenCache.set(userId, { token: refreshed.access_token, expiresAt: Date.now() + 5 * 60_000 });
+  tokenCache.set(userId, { token: refreshed.access_token, expiresAt: Date.now() + refreshed.expires_in * 1000 });
   return refreshed.access_token;
 }
 
@@ -100,6 +100,7 @@ const startInput = playInput.extend({
   nextId: z.string().min(1).max(64).optional(),
   aheadId: z.string().min(1).max(64).optional(),
   positionMs: z.number().int().min(0).max(3_600_000).optional(),
+  deviceId: z.string().min(1).max(128).optional(),
 });
 
 /** Pause Spotify — used when the listener skips so fast that Crate needs a breath. */
@@ -187,8 +188,12 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
 
     // Reuse the last device (saves a round trip); only ask Spotify for devices when it fails.
     // Only trust the cached device if it was used recently; otherwise it may have gone to sleep.
+    const t0 = Date.now();
     const cachedDev = deviceCache.get(context.userId);
-    let device = cachedDev && Date.now() - cachedDev.at < 90_000 ? cachedDev : null;
+    // The browser knows the device that's playing right now — use it first (no device lookup).
+    let device = data.deviceId
+      ? { id: data.deviceId, name: cachedDev?.id === data.deviceId ? cachedDev.name : "Spotify", at: Date.now() }
+      : cachedDev && Date.now() - cachedDev.at < 90_000 ? cachedDev : null;
     let response: Response | null = device ? await send(device.id) : null;
     if (!response || !response.ok) {
       deviceCache.delete(context.userId);
@@ -203,7 +208,7 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
     }
     deviceCache.set(context.userId, { ...device!, at: Date.now() });
     // Answer right away; the client's once-a-second poll confirms the song actually plays.
-    return { status: "playing" as const, deviceName: device!.name, foreignQueued: 0 };
+    return { status: "playing" as const, deviceName: device!.name, foreignQueued: 0, spotifyMs: Date.now() - t0 };
   });
 
 /** Counts songs in the listener's own "Next in queue" ahead of Crate's list. */
@@ -229,7 +234,7 @@ export const getForeignQueueCount = createServerFn({ method: "POST" })
 export const getSpotifyPlayback = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const token = await spotifyAccess(context.userId);
+    const token = await spotifyAccess(context.userId, 5 * 60_000);
     if (!token) return { status: "connect_required" as const };
     const response = await fetch("https://api.spotify.com/v1/me/player", {
       headers: { Authorization: `Bearer ${token}` },
@@ -275,12 +280,29 @@ export const getSpotifyPlayback = createServerFn({ method: "GET" })
       progressMs: body.progress_ms ?? 0,
       durationMs: body.item?.duration_ms ?? 0,
       deviceName: body.device?.name ?? null,
+      deviceId: body.device?.id ?? null,
       name: body.item?.name ?? "",
       artists: (body.item?.artists ?? []).map((a) => a.name).join(", "),
       album: body.item?.album?.name ?? null,
       imageUrl: body.item?.album?.images?.[0]?.url ?? null,
       spotifyUrl: body.item?.external_urls?.spotify ?? null,
     };
+  });
+
+/** The first song in Spotify's "next up" — used to confirm a skip door is really lined up. */
+export const getNextQueuedId = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const token = await spotifyAccess(context.userId);
+    if (!token) return { id: null as string | null };
+    try {
+      const q = await fetch("https://api.spotify.com/v1/me/player/queue", { headers: { Authorization: `Bearer ${token}` } });
+      if (!q.ok) return { id: null as string | null };
+      const body = (await q.json()) as { queue?: { id?: string | null }[] };
+      return { id: body.queue?.[0]?.id ?? null };
+    } catch {
+      return { id: null as string | null };
+    }
   });
 
 /** Line up Crate's next pick in Spotify's own queue so skips inside the Spotify app land on it. */

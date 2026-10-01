@@ -11,7 +11,8 @@ import { nextPathTrack } from "@/lib/path.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
 import { pushSpotifyLog, ackSpotifySend, observeSpotify } from "@/lib/spotify-log";
-import { endSpotifySession, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyPlayback, nextSpotifyTrack, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
+import { endSpotifySession, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyPlayback,
+  getNextQueuedId, nextSpotifyTrack, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
 import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
@@ -166,7 +167,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const queueCountFn = useServerFn(getForeignQueueCount);
   const pauseFn = useServerFn(pauseSpotifyPlayback);
   const nextTrackFn = useServerFn(nextSpotifyTrack);
-  const playbackFn = useServerFn(getSpotifyPlayback);
+  const playbackRawFn = useServerFn(getSpotifyPlayback);
+  const nextQueuedFn = useServerFn(getNextQueuedId);
+  /** Spotify device seen in the latest poll — sent with pushes so the server skips a device lookup. */
+  const deviceIdRef = useRef<string | null>(null);
+  /** Smoothed one-way delay from the browser to Spotify, used to aim the resume position. */
+  const pushLatency = useRef(250);
+  const playbackFn = useCallback(async () => {
+    const st = await playbackRawFn();
+    if (st.status === "ready" && st.deviceId) deviceIdRef.current = st.deviceId;
+    return st;
+  }, [playbackRawFn]);
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const qc = useQueryClient();
   const [playbackIssue, setPlaybackIssue] = useState<SpotifyPlaybackIssue | null>(null);
@@ -932,10 +943,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             ...(aheadId ? [{ id: aheadId, name: aheadDoor?.name ?? aheadId }] : []),
           ],
         });
-        const result = await playFn({ data: { spotifyId: track.spotify_id, nextId, aheadId, positionMs } }).catch((err) => {
+        const sentAt = Date.now();
+        const result = await playFn({
+          data: { spotifyId: track.spotify_id, nextId, aheadId, positionMs, deviceId: deviceIdRef.current ?? undefined },
+        }).catch((err) => {
           ackSpotifySend(logId, "error");
           throw err;
         });
+        const totalMs = Date.now() - sentAt;
+        if (result.status === "playing") {
+          pushLatency.current = Math.round(pushLatency.current * 0.7 + Math.min(1500, totalMs / 2) * 0.3);
+          pushSpotifyLog({ kind: "event", at: Date.now(), text: `PUSH TIMING — ${totalMs} ms total, ${"spotifyMs" in result ? result.spotifyMs : "?"} ms at Spotify` });
+        }
         ackSpotifySend(logId, result.status);
         if (result.status === "playing" && generation === listGeneration.current) {
           acceptedGeneration.current = generation;
@@ -1222,6 +1241,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const at = lineup.current.indexOf(cur.spotify_id);
     if (at >= 0 && lineup.current[at + 1] === skip.spotify_id) {
       door.current = { forId: cur.spotify_id, track: skip };
+      // Confirm Spotify really has it next; if not, resend so a skip door is always in "next up".
+      const curId = cur.spotify_id;
+      void nextQueuedFn().then((r) => {
+        if (!r.id || r.id === skip.spotify_id) return;
+        if (radioRef.current.current?.spotify_id !== curId || swapping.current === curId) return;
+        if (lastPlayback.current.spotifyId !== curId) return;
+        pushSpotifyLog({ kind: "event", at: Date.now(), text: `Skip door "${skip.name}" missing from next up — re-sending` });
+        lineup.current = [];
+        door.current = null;
+        setResendTick((t) => t + 1);
+      }).catch(() => undefined);
       return;
     }
     let cancelled = false;
@@ -1229,23 +1259,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // Send the new authoritative pair the moment the skip door is ready.
       if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id) return;
       if (swapping.current === cur.spotify_id) return; // end-of-song hand-over owns the line-up now
-      // Read Spotify's exact position right before sending so the resume point is seamless:
-      // one single call, early in the song, starting at the precise millisecond.
-      let pos: number | null = null;
-      try {
-        const t0 = Date.now();
-        const st = await playbackFn();
-        if (st.status === "ready" && st.spotifyId === cur.spotify_id) {
-          pos = st.progressMs + Math.round((Date.now() - t0) / 2) + 150;
-        }
-      } catch {
-        /* fall back to estimate */
-      }
-      if (cancelled || radioRef.current.current?.spotify_id !== cur.spotify_id || swapping.current === cur.spotify_id) return;
-      if (pos === null) {
-        const lp = lastPlayback.current;
-        pos = Math.max(0, lp.progressMs + (Date.now() - lp.at));
-      }
+      // Aim from the latest poll — no extra position lookup before pushing.
+      const lp = lastPlayback.current;
+      const pos = Math.max(0, lp.progressMs + (Date.now() - lp.at) + pushLatency.current);
       // Never fall back to the old queued songs: Spotify's "Next up" must mirror the screen.
       noPlayFor.current = "";
       // If this door came from the landing plan, its own skip may already be known — send it too,
