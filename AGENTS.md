@@ -18,7 +18,7 @@
 - Crate is Songweaver's AI companion; product-facing branding uses Songweaver while assistant and DJ language uses Crate. Why: the product and its AI have distinct identities.
 - Radio playback uses server-side Spotify Connect commands and observes the active Spotify device; Songweaver renders no audio player. Why: listening stays in Spotify while Crate controls the path without exposing OAuth tokens.
 - Sessions start via Start/search/prompt; compact search opens Memory; pause >90 s ends. Why: show the maze promptly.
-- Side roads (src/lib/lenses.ts): single-select; Wormhole filters the pool, Scene/Wave/Texture are DJ prompt rules. Why: paths without breaking the maze.
+- Alternative roads (src/lib/lenses.ts + alt-roads.ts): single-select, replace the default roads while on. Why: each road has its own picking and skip rules.
 - Onboarding runs once per account (auth metadata flag). Why: first Studio visit only.
 
 - Radio playback/queue rules live in src/components/crate/AGENTS.md. Why: scoped to radio-context.
