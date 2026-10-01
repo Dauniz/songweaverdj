@@ -32,7 +32,7 @@ const SETUP_STEPS: Step[] = [
   {
     target: "side-roads",
     eyebrow: "Step 3 of 3",
-    title: "Bend the path with side roads",
+    title: "Switch to an alternative road",
     body: "The buttons under the chat are alternative roads — Deep cuts, Wormhole, Scene and Texture. Turning one on replaces the default roads (Vibe, Era, New Angle) with its own rules for what Crate plays next. Only one can be on at a time, and turning it off puts you back on the default roads. Tap the question mark for what each one does.",
   },
 ];

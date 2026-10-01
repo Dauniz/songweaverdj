@@ -256,7 +256,7 @@ function CrateInfoPage() {
                 listening event — and again when you stop the radio — Crate
                 steps back and reads the trace of that sitting: what was played
                 to the end, what was skipped and after how many seconds, which
-                road and side road you were on, which playlist and month each
+                road and alternative road you were on, which playlist and month each
                 song came from, and the local time of every move. It may write
                 at most two conclusions, and only about what happened right
                 then. If the session was mostly untouched playback with no real
