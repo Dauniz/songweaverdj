@@ -417,97 +417,81 @@ export function CrateConsole({
 }) {
   const { events, radio } = useRadio();
   const ref = useRef<HTMLDivElement>(null);
-  const [collapsing, setCollapsing] = useState(false);
-  const gridRef = useRef<HTMLDivElement>(null);
-  const [collapseH, setCollapseH] = useState<number | null>(null);
-  const [panelH, setPanelH] = useState<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(320);
+  const [dragging, setDragging] = useState(false);
 
-  // Lock the log to its final height so the text stays still and simply
-  // gets revealed (or hidden) as the bar moves.
-  useLayoutEffect(() => {
-    if (!open) return;
-    const g = gridRef.current;
-    if (!g) return;
-    const measure = () => {
-      if (!collapsingRef.current) setPanelH(g.clientHeight);
-    };
-    measure();
-    if (ref.current) ref.current.scrollTop = ref.current.scrollHeight;
-    const ro = new ResizeObserver(measure);
-    ro.observe(g);
-    return () => ro.disconnect();
-  }, [open]);
-  const collapsingRef = useRef(false);
-  const expanded = open && !collapsing;
-
-  // Keep the log pinned to the newest line — also while it grows during the
-  // expand animation, so text is "pulled up" from below.
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-    const ro = new ResizeObserver(() => {
-      el.scrollTop = el.scrollHeight;
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
+    const saved = Number(localStorage.getItem("crate-console-height"));
+    if (saved > 0) setHeight(saved);
   }, []);
 
+  const maxH = () => {
+    const w = wrapRef.current;
+    // Allow growing up to just below the Walrus Memory title row.
+    return w ? Math.max(160, w.offsetTop - 56) : 600;
+  };
+
+  // Keep the log pinned to the newest line.
   useEffect(() => {
     const el = ref.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [events.length, open, panelH]);
+  }, [events.length, open]);
 
-  const toggle = () => {
-    if (collapsing) return;
-    if (!open) return setOpen(true);
-    // Animate closed while the layout still reserves space, then release it.
-    const h = gridRef.current?.getBoundingClientRect().height ?? 0;
-    setCollapseH(h);
-    collapsingRef.current = true;
-    setCollapsing(true);
-    onAnimatingChange?.(true);
-    setOpen(false);
-    requestAnimationFrame(() => requestAnimationFrame(() => setCollapseH(0)));
-    window.setTimeout(() => {
-      setCollapseH(null);
-      collapsingRef.current = false;
-      setCollapsing(false);
-      onAnimatingChange?.(false);
-    }, 500);
+  useEffect(() => {
+    onAnimatingChange?.(false);
+  }, [open, onAnimatingChange]);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const startY = e.clientY;
+    const startH = Math.min(height, maxH());
+    setDragging(true);
+    const target = e.currentTarget;
+    let latest = startH;
+    const move = (ev: PointerEvent) => {
+      latest = Math.min(maxH(), Math.max(160, startH + (startY - ev.clientY)));
+      setHeight(latest);
+    };
+    const up = () => {
+      setDragging(false);
+      localStorage.setItem("crate-console-height", String(Math.round(latest)));
+      target.removeEventListener("pointermove", move);
+      target.removeEventListener("pointerup", up);
+      target.removeEventListener("pointercancel", up);
+    };
+    target.addEventListener("pointermove", move);
+    target.addEventListener("pointerup", up);
+    target.addEventListener("pointercancel", up);
   };
 
   const live = radio.active;
+  const shownH = open ? Math.min(height, maxH()) : 0;
 
   return (
-    <div className={cn("flex flex-col border-t", expanded ? "min-h-0 flex-1" : "min-h-0 shrink-0")}>
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={expanded}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-accent/50"
-      >
-        <MessagesSquare className="h-4 w-4 text-primary" />
-        <span className="text-sm font-bold uppercase tracking-wider">Crate console</span>
-        <span className="ml-auto flex items-center gap-2 text-[10px] text-muted-foreground">
-          {events.length > 0 && <span>{events.length} steps</span>}
-          {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
-        </span>
-      </button>
+    <div ref={wrapRef} className="relative shrink-0 border-t bg-background">
       <div
-        ref={gridRef}
-        style={collapseH !== null ? { height: collapseH } : undefined}
+        aria-hidden={!open}
+        style={{ height: shownH }}
         className={cn(
-          "grid min-h-0 transition-all duration-500 ease-in-out",
-          expanded && "flex-1",
-          expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+          "absolute inset-x-0 bottom-full z-20 flex flex-col overflow-hidden border-t bg-background shadow-[0_-12px_30px_-12px_hsl(0_0%_0%/0.6)]",
+          !dragging && "transition-[height] duration-300 ease-in-out",
+          !open && "pointer-events-none border-t-0"
         )}
       >
-        <div className="min-h-0 overflow-hidden">
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Drag to resize Crate console"
+          onPointerDown={onPointerDown}
+          className="flex h-4 shrink-0 cursor-ns-resize touch-none items-center justify-center hover:bg-accent/40"
+        >
+          <span className="h-1 w-10 rounded-full bg-muted-foreground/40" />
+        </div>
           <div
             ref={ref}
-            style={panelH ? { height: panelH } : undefined}
-            className="scrollbar-thin space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
+            className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
           >
             {!live && events.length === 0 ? (
               <div className="text-muted-foreground">
