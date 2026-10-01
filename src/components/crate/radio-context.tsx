@@ -68,7 +68,7 @@ type RadioContextValue = {
   thinking: boolean;
   askSteer: boolean;
   dismissSteer: () => void;
-  startRadio: (tracks: CardTrack[], seedPrompt: string, startAt?: number) => void;
+  startRadio: (tracks: CardTrack[], seedPrompt: string, startAt?: number, startRoad?: Road) => void;
   rerootTo: (track: CardTrack, prompt?: string) => void;
   stopRadio: () => void;
   next: (outcome: Outcome) => void;
@@ -226,6 +226,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // "If you skip" door for the upcoming song, computed before the hand-over near the end.
   const preSkip = useRef<{ forId: string; branch: Branch } | null>(null);
   const scoutAbort = useRef<AbortController | null>(null);
+  /** Prompt playlist: Crate's chat picks play in order while each is finished. idx = the playing pick. */
+  const promptQueue = useRef<{ list: CardTrack[]; idx: number } | null>(null);
+  /** The queued pick that is the fixed finish door for song `cid`, if the playlist is still running. */
+  const queuedNext = (cid: string | null | undefined) => {
+    const q = promptQueue.current;
+    if (!q || !cid || q.list[q.idx]?.spotify_id !== cid) return null;
+    return q.list[q.idx + 1] ?? null;
+  };
   const lensTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sidePending = useRef<{ lens: LensId | null; deep: boolean } | null>(null);
   const upSkipRef = useRef<{ track: RadioTrack; road: Road } | null>(null);
@@ -498,13 +506,19 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const lp = landingPlan.current;
       const plan = !pre && lp && lp.forId === cid && lp.sessionId === s.sessionId ? lp : null;
       const knownSkipId = pre?.track.spotify_id ?? plan?.doorVal?.track.spotify_id;
-      const playedB = fetchBranch(advance(s, "played"), ctrl.signal, knownSkipId ? [knownSkipId] : []);
+      const qNext = queuedNext(cid);
+      const qPos = promptQueue.current;
+      const playedB: Promise<Branch> = qNext
+        ? Promise.resolve({ track: { ...qNext, why: `Your playlist, song ${(qPos?.idx ?? 0) + 2} of ${qPos?.list.length ?? 0}` }, road: advance(s, "played").road })
+        : fetchBranch(advance(s, "played"), ctrl.signal, knownSkipId ? [knownSkipId] : []);
       const skippedState = advance(s, "skipped");
+      // The skip door must not be a later playlist song.
+      const queueRest = qNext && qPos ? qPos.list.slice(qPos.idx + 1).map((t) => t.spotify_id).filter(Boolean) as string[] : [];
       // Fresh scout, in parallel with the finish door: the two must never be the same song.
       const freshSkip = () =>
-        Promise.all([playedB, fetchBranch(skippedState, ctrl.signal)]).then(([finish, first]) => {
+        Promise.all([playedB, fetchBranch(skippedState, ctrl.signal, queueRest)]).then(([finish, first]) => {
           const finishId = finish?.track.spotify_id;
-          if (first && finishId && first.track.spotify_id === finishId) return fetchBranch(skippedState, ctrl.signal, [finishId]);
+          if (first && finishId && first.track.spotify_id === finishId) return fetchBranch(skippedState, ctrl.signal, [finishId, ...queueRest]);
           return first;
         });
       const skippedB: Promise<Branch> = pre
@@ -520,7 +534,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           .then((b) => (b?.track.spotify_id && isPlayable(b.track) && b.track.spotify_id !== f.track.spotify_id ? b : null));
       });
       branches.current = { key, played: playedB, skipped: skippedB, finishSkip };
-      if (plan && !knownSkipId) {
+      if (plan && !knownSkipId && !qNext) {
         // The planned door arrives later: if it turns out to be the finish pick, re-choose the finish.
         void Promise.all([playedB, skippedB]).then(([finish, skip]) => {
           if (branches.current?.key !== key || !finish || !skip || finish.track.spotify_id !== skip.track.spotify_id) return;
@@ -586,6 +600,28 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [fetchBranch, note],
   );
 
+  // Prompt playlist: finishing a pick moves on to the next; any other song ends the playlist.
+  useEffect(() => {
+    const q = promptQueue.current;
+    if (!q) return;
+    const id = radio.current?.spotify_id;
+    if (!radio.active || !id) {
+      promptQueue.current = null;
+      return;
+    }
+    if (id === q.list[q.idx]?.spotify_id) return;
+    if (id === q.list[q.idx + 1]?.spotify_id) {
+      q.idx += 1;
+      if (q.idx >= q.list.length - 1) {
+        promptQueue.current = null;
+        note("think", "Last song of your playlist — after this Crate is back in the maze");
+      } else note("think", `Your playlist: song ${q.idx + 1} of ${q.list.length}`);
+      return;
+    }
+    promptQueue.current = null;
+    note("think", "Left your playlist — Crate is back in the maze");
+  }, [radio.active, radio.current?.spotify_id, note]);
+
   useEffect(() => {
     // One quiet second after a song change: if you skip again, no search is wasted.
     const wait = settleUntil.current - Date.now();
@@ -623,7 +659,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         };
         const sState = advance(s, "skipped");
         const fState = advance(s, "played");
-        let finish = why("B", doorProblem(b?.track, fState, [cid])) ? null : b;
+        const qB = queuedNext(cid);
+        // A playlist pick is the user's own choice: never swapped for "already heard" etc.
+        let finish = qB && b?.track.spotify_id === qB.spotify_id ? b : why("B", doorProblem(b?.track, fState, [cid])) ? null : b;
         if (!finish?.track.spotify_id) {
           const nb = await fetchBranch(advance(s, "played"), undefined, [c?.track.spotify_id].filter(Boolean) as string[]);
           if (branches.current?.key !== key || !nb) return;
@@ -689,7 +727,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   }, [sessionLive, calming, checkPlan]);
 
   const startRadio = useCallback(
-    (tracks: CardTrack[], seedPrompt: string, startAt = 0) => {
+    (tracks: CardTrack[], seedPrompt: string, startAt = 0, startRoad?: Road) => {
       const ordered = [...tracks.slice(startAt), ...tracks.slice(0, startAt)];
       const first = ordered.find(isPlayable) ?? null;
       artistSkips.current = new Map();
@@ -710,7 +748,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         setRadio(IDLE);
         return;
       }
-      const road: Road = NOSTALGIA.test(seedPrompt) ? "era" : "vibe";
+      const road: Road = startRoad ?? (NOSTALGIA.test(seedPrompt) ? "era" : "vibe");
       setRadio({
         ...IDLE,
         active: true,
@@ -724,7 +762,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         {
           at: Date.now(),
           kind: "start",
-          text: `Starts from "${first.name}" on ${ROAD_NAME[road]}${road === "era" ? " (you mentioned nostalgia)" : ""}`,
+          text: `Starts from "${first.name}" on ${ROAD_NAME[road]}${startRoad ? " (read from your prompt)" : road === "era" ? " (you mentioned nostalgia)" : ""}`,
         },
       ]);
       setSessionLive(true);
@@ -765,11 +803,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   /** Prompt results: start a session when none runs, otherwise replan the live one. */
   const startOrReplan = useCallback(
-    (tracks: CardTrack[], seedPrompt: string, startAt = 0) => {
-      if (!radioRef.current.active) return startRadio(tracks, seedPrompt, startAt);
+    (tracks: CardTrack[], seedPrompt: string, startAt = 0, startRoad?: Road) => {
+      // From the chosen pick onward, Crate's picks play in order while each is finished.
+      const list = tracks.slice(startAt, 6).filter(isPlayable);
+      promptQueue.current = list.length > 1 ? { list, idx: 0 } : null;
+      if (!radioRef.current.active) return startRadio(tracks, seedPrompt, startAt, startRoad);
       const ordered = [...tracks.slice(startAt), ...tracks.slice(0, startAt)];
       const first = ordered.find(isPlayable);
-      if (first) rerootTo(first, seedPrompt);
+      if (first) {
+        if (startRoad) setRadio((r) => ({ ...r, road: startRoad }));
+        rerootTo(first, seedPrompt);
+      }
     },
     [startRadio, rerootTo],
   );

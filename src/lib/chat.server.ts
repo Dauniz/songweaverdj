@@ -154,7 +154,7 @@ export async function handleChat(request: Request) {
 
 How to respond:
 1. One or two short sentences reflecting the vibe back (no lists).
-2. Call recommend_tracks with 5–8 tracks. If the user names a specific song (e.g. "start with Small Towns"), that exact song from the library MUST be the FIRST track — never substitute another song by the same artist. Favor forgotten gems from older playlists over recent plays; mix eras. Each reason is one vivid sentence tying the song to the vibe and, when useful, to a memory.
+2. Call recommend_tracks with exactly 6 tracks, in the order they should play (they play back to back as a short playlist), and a start_road: vibe for a mood or activity, era for nostalgia, memories or something deeper. If the user names a specific song (e.g. "start with Small Towns"), that exact song from the library MUST be the FIRST track — never substitute another song by the same artist. Favor forgotten gems from older playlists over recent plays; mix eras. Each reason is one vivid sentence tying the song to the vibe and, when useful, to a memory.
 3. When the user reveals a durable preference (a genre they love, a mood trigger, a track/artist to skip, a session ritual), call save_memory once per distinct fact. Always save one "session" memory summarising today's vibe.
 4. If a track appears in memory as skipped, do not recommend it.
 5. If the library is empty, tell them to connect Spotify or load the demo library in the Library tab.
@@ -194,6 +194,9 @@ DEEP CUTS IS ON: at least 5 of the picks must come from playlists dated 12+ mont
           vibe_title: z
             .string()
             .describe("Short evocative title for this session, e.g. 'Neon rain focus'"),
+          start_road: z
+            .enum(["vibe", "era"])
+            .describe("Where the radio starts: 'vibe' for a mood/feeling/activity, 'era' for nostalgia, memories, a period of life or something reflective. Read the whole prompt's intent."),
           picks: z
             .array(
               z.object({
@@ -204,7 +207,7 @@ DEEP CUTS IS ON: at least 5 of the picks must come from playlists dated 12+ mont
             .min(1)
             .max(10),
         }),
-        execute: async ({ vibe_title, picks }) => {
+        execute: async ({ vibe_title, start_road, picks }) => {
           const cards = picks
             .map((p) => {
               const t = index.get(p.code.trim());
@@ -221,6 +224,7 @@ DEEP CUTS IS ON: at least 5 of the picks must come from playlists dated 12+ mont
           const byId = new Map((full ?? []).map((f) => [f.id, f]));
           return {
             vibe_title,
+            start_road,
             tracks: cards.map((c) => ({ ...c, ...(byId.get(c["id"] as string) ?? {}) })),
           };
         },
