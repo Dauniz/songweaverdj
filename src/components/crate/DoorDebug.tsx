@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { Bug, ChevronDown, ChevronRight } from "lucide-react";
 import { useRadio, type DoorPeek, type DoorSlot } from "@/components/crate/radio-context";
+import { lensName } from "@/lib/lenses";
 
 /** Admin-only, read-only view of the songs Crate has prepared behind each door. */
 export function DoorDebug() {
-  const { peekDoors, sessionLive } = useRadio();
+  const { peekDoors, sessionLive, lens, deepCuts } = useRadio();
+  const altName = deepCuts ? "Deep cuts" : lens ? lensName(lens) : null;
+  const ROADS: Record<string, string> = { vibe: "Vibe Road", era: "Era Road", mixed: "New Angle" };
   const [open, setOpen] = useState(true);
   const [snap, setSnap] = useState<DoorPeek | null>(null);
 
@@ -25,7 +28,7 @@ export function DoorDebug() {
       <span className="w-4 shrink-0 font-bold text-primary">{label}</span>
       <span className="w-28 shrink-0 text-muted-foreground">{desc}</span>
       <span className="min-w-0 truncate">
-        {s === undefined ? <em className="text-muted-foreground">choosing…</em> : s === null ? <span className="text-destructive">none</span> : `${s.name} — ${s.artists} · ${s.road}`}
+        {s === undefined ? <em className="text-muted-foreground">choosing…</em> : s === null ? <span className="text-destructive">none</span> : `${s.name} — ${s.artists} · ${altName ?? ROADS[s.road] ?? s.road}`}
       </span>
     </div>
   );
