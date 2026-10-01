@@ -56,6 +56,10 @@ export type RadioState = {
   consecutiveSkips: number;
   /** Last Era/Vibe road, used for "if you finish" after a New angle. */
   baseRoad?: Road;
+  /** Road the current run of skips started on (the skip ladder). */
+  ladderStart?: Road | undefined;
+  /** Era Road step that hops to a nearby era instead of the closest days. */
+  eraShift?: boolean;
   sessionId: string;
 };
 
@@ -146,11 +150,15 @@ function advance(s: RadioState, outcome: "played" | "skipped"): RadioState {
   ].slice(-25);
   // "If you finish" is always Era or Vibe: a New angle ends as soon as a song plays through.
   const base: Road = s.road !== "mixed" ? s.road : (s.baseRoad ?? "vibe");
-  if (outcome === "played") return { ...s, history, consecutiveSkips: 0, road: base, baseRoad: base };
+  if (outcome === "played") return { ...s, history, consecutiveSkips: 0, road: base, baseRoad: base, ladderStart: undefined, eraShift: false };
   const skips = s.consecutiveSkips + 1;
-  // New angle only after two or more skips in a row — a clear sign you want something else.
-  const road: Road = skips === 1 ? (base === "vibe" ? "era" : "vibe") : "mixed";
-  return { ...s, history, consecutiveSkips: skips, road, baseRoad: road === "mixed" ? base : road };
+  // Skip ladder: 1 = same road (era hops to a nearby era), 2-3 = the other road
+  // (era steps hop eras), 4+ = New angle.
+  const start: Road = skips === 1 ? base : (s.ladderStart ?? base);
+  const other: Road = start === "vibe" ? "era" : "vibe";
+  const road: Road = skips === 1 ? start : skips <= 3 ? other : "mixed";
+  const eraShift = road === "era" && (skips === 1 || skips === 3);
+  return { ...s, history, consecutiveSkips: skips, road, baseRoad: road === "mixed" ? base : road, ladderStart: start, eraShift };
 }
 
 export function RadioProvider({ children }: { children: ReactNode }) {
@@ -362,8 +370,33 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [note],
   );
 
-  const avoidArtists = () =>
-    [...artistSkips.current.entries()].filter(([, n]) => n >= 2).map(([a]) => a);
+  /** Skip counts per artist as they'd be in state `st` — counts the skips `st` imagines ahead. */
+  const projectedCounts = (st?: RadioState) => {
+    const m = new Map(artistSkips.current);
+    if (!st) return m;
+    const real = radioRef.current.history;
+    const lastReal = real[real.length - 1];
+    const from = lastReal ? st.history.map((h) => h.spotifyId).lastIndexOf(lastReal.spotifyId) + 1 : 0;
+    for (const h of st.history.slice(from)) if (h.outcome === "skipped") m.set(h.artists, (m.get(h.artists) ?? 0) + 1);
+    return m;
+  };
+  /** Blocked for the rest of the session: 5 skips of the same artist. */
+  const avoidArtists = (st?: RadioState) =>
+    [...projectedCounts(st).entries()].filter(([, n]) => n >= 5).map(([a]) => a);
+  /** Cooling down: skipped within the last 5 songs — still allowed, just less likely. */
+  const coolArtists = (st?: RadioState) => {
+    const h = (st ?? radioRef.current).history.slice(-5);
+    const avoid = new Set(avoidArtists(st));
+    return [...new Set(h.filter((x) => x.outcome === "skipped").map((x) => x.artists))].filter((a) => !avoid.has(a));
+  };
+  /** Why a door is no longer valid in state `st` (the state it would open into), or null. */
+  const doorProblem = (track: RadioTrack | undefined, st: RadioState, others: (string | null | undefined)[]) => {
+    if (!track?.spotify_id) return "missing";
+    if (played.current.slice(-50).includes(track.spotify_id)) return "already heard";
+    if (avoidArtists(st).includes(track.artists)) return "artist would be blocked after this skip";
+    if (others.includes(track.spotify_id)) return "repeats another door";
+    return null;
+  };
 
   /** Let Crate reflect on how this session was actually listened to. */
   const reflect = useCallback(
@@ -435,9 +468,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             lens: lensRef.current,
             deepCuts: deepCutsRef.current,
             tzOffsetMin: new Date().getTimezoneOffset(),
-            avoidArtists: avoidArtists(),
+            avoidArtists: avoidArtists(s).slice(0, 30),
+            coolArtists: coolArtists(s).slice(0, 10),
+            eraShift: Boolean(s.eraShift),
             excludeSpotifyIds: [
-              ...played.current.slice(-500),
+              ...played.current.slice(-50),
               ...(s.current?.spotify_id ? [s.current.spotify_id] : []),
               ...extraExclude,
             ],
@@ -516,14 +551,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!pre) setUpSkip(null);
       const skipRoad = advance(s, "skipped").road;
       const avoid = avoidArtists();
+      const cool = coolArtists();
       const ctx = [
         lensRef.current ? `side road ${lensRef.current}` : null,
         s.chips.length ? `steering ${s.chips.join(", ")}` : null,
-        avoid.length ? `avoiding ${avoid.join(", ")}` : null,
-        `${played.current.length} songs already heard excluded`,
+        avoid.length ? `blocked ${avoid.join(", ")}` : null,
+        cool.length ? `cooling ${cool.join(", ")}` : null,
+        `last ${Math.min(50, played.current.length)} songs heard excluded`,
       ].filter(Boolean).join(" · ");
       note("think", `At "${s.current.name}" · on ${ROAD_NAME[s.road]} · skips in a row: ${s.consecutiveSkips}`);
-      note("think", `Scouting two doors: finish → ${ROAD_NAME[advance(s, "played").road]}, skip → ${ROAD_NAME[skipRoad]}${s.consecutiveSkips >= 1 ? " (second skip = new angle)" : ""}`);
+      note("think", `Scouting two doors: finish → ${ROAD_NAME[advance(s, "played").road]}, skip → ${ROAD_NAME[skipRoad]}${s.consecutiveSkips >= 3 ? " (4th skip = new angle)" : ""}`);
       note("think", ctx);
       skippedB.then((b) => {
         if (branches.current?.key !== key) return;
@@ -589,7 +626,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         // undefined = still being picked; leave it alone.
         if (b === undefined || c === undefined || v === undefined) return;
         const repaired: string[] = [];
-        let finish = b;
+        const why = (slot: string, p: string | null) => {
+          if (p && p !== "missing") note("door", `DOOR CHECK: replacing ${slot} — ${p}`);
+          return p;
+        };
+        const sState = advance(s, "skipped");
+        const fState = advance(s, "played");
+        let finish = why("B", doorProblem(b?.track, fState, [cid])) ? null : b;
         if (!finish?.track.spotify_id) {
           const nb = await fetchBranch(advance(s, "played"), undefined, [c?.track.spotify_id].filter(Boolean) as string[]);
           if (branches.current?.key !== key || !nb) return;
@@ -599,7 +642,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           note("door", `PLAN REPAIRED: picked missing finish door B "${nb.track.name}"`);
           repaired.push("B");
         }
-        let skip = c;
+        // C is already queued in Spotify; replacing it early rides the normal skip-door push.
+        let skip = why("C", doorProblem(c?.track, sState, [cid, finish.track.spotify_id])) ? null : c;
         if (!skip?.track.spotify_id) {
           const nc = await fetchBranch(advance(s, "skipped"), undefined, [finish.track.spotify_id].filter(Boolean) as string[]);
           if (branches.current?.key !== key || !nc) return;
@@ -612,9 +656,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const fid = finish.track.spotify_id;
         const sid = skip.track.spotify_id!;
         const vv = branches.current?.finishSkip === entry.finishSkip ? v : null;
-        const vOk = vv?.track.spotify_id && vv.track.spotify_id !== fid && vv.track.spotify_id !== cid && vv.track.spotify_id !== sid;
+        const onFinish: RadioState = { ...fState, current: finish.track, road: finish.road };
+        const vOk = vv && !why("v", doorProblem(vv.track, advance(onFinish, "skipped"), [fid, cid, sid]));
         if (!vOk) {
-          const onFinish: RadioState = { ...advance(s, "played"), current: finish.track, road: finish.road };
           const nv = await fetchBranch(advance(onFinish, "skipped"), undefined, [cid, fid, sid].filter(Boolean) as string[]);
           if (branches.current?.key !== key || !nv?.track.spotify_id || !isPlayable(nv.track) || nv.track.spotify_id === fid) return;
           branches.current = { ...branches.current, finishSkip: Promise.resolve(nv) };
@@ -626,7 +670,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const lpMatches = lp && lp.forId === sid && lp.sessionId === s.sessionId;
         const wPending = lpMatches && lp.doorVal === undefined;
         const wVal = lpMatches ? lp.doorVal : null;
-        const wOk = wVal?.track.spotify_id && wVal.track.spotify_id !== sid && wVal.track.spotify_id !== cid;
+        const onSkip: RadioState = { ...sState, current: skip.track, road: skip.road };
+        const wOk = wVal && !why("w", doorProblem(wVal.track, advance(onSkip, "skipped"), [sid, cid, fid]));
         if (!wPending && !wOk) {
           const plan = planLandingRef.current?.(s, skip, [cid, fid]);
           const nw = plan ? await plan.door : null;
@@ -636,7 +681,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             repaired.push("w");
           }
         }
-        if (reason === "recheck" && !repaired.length && !wPending) note("door", "PLAN CHECK: B, v, C and w all picked");
+        if (reason === "recheck" && !repaired.length && !wPending) note("door", "DOOR CHECK: B, v, C, w all valid");
       } catch {
         /* try again next check */
       } finally {
@@ -832,8 +877,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const pending = branches.current?.[outcome];
       setThinking(true);
       let b = pending ? await pending : null;
-      // The skip branch may now include an avoided artist — refetch if so.
-      if (!b || avoidArtists().includes(b.track.artists)) b = await fetchBranch(nextState);
+      // Doors were checked ahead ("what if") — never swap one that's opening; only fill a gap.
+      if (!b) b = await fetchBranch(nextState);
+      else if (avoidArtists().includes(b.track.artists)) note("think", `"${b.track.name}" is by a blocked artist, but Spotify already opened it — keeping it`);
       setThinking(false);
       if (radioRef.current.sessionId !== s.sessionId) return; // stopped/restarted meanwhile
       if (!b) {

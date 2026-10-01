@@ -30,7 +30,7 @@ const SKILLS = [
   },
   {
     name: "Listening",
-    how: "Crate counts how you listen. A song played to the end strengthens the road you're on. A replay marks a quiet favorite — but only after it happens in more than one session, so one good evening never becomes a loop. Skip the same artist twice and they fade out for the rest of the session.",
+    how: "Crate counts how you listen. A song played to the end strengthens the road you're on. A replay marks a quiet favorite — but only after it happens in more than one session, so one good evening never becomes a loop. A skipped artist cools down for the next five songs — still possible, just less likely — and only after five skips of the same artist in one session are they left out until the session ends. Songs you've heard come back after 50 songs.",
   },
   {
     name: "Steer",
@@ -93,11 +93,16 @@ function CrateInfoPage() {
               playlist and months the song came from.
             </li>
             <li>
-              <span className="font-medium text-foreground">Skip</span> → Crate
-              turns onto the other road.
+              <span className="font-medium text-foreground">Skip once</span> → Crate
+              stays on the same road with a different song (on Era Road, a nearby
+              era a couple of years away) — maybe it was the song, not the road.
             </li>
             <li>
-              <span className="font-medium text-foreground">Skip twice</span> →
+              <span className="font-medium text-foreground">Skip 2–3 times in a row</span> →
+              Crate turns onto the other road.
+            </li>
+            <li>
+              <span className="font-medium text-foreground">Skip 4 times in a row</span> →
               Crate tries a noticeably new angle.
             </li>
           </ul>
@@ -168,7 +173,7 @@ function CrateInfoPage() {
               <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                 The escape hatch. New Angle never appears as the "if you finish"
                 song — it only shows up behind the skip door, and only after
-                you've skipped more than once in a row. That's the clearest
+                you've skipped four times in a row. That's the clearest
                 signal that the current direction is wrong, so Crate reads your
                 Walrus memories and aims somewhere noticeably different: a
                 fresh direction it believes you'll like, based on everything it
