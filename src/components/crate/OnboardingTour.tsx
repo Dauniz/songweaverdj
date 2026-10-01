@@ -33,7 +33,7 @@ const SETUP_STEPS: Step[] = [
     target: "side-roads",
     eyebrow: "Step 3 of 3",
     title: "Bend the path with side roads",
-    body: "The checkboxes under the chat are side roads — Wormhole, Scene, Wave, Texture and Deep cuts. They bend the current road: each adds its own rule or filter to what Crate plays next. Only one can be on at a time, and turning one off puts you back on the main path. Tap the question mark for what each one does.",
+    body: "The buttons under the chat are alternative roads — Deep cuts, Wormhole, Scene and Texture. Turning one on replaces the default roads (Vibe, Era, New Angle) with its own rules for what Crate plays next. Only one can be on at a time, and turning it off puts you back on the default roads. Tap the question mark for what each one does.",
   },
 ];
 

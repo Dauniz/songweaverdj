@@ -21,7 +21,7 @@ import { TrackCard, type CardTrack } from "./TrackCard";
 import { useRadio } from "./radio-context";
 import { CircleHelp, LoaderCircle, Mic, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LENSES } from "@/lib/lenses";
+import { DEEP_CUTS_INFO, LENSES } from "@/lib/lenses";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/crate-logo.jpg";
@@ -188,7 +188,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
     const filters: string[] = [];
     if (deepCuts) filters.push("prefer deep cuts I haven't heard in a while");
     const activeLens = LENSES.find((l) => l.id === lens);
-    if (activeLens) filters.push(`side road ${activeLens.name}: ${activeLens.info}`);
+    if (activeLens) filters.push(`alternative road ${activeLens.name}: ${activeLens.info}`);
     sendMessage({ text: filters.length ? `${t}\n\n(Filters: ${filters.join("; ")})` : t });
     setText("");
   }
@@ -357,7 +357,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  aria-label="About deep cuts and side roads"
+                  aria-label="About alternative roads"
                   className="justify-self-start rounded-full text-muted-foreground sm:justify-self-auto"
                 >
                   <CircleHelp />
@@ -369,8 +369,8 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                 className="max-w-[calc(100vw-2rem)] border border-border bg-background text-foreground shadow-lg sm:max-w-[300px]"
               >
                 <p>
-                  Side roads bend whichever road is active (Vibe, Era or New angle). Only one can be
-                  on at a time — tap it again to turn it off.
+                  Alternative roads replace the default roads (Vibe, Era, New Angle) while they're on.
+                  Only one can be on at a time — tap it again to go back to the default roads.
                 </p>
                 {LENSES.map((l) => (
                   <p key={l.id} className="mt-3">
@@ -378,8 +378,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                   </p>
                 ))}
                 <p className="mt-3">
-                  <span className="font-bold">Deep cuts:</span> Finds overlooked songs you
-                  haven't heard in a while.
+                  <span className="font-bold">Deep cuts:</span> {DEEP_CUTS_INFO}
                 </p>
               </TooltipContent>
             </Tooltip>

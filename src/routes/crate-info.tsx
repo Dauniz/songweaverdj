@@ -41,8 +41,8 @@ const SKILLS = [
     how: "The sharpest signal Crate gets: a few free words about the song playing right now. \"Nostalgi, högstadiet, sommarens första dag\" ties a feeling to a track forever, and Walrus carries it into every future session.",
   },
   {
-    name: "Side roads",
-    how: "One side road at a time can bend the maze: Wormhole jumps between chapters of your life through songs saved in several playlists, Scene follows collaborations and regional scenes, Wave builds energy over three songs then calms for two, and Texture keeps the same sound texture. Crate waits about a second after you toggle one — in case you change your mind — then replaces both doors.",
+    name: "Alternative roads",
+    how: "One alternative road at a time can replace the default roads (Vibe, Era, New Angle). As long as you finish songs, Crate keeps walking that road; skips follow its own rules (below). Crate narrows your whole library to about 15 songs that fit the road, then picks one. He waits about a second after you toggle one — in case you change your mind — then replaces the doors.",
   },
   {
     name: "Listening history",

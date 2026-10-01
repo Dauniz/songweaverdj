@@ -470,6 +470,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             avoidArtists: avoidArtists(s).slice(0, 30),
             coolArtists: coolArtists(s).slice(0, 10),
             eraShift: Boolean(s.eraShift),
+            currentId: s.current?.spotify_id ?? null,
             excludeSpotifyIds: [
               ...played.current.slice(-50),
               ...(s.current?.spotify_id ? [s.current.spotify_id] : []),

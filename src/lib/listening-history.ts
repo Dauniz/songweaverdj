@@ -8,6 +8,7 @@ export type HistoryStat = {
   ms_played: number;
   first_played: string;
   last_played: string;
+  plays_by_year: Record<string, number>;
 };
 
 type Entry = {
@@ -145,8 +146,9 @@ export async function parseHistoryFiles(files: File[]) {
         s.ms_played += ms;
         if (iso < s.first_played) s.first_played = iso;
         if (iso > s.last_played) s.last_played = iso;
+        s.plays_by_year[String(y)] = (s.plays_by_year[String(y)] ?? 0) + 1;
       } else {
-        by.set(id, { spotify_id: id, plays: 1, ms_played: ms, first_played: iso, last_played: iso });
+        by.set(id, { spotify_id: id, plays: 1, ms_played: ms, first_played: iso, last_played: iso, plays_by_year: { [String(y)]: 1 } });
       }
     }
   }
