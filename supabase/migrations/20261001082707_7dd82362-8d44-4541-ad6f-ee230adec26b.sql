@@ -1,0 +1,1 @@
+ALTER TABLE public.listening_history ADD COLUMN IF NOT EXISTS plays_by_year jsonb;
