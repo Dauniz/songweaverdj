@@ -443,7 +443,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
     // Only playlists the user created themselves (skip followed/saved ones by others)
     setP({ stage: "Fetching your playlists…" });
     const me = await spotifyGet<{ id: string }>(token, "/me");
-    type Pl = { id: string; name: string; owner?: { id?: string } };
+    type Pl = { id: string; name: string; snapshot_id?: string; owner?: { id?: string } };
     const allPlaylists: Pl[] = [];
     let plNext: string | null = "/me/playlists?limit=50";
     let limited = false;
@@ -584,6 +584,13 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       .from("spotify_connections")
       .update({ last_synced_at: new Date().toISOString() })
       .eq("user_id", context.userId);
+    // Remember playlist versions so quick syncs can skip unchanged playlists.
+    if (!limited) {
+      const snaps = allPlaylists
+        .filter((p) => p.snapshot_id)
+        .map((p) => ({ user_id: context.userId, playlist_id: p.id, snapshot_id: p.snapshot_id!, updated_at: new Date().toISOString() }));
+      if (snaps.length) await supabaseAdmin.from("spotify_playlist_snapshots").upsert(snaps);
+    }
 
     const result = {
       imported: unique.length,
