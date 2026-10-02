@@ -151,7 +151,7 @@ export function MemoryInspector() {
           type="button"
           aria-expanded={showLog}
           onClick={() => setShowLog((v) => !v)}
-          className="mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="kinetic-control mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           {showLog ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           {showLog ? "Hide Walrus log" : "Show Walrus log"}
@@ -172,7 +172,7 @@ export function MemoryInspector() {
               setTimeout(() => setReflectMsg(null), 6000);
             }
           }}
-          className="ml-3 mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-chart-4 hover:bg-accent disabled:opacity-60"
+          className="kinetic-control ml-3 mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-chart-4 hover:bg-accent disabled:opacity-60"
         >
           <Sparkle className="h-3.5 w-3.5" />
           {reflecting ? "Crate is reflecting…" : "Let Crate reflect"}

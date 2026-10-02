@@ -109,6 +109,7 @@ async function transcribeVoice(file: File) {
 
 export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void }) {
   const qc = useQueryClient();
+  const reduced = useReducedMotion();
   const [text, setText] = useState("");
   const [voiceState, setVoiceState] = useState<"idle" | "recording" | "transcribing">("idle");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -355,9 +356,10 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
               onClick={() => setDeepCuts(!deepCuts)}
               aria-pressed={deepCuts}
               aria-label="Enable Deep cuts"
-              className="h-8 rounded-full px-3.5"
+              className="relative isolate h-8 overflow-hidden rounded-full px-3.5"
             >
-              Deep cuts
+              {deepCuts && <motion.span layoutId="active-side-road" className="absolute inset-0 -z-10 rounded-full bg-primary" />}
+              <span>Deep cuts</span>
             </Button>
             {LENSES.map((l) => {
               const on = lens === l.id;
@@ -377,9 +379,10 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                   }}
                   aria-pressed={on}
                   aria-label={`Enable ${l.name}`}
-                  className={cn("h-8 rounded-full px-3.5", locked && "opacity-60")}
+                  className={cn("relative isolate h-8 overflow-hidden rounded-full px-3.5", locked && "opacity-60")}
                 >
-                  {l.name}
+                  {on && <motion.span layoutId="active-side-road" className="absolute inset-0 -z-10 rounded-full bg-primary" />}
+                  <span>{l.name}</span>
                 </Button>
               );
             })}
@@ -468,10 +471,15 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
       <Conversation className="flex-1">
         <ConversationContent className="chat-transcript mx-auto w-full max-w-4xl gap-4 px-5 pb-8 pt-48 text-[1.0625rem] leading-7 lg:px-7">
           {messages.map((m) => (
-            <Message
+            <motion.div
               key={m.id}
+              initial={{ opacity: 0, y: reduced ? 0 : 8, clipPath: reduced ? "none" : "inset(0 0 18% 0)" }}
+              animate={{ opacity: 1, y: 0, clipPath: "inset(0)" }}
+              transition={{ duration: reduced ? 0.12 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+            >
+            <Message
               from={m.role}
-              className={cn("chat-message-reveal", m.role === "assistant" && "!max-w-full")}
+              className={cn(m.role === "assistant" && "!max-w-full")}
             >
               <MessageContent
                 className={cn(
@@ -500,7 +508,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                             <div className="mb-1.5 font-display text-lg font-bold text-primary">
                               {out.vibe_title}
                             </div>
-                            <div className="grid gap-1.5 sm:grid-cols-2">
+                            <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="grid gap-1.5 sm:grid-cols-2">
                               {out.tracks.slice(0, 6).map((t, j) => (
                                 <TrackCard
                                   key={t.id}
@@ -511,7 +519,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                                   }
                                 />
                               ))}
-                            </div>
+                            </motion.div>
                           </>
                         ) : part.state === "output-error" ? (
                           <p className="text-sm text-destructive">Couldn't load picks.</p>
@@ -528,6 +536,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                 })}
               </MessageContent>
             </Message>
+            </motion.div>
           ))}
           {busy && (messages.at(-1)?.role !== "assistant" || status === "submitted" || !messages.at(-1)?.parts.some((p) => p.type === "text" && p.text)) && (
             <Message from="assistant" className="!max-w-full">
