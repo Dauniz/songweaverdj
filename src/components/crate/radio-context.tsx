@@ -2024,6 +2024,78 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   }, []);
 
 
+  /** Chat steering (mid-session): the listener sends a direction like "More rap" or "I'm loving it".
+   *  B (and its v, and C's own w) are re-scouted under the steer note; C stays exactly as queued —
+   *  replacing a queued door would glitch Spotify's audio. Never touches the six-pick prompt queue. */
+  const steerSession = useCallback(
+    async (note_?: string, picks?: CardTrack[]) => {
+      const s = radioRef.current;
+      const trimmed = (note_ ?? "").trim().slice(0, 300);
+      if (!s.active || !s.current || (!trimmed && !picks?.length)) return;
+      const steerPick = picks?.find((t) => t.spotify_id && isPlayable(t));
+      if (!trimmed && !steerPick) return;
+      scoutAbort.current?.abort();
+      const ctrl = new AbortController();
+      scoutAbort.current = ctrl;
+      const cid = s.current.spotify_id;
+      // C is preserved exactly: queued behind the current song (door/preSkip) or already chosen.
+      const pre =
+        preSkip.current?.forId === cid
+          ? preSkip.current.branch
+          : door.current?.forId === cid
+            ? ({ track: door.current.track, road: advance(s, "skipped").road } as Branch)
+            : null;
+      // w (the skip door's own skip) is re-scouted under the steer note; the old plan is dropped.
+      landingPlan.current = null;
+      const next: RadioState = { ...s, steerNote: trimmed };
+      const playedB: Promise<Branch> = steerPick
+        ? Promise.resolve({
+            track: { ...steerPick, why: trimmed ? `Steering: ${trimmed}` : "You asked Crate to steer" },
+            road: advance(next, "played").road,
+          })
+        : fetchBranch(next, ctrl.signal);
+      const skippedB: Promise<Branch> = pre ? Promise.resolve(pre) : fetchBranch(advance(next, "skipped"), ctrl.signal);
+      // v: the new finish door's own "if you skip" song.
+      const finishSkip: Promise<Branch> = Promise.all([playedB, skippedB]).then(([f, k]) => {
+        if (!f?.track.spotify_id) return null;
+        const onFinish: RadioState = { ...advance(next, "played"), current: f.track, road: f.road };
+        return fetchBranch(advance(onFinish, "skipped"), ctrl.signal, [cid, k?.track.spotify_id].filter(Boolean) as string[]).then(
+          (b) => (b?.track.spotify_id && isPlayable(b.track) && b.track.spotify_id !== f.track.spotify_id ? b : null),
+        );
+      });
+      // Match prefetch's key exactly (plus the steer note) so a later prefetch call keeps these doors.
+      const key = `${s.current.id}|${s.chips.join(",")}|${trimmed}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
+      branches.current = { key, played: playedB, skipped: skippedB, finishSkip };
+      setUpNext(null);
+      if (!pre) setUpSkip(null);
+      setRadio(next);
+      note("steer", trimmed ? `Steering: "${trimmed}" → re-scouting the doors ahead` : "Steer pick applied → re-scouting the doors ahead");
+      void Promise.allSettled([playedB, skippedB, finishSkip]).then(async () => {
+        await new Promise((r) => setTimeout(r, 300));
+        if (branches.current?.key === key) void checkPlanRef.current?.("recheck");
+      });
+      skippedB.then((b) => {
+        if (branches.current?.key !== key) return;
+        setUpSkip(b ?? null);
+        // w: re-choose the skip door's own skip under the steer note (unless a plan already covers it).
+        const cId = b?.track.spotify_id;
+        if (b && cId && !(landingPlan.current && landingPlan.current.forId === cId)) {
+          void playedB.then((f) => {
+            if (branches.current?.key !== key) return;
+            if (landingPlan.current && landingPlan.current.forId === cId) return;
+            planLandingRef.current?.(next, b, [cid, f?.track.spotify_id]);
+          });
+        }
+      });
+      playedB.then((b) => {
+        if (branches.current?.key !== key) return;
+        setUpNext(b?.track ?? null);
+        note("door", b ? `Finish door ready: "${b.track.name}" by ${b.track.artists}${b.track.why ? ` — ${b.track.why}` : ""}` : "Finish door: nothing fits, will fall back");
+      });
+    },
+    [fetchBranch, note],
+  );
+
   /** One entry point for side roads (lenses + deep cuts). Toggling back within 10s restores the old doors. */
   const applySideRoad = useCallback(
     (nextLens: LensId | null, nextDeep: boolean) => {
