@@ -116,6 +116,61 @@ function sessionLines(events: EventRow[], tzOffsetMin: number) {
 }
 
 
+/** Pre-digested behavioural signals so the model reasons over patterns, not raw rows. */
+function signalLines(events: EventRow[], tzOffsetMin: number, history: Map<string, { plays: number; lastYear: string | null }>) {
+  const out: string[] = [];
+  // Skip timing: instant (<15 s) = clash, early (<60 s) = wrong direction, late = fatigue/length.
+  const buckets = { instant: 0, early: 0, late: 0 };
+  const artist = new Map<string, { fin: number; skip: number; instant: number }>();
+  const road = new Map<string, { fin: number; skip: number }>();
+  const hour = new Map<string, { fin: number; skip: number }>();
+  let bestRun = 0, run = 0;
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]!;
+    const next = events[i + 1];
+    const dwell = next && next.session_id === e.session_id ? (Date.parse(next.created_at) - Date.parse(e.created_at)) / 1000 : null;
+    const fin = e.event === "play_through";
+    const skip = e.event === "early_skip";
+    if (!fin && !skip) continue;
+    run = fin ? run + 1 : 0;
+    bestRun = Math.max(bestRun, run);
+    if (skip && dwell !== null) buckets[dwell < 15 ? "instant" : dwell < 60 ? "early" : "late"]++;
+    const a = (e.artists ?? "?").split(",")[0]!.trim();
+    const as = artist.get(a) ?? { fin: 0, skip: 0, instant: 0 };
+    if (fin) as.fin++; else { as.skip++; if (dwell !== null && dwell < 15) as.instant++; }
+    artist.set(a, as);
+    const r = road.get(e.mode ?? "none") ?? { fin: 0, skip: 0 };
+    fin ? r.fin++ : r.skip++;
+    road.set(e.mode ?? "none", r);
+    const h = new Date(Date.parse(e.created_at) - tzOffsetMin * 60_000).getUTCHours();
+    const slot = h < 5 ? "night 00-05" : h < 11 ? "morning 05-11" : h < 17 ? "afternoon 11-17" : h < 22 ? "evening 17-22" : "late 22-24";
+    const hs = hour.get(slot) ?? { fin: 0, skip: 0 };
+    fin ? hs.fin++ : hs.skip++;
+    hour.set(slot, hs);
+  }
+  const pct = (x: { fin: number; skip: number }) => Math.round((100 * x.fin) / Math.max(1, x.fin + x.skip));
+  out.push(`Skip timing: ${buckets.instant} instant (<15 s, tonal clash), ${buckets.early} early (<60 s, wrong direction), ${buckets.late} late (60 s+, fatigue/length — not dislike).`);
+  out.push(`Longest unbroken run of finished songs: ${bestRun}.`);
+  out.push(`Finish rate by road: ${[...road].map(([k, v]) => `${k} ${pct(v)}% (${v.fin + v.skip})`).join(", ")}.`);
+  out.push(`Finish rate by time of day: ${[...hour].map(([k, v]) => `${k} ${pct(v)}% (${v.fin + v.skip})`).join(", ")}.`);
+  const ranked = [...artist].filter(([, v]) => v.fin + v.skip >= 2);
+  const loved = ranked.filter(([, v]) => v.skip === 0 && v.fin >= 2).sort((a, b) => b[1].fin - a[1].fin).slice(0, 8);
+  const rejected = ranked.filter(([, v]) => v.skip >= 2 && v.skip > v.fin).sort((a, b) => b[1].skip - a[1].skip).slice(0, 8);
+  if (loved.length) out.push(`Always finished: ${loved.map(([a, v]) => `${a} ${v.fin}/${v.fin}`).join(", ")}.`);
+  if (rejected.length) out.push(`Mostly skipped: ${rejected.map(([a, v]) => `${a} ${v.skip}/${v.fin + v.skip}${v.instant ? ` (${v.instant} instant)` : ""}`).join(", ")}.`);
+  // Cross-reference with years of streaming history: surprises are the gold.
+  const surprises: string[] = [];
+  for (const e of events) {
+    const h = history.get(`${e.track_name}|${e.artists}`.toLowerCase());
+    if (!h) continue;
+    if (e.event === "early_skip" && h.plays >= 20) surprises.push(`skipped "${e.track_name}" despite ${h.plays} lifetime plays`);
+    if (e.event === "play_through" && h.plays <= 2) surprises.push(`finished rarely-played "${e.track_name}" (${h.plays} lifetime plays)`);
+    if (e.event === "play_through" && h.lastYear && Number(h.lastYear) <= new Date().getUTCFullYear() - 3) surprises.push(`finished "${e.track_name}", untouched since ${h.lastYear}`);
+  }
+  if (surprises.length) out.push(`Against lifetime history: ${[...new Set(surprises)].slice(0, 10).join("; ")}.`);
+  return out;
+}
+
 export type Insight = { kind: MemoryKind; content: string };
 
 function parseInsights(text: string): Insight[] {
@@ -175,6 +230,24 @@ export async function synthesizeTasteMemories(
       album: t.album,
     });
 
+  // Lifetime plays for the tracks involved (from an imported streaming history, if any).
+  const history = new Map<string, { plays: number; lastYear: string | null }>();
+  const { data: libIds } = await supabase
+    .from("library_tracks")
+    .select("spotify_id, name, artists")
+    .in("name", names.slice(0, 200));
+  const idToKey = new Map((libIds ?? []).map((t) => [t.spotify_id, `${t.name}|${t.artists}`.toLowerCase()]));
+  if (idToKey.size) {
+    const { data: hist } = await supabase
+      .from("listening_history")
+      .select("spotify_id, plays, last_played")
+      .in("spotify_id", [...idToKey.keys()].slice(0, 300));
+    for (const h of hist ?? []) {
+      const k = idToKey.get(h.spotify_id);
+      if (k) history.set(k, { plays: h.plays, lastYear: h.last_played?.slice(0, 4) ?? null });
+    }
+  }
+
   const { data: existing } = await supabase
     .from("memory_nodes")
     .select("content")
@@ -205,14 +278,20 @@ export async function synthesizeTasteMemories(
   const who = opts.displayName?.trim() || "The listener";
   const cross = opts.scope === "history";
 
-  const shared = `Hard rules:
-- NEVER state something obvious from their playlists ("loves R&B", "listens to hip hop"). That is banned.
-- Look for: contradictions inside a genre (loves X but skips the sub-style Y), production texture (drums, bass, reverb, vocals vs instrumental), patience patterns (how many seconds before a skip, which songs they always finish), time-of-day rituals (late night vs afternoon behaviour), nostalgia vs exploration (old playlist months vs recent), artists they seem to have outgrown, and songs they protect and return to.
-- Lines marked UNATTENDED? sit inside a run of ${PASSIVE_STREAK}+ finished songs with zero interaction — the listener may simply have walked away or been deep in flow. Never build a conclusion on those alone; they only count as weak support next to an active signal (a deliberate skip, a manual search, a road change, a return in another session).
-- Be concrete: name real artists, songs or playlist months from the trace.
+  const shared = `How you think — you are a mastermind DJ who learns purely by watching, never by asking:
+- The listener is meant to lean back. Silence is the normal state. Every skip is a deliberate act and carries weight; every finished song is a quiet yes (strong when it sits next to active choices, weak inside a long untouched run).
+- "Played to the end" means the song really ran to its end, whatever its length. Short and long songs count the same.
+- Read skip timing: instant (<15 s) = tonal clash with the song itself; early (<60 s) = the direction was wrong; late (60 s+) = fatigue, length or a mood shift, NOT dislike.
+- Reason like a detective before writing: form hypotheses, test each against the trace, the signals, the lifetime history and existing memories. Keep only conclusions that survive. Prefer one sharp, predictive insight over two vague ones.
+- Every memory must be ACTIONABLE for picking the next songs: it should tell future-Crate what to play, avoid, or when (e.g. "Late evenings, warm 70s soul survives where modern trap gets skipped within seconds — open nights with soul.").
+- If the evidence refines or contradicts an existing memory, write the refined version and say what changed ("no longer…", "only at night…").
+- NEVER state something obvious from their playlists ("loves R&B"). Banned.
+- Look for: contradictions inside a genre, production texture (drums, bass, reverb, vocals vs instrumental), patience patterns, time-of-day rituals, which roads keep them listening, nostalgia vs exploration, outgrown artists, protected songs, surprises against lifetime history.
+- Lines marked UNATTENDED? sit inside a run of ${PASSIVE_STREAK}+ finished songs with zero interaction. Never build a conclusion on those alone.
+- Be concrete: name real artists, songs or playlist months.
 - Third person, one or two sentences each, warm and specific, English.
 - Do not repeat or lightly reword an existing memory.
-- Feedbacker notes are the listener's own words about specific songs. Treat them as strong evidence: connect them to the trace (e.g. a note praising warm bass + they always finish similar songs), but never just restate a note as a memory.`;
+- Feedbacker notes, if any, are optional hints from the listener. Use them only to confirm a pattern you already see in behaviour; never base a memory on a note alone and never restate one.`;
 
   const system = cross
     ? `You are Crate, a music companion who has followed ${who} across many separate listening sessions.
@@ -243,8 +322,11 @@ ${known.length ? known.map((c) => `- ${c}`).join("\n") : "- (none)"}`;
 
   const prompt = `Listening trace (${events.length} events across ${sessions} session(s); ${plays} played through, ${skips} skipped early). Local times.
 ${cross ? `\nSessions:\n${sessionLines(events, tz).join("\n")}\n` : ""}
+Behavioural signals (pre-computed):
+${signalLines(events, tz, history).join("\n")}
+
 ${traceLines(events, meta, tz).join("\n")}
-${notes.length ? `\nFeedbacker notes (their own words):\n${notes.join("\n")}` : ""}
+${notes.length ? `\nOptional listener hints (feedbacker notes):\n${notes.join("\n")}` : ""}
 ${profile.length ? `\nLong-term baseline from their years of Spotify streaming history. Evaluate the trace against it: where does this listening confirm, deepen or break the long-term habit? A break (new time of day, a faded artist returning, a usually-skipped artist finished) is a strong memory candidate — say what changed compared to the baseline. Never restate the baseline itself:\n${profile.join("\n")}` : ""}`;
 
   const runIdFetch = createLovableAiGatewayRunIdFetch();
@@ -261,7 +343,11 @@ ${profile.length ? `\nLong-term baseline from their years of Spotify streaming h
     prompt,
     providerOptions: {
       openai: {
+        forceReasoning: true,
+        reasoningEffort: "medium",
+        reasoningSummary: "auto",
         store: false,
+        include: ["reasoning.encrypted_content"],
       },
     },
   });
