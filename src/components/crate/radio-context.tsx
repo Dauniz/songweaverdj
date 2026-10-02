@@ -167,6 +167,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const logFn = useServerFn(logListeningEvent);
   const pathFn = useServerFn(nextPathTrack);
   const synthFn = useServerFn(synthesizeMemories);
+  const saveSteerFn = useServerFn(saveSteerInsight);
   /** Songs logged this run — Crate reflects every few of them. */
   const logged = useRef(0);
   const reflecting = useRef(false);
@@ -2096,7 +2097,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         note("door", b ? `Finish door ready: "${b.track.name}" by ${b.track.artists}${b.track.why ? ` — ${b.track.why}` : ""}` : "Finish door: nothing fits, will fall back");
       });
     },
-    [fetchBranch, note],
+    [fetchBranch, note, saveSteerFn, qc],
   );
 
   /** One entry point for side roads (lenses + deep cuts). Toggling back within 10s restores the old doors. */
