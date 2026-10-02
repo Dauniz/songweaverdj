@@ -212,7 +212,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
         break;
       }
     }
-  }, [status, messages, startRadio]);
+  }, [status, messages, startRadio, steerSession]);
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -508,7 +508,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                   if (part.type === "text") {
                     const shown =
                       m.role === "user"
-                        ? part.text.replace(/\n\n\(Filters:[^)]*\)$/, "")
+                        ? part.text.replace(/\n\n\((?:Filters|Session is live)[^)]*\)(?=\n\n\(|$)/g, "")
                         : part.text;
                     return <MessageResponse key={i}>{shown}</MessageResponse>;
                   }
