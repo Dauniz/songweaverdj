@@ -2034,6 +2034,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!s.active || !s.current || (!trimmed && !picks?.length)) return;
       const steerPick = picks?.find((t) => t.spotify_id && isPlayable(t));
       if (!trimmed && !steerPick) return;
+      // Steering owns the maze from here: a running prompt playlist yields to the new direction.
+      promptQueue.current = null;
       scoutAbort.current?.abort();
       const ctrl = new AbortController();
       scoutAbort.current = ctrl;
