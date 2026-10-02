@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -26,6 +27,7 @@ import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { cn } from "@/lib/utils";
 import { PathMaze, CrateConsole } from "@/components/crate/PathMaze";
 import { DoorDebug } from "@/components/crate/DoorDebug";
+import { geometricEnter, reducedFade, staggerChildren } from "@/lib/motion";
 
 const KIND_LABEL: Record<string, string> = {
   taste: "Taste",
@@ -56,6 +58,7 @@ function skillForMemory(kind: string, origin: string, content: string) {
 }
 
 export function MemoryInspector() {
+  const reduced = useReducedMotion();
   const qc = useQueryClient();
   const [showLog, setShowLog] = useState(false);
   const [consoleOpen, setConsoleOpen] = useState(false);
@@ -174,10 +177,20 @@ export function MemoryInspector() {
           <Sparkle className="h-3.5 w-3.5" />
           {reflecting ? "Crate is reflecting…" : "Let Crate reflect"}
         </button>
-        {reflectMsg && <p className="mt-1.5 text-[11px] text-muted-foreground">{reflectMsg}</p>}
+        <AnimatePresence>
+          {reflectMsg && <motion.p initial="hidden" animate="visible" exit="exit" variants={reduced ? reducedFade : geometricEnter} className="mt-1.5 text-[11px] text-muted-foreground">{reflectMsg}</motion.p>}
+        </AnimatePresence>
       </div>
+      <AnimatePresence initial={false}>
       {showLog && (
-      <div className="space-y-2 border-t px-4 py-3">
+      <motion.div
+        initial={{ height: 0, opacity: 0 }}
+        animate={{ height: "auto", opacity: 1 }}
+        exit={{ height: 0, opacity: 0 }}
+        transition={{ duration: reduced ? 0.12 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="overflow-hidden border-t"
+      >
+      <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="space-y-2 px-4 py-3">
         {nodes.length === 0 && (
           <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
             No memory nodes yet. Start a session and get Crate to work.
@@ -187,7 +200,7 @@ export function MemoryInspector() {
           const anchor = n.origin === "cross_session";
           const insight = anchor || n.origin === "synthesis";
           return (
-            <div key={n.id} className={cn("rounded-lg border bg-surface p-3", insight && "border-chart-4/50 bg-chart-4/5", anchor && "border-chart-5/50 bg-chart-5/5")}>
+            <motion.div key={n.id} layout="position" variants={reduced ? reducedFade : geometricEnter} className={cn("rounded-lg border bg-surface p-3", insight && "border-chart-4/50 bg-chart-4/5", anchor && "border-chart-5/50 bg-chart-5/5")}>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-muted-foreground">
                   {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -251,11 +264,13 @@ export function MemoryInspector() {
                 )}
                 <span>{new Date(n.created_at).toLocaleDateString()}</span>
               </div>
-            </div>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
+      </motion.div>
       )}
+      </AnimatePresence>
       </div>
       <CrateConsole open={consoleOpen} setOpen={setConsoleOpen} onAnimatingChange={setConsoleAnimating} />
       <div className="flex shrink-0 items-center justify-between border-t px-4 py-2">

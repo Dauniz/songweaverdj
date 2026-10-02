@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
 import { Play, Search, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRadio } from "./radio-context";
 import type { CardTrack } from "./TrackCard";
+import { geometricEnter, reducedFade, staggerChildren } from "@/lib/motion";
 
 type Row = {
   id: string;
@@ -35,6 +37,7 @@ function score(row: Row, q: string) {
 }
 
 export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
+  const reduced = useReducedMotion();
   const { rerootTo } = useRadio();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -100,22 +103,31 @@ export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
           className="min-w-0 flex-1 bg-transparent text-lg leading-7 text-foreground outline-none placeholder:text-base placeholder:text-muted-foreground"
         />
         {q && (
-          <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="kinetic-control text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         )}
       </div>
+      <AnimatePresence>
       {open && (
-        <div className="absolute inset-x-0 top-full z-30 mt-2 max-h-96 overflow-y-auto rounded-lg border border-border bg-popover p-1.5 shadow-lg">
+        <motion.div
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          variants={reduced ? reducedFade : geometricEnter}
+          className="absolute inset-x-0 top-full z-30 mt-2 max-h-96 overflow-y-auto rounded-lg border border-border bg-popover p-1.5 shadow-lg"
+        >
           {results.length === 0 ? (
             <p className="px-3 py-4 text-sm text-muted-foreground">{isFetching ? "Searching…" : "No results in your library"}</p>
           ) : (
-            results.map((r) => (
-              <button
+            <motion.div variants={staggerChildren} initial="hidden" animate="visible">
+            {results.map((r) => (
+              <motion.button
                 key={r.id}
                 type="button"
                 onClick={() => play(r)}
-                className="group flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left hover:bg-accent"
+                variants={reduced ? reducedFade : geometricEnter}
+                className="kinetic-control group flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left hover:bg-accent"
               >
                 <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted">
                   {r.image_url && <img src={r.image_url} alt="" className="h-full w-full object-cover" />}
@@ -127,11 +139,13 @@ export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
                   <p className="truncate text-sm text-foreground">{r.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{r.artists}</p>
                 </div>
-              </button>
-            ))
+              </motion.button>
+            ))}
+            </motion.div>
           )}
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
   );
 }
