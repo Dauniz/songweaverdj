@@ -97,6 +97,8 @@ export async function handleChat(request: Request) {
   }
   // Deep cuts: know what the user has heard lately so Crate can avoid it
   const deepCuts = /deep cuts/i.test(lastText);
+  // Mid-session chat steering: the client marks the message while a session is playing.
+  const liveSession = /session is live/i.test(lastText);
   const recentKeys = new Set<string>();
   if (deepCuts) {
     const since = new Date(Date.now() - 60 * 864e5).toISOString();
@@ -165,7 +167,8 @@ ${libLines.join("\n") || "(empty)"}
 Walrus Memory about this user:
 ${memoryLines.length ? memoryLines.join("\n") : "- (none yet)"}
 ${deepCuts ? `
-DEEP CUTS IS ON: at least 5 of the picks must come from playlists dated 12+ months ago (the older the better — nostalgic, long-forgotten songs). Never pick tracks marked HEARD RECENTLY. Avoid the user's most obvious/most-repeated artists. Mention the playlist month in the reason (e.g. "from your March 2021 playlist"). A song the user names explicitly still goes first.` : ""}`;
+DEEP CUTS IS ON: at least 5 of the picks must come from playlists dated 12+ months ago (the older the better — nostalgic, long-forgotten songs). Never pick tracks marked HEARD RECENTLY. Avoid the user's most obvious/most-repeated artists. Mention the playlist month in the reason (e.g. "from your March 2021 playlist"). A song the user names explicitly still goes first.` : ""}${liveSession ? `
+SESSION IS LIVE: music is already playing — never start a new session or a new playlist. Call recommend_tracks with steer_only: true and steer_note set to the user's message distilled into one short instruction for the radio's next-door picker (e.g. "more rap", "less energy, more Swedish", "keep this exact vibe going"). Include picks (1-3, library codes only, in play order) ONLY when the user asks for specific songs; for approval like "I'm loving it" send no picks and a steer_note like "keep this exact vibe going".` : ""}`;
 
   const runIdFetch = createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(request));
   const provider = createOpenAI({
@@ -197,6 +200,15 @@ DEEP CUTS IS ON: at least 5 of the picks must come from playlists dated 12+ mont
           start_road: z
             .enum(["vibe", "era"])
             .describe("Where the radio starts: 'vibe' for a mood/feeling/activity, 'era' for nostalgia, memories, a period of life or something reflective. Read the whole prompt's intent."),
+          steer_only: z
+            .boolean()
+            .optional()
+            .describe("True when the session is live and this call only steers the upcoming doors instead of starting a playlist."),
+          steer_note: z
+            .string()
+            .max(300)
+            .optional()
+            .describe("When steer_only: one short instruction for the next-door picker, distilled from the user's message."),
           picks: z
             .array(
               z.object({
@@ -205,10 +217,12 @@ DEEP CUTS IS ON: at least 5 of the picks must come from playlists dated 12+ mont
               }),
             )
             .min(1)
-            .max(10),
+            .max(10)
+            .optional()
+            .describe("Omit entirely when steering without specific song requests."),
         }),
-        execute: async ({ vibe_title, start_road, picks }) => {
-          const cards = picks
+        execute: async ({ vibe_title, start_road, picks, steer_only, steer_note }) => {
+          const cards = (picks ?? [])
             .map((p) => {
               const t = index.get(p.code.trim());
               return t
@@ -222,6 +236,7 @@ DEEP CUTS IS ON: at least 5 of the picks must come from playlists dated 12+ mont
             .select("id, spotify_id, image_url, preview_url, spotify_url")
             .in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
           const byId = new Map((full ?? []).map((f) => [f.id, f]));
+          if (steer_only) return { steer_only: true, steer_note: steer_note ?? "", tracks: cards.map((c) => ({ ...c, ...(byId.get(c["id"] as string) ?? {}) })) };
           return {
             vibe_title,
             start_road,
