@@ -46,10 +46,11 @@ const KIND_STYLE: Record<string, string> = {
 
 
 function skillForMemory(kind: string, origin: string, content: string) {
-  if (origin === "cross_session") return "Cross-session anchor";
-  if (origin === "synthesis") return "Session observation";
-  if (content.startsWith("Note on")) return "Feedbacker";
-  if (content.startsWith("Often steers")) return "Steer";
+  if (origin === "cross_session") return "Anchor · strongest";
+  if (origin === "history_profile") return "History profile · baseline";
+  if (content.startsWith("Note on")) return "Feedbacker · hint";
+  if (origin === "steer" || content.startsWith("Often steers")) return "Steer · hint";
+  if (origin === "synthesis") return "Observation · hint";
   if (kind === "skipped") return "Skipped";
   if (kind === "favorite") return "Favorite";
   if (origin === "listening") return "Listening";
