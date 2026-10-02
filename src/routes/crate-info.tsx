@@ -36,11 +36,11 @@ const SKILLS = [
   },
   {
     name: "Steer",
-    how: "Every twenty minutes or so of listening, Crate offers small chips like Svenskt, Engelskt, Nostalgi or Instrumental to nudge the maze without stopping the music. After a prompt, Crate's six picks play back to back as long as you finish them (press play on any card to start from there), starting on Vibe Road for a mood or Era Road for nostalgia; a skip sends you back into the maze. Searching for a song, sending a new prompt or picking a song straight in Spotify works the same way — the maze continues from there. A chip you reach for in three or more sessions becomes a permanent taste memory.",
+    how: "While a session plays, tell Crate where to take it in the chat — \"More rap\", \"Less energy\", \"More nostalgia\" — or just \"I'm loving it\". Crate re-plans the doors ahead so the maze drifts onto the path you asked for, without touching the song that's playing. Searching for a song or picking a song straight in Spotify still re-plans the maze from that song. A direction you steer toward in three or more sessions becomes a permanent taste memory.",
   },
   {
     name: "Feedbacker",
-    how: "The sharpest signal Crate gets: a few free words about the song playing right now. \"Nostalgi, högstadiet, sommarens första dag\" ties a feeling to a track forever, and Walrus carries it into every future session.",
+    how: "A valuable hint, not the sharpest signal: a few free words about a specific song. \"Gymnasiet, sommar, Thailand\" ties a feeling, event or location to a track forever, and Walrus carries it into every future session.",
   },
   {
     name: "Alternative roads",
