@@ -50,10 +50,6 @@ const SKILLS = [
     name: "Listening history",
     how: "Optional: drop the Spotify history files you requested for stats.fm into the Spotify panel. They're read on your device and only play counts are saved, so Crate knows which songs you once played a hundred times but haven't heard in years — and brings them back.",
   },
-  {
-    name: "Deep cuts",
-    how: "With Deep cuts on, Crate only picks songs you saved more than a year ago and kept in just one place — the songs you loved and forgot, never the staples.",
-  },
 ];
 
 function CrateInfoPage() {
@@ -119,8 +115,9 @@ function CrateInfoPage() {
             Spotify already holds the current song, the "if you skip" song and
             the song behind that one. The Maze box in the Studio shows where you
             are, the one song waiting behind each door and which road it came
-            from. Change song in Spotify, search, or send a new prompt mid-session
-            and Crate re-plans the maze from that song within seconds. Leave the
+            from. Change song in Spotify or search for one and Crate re-plans
+            the maze from that song within seconds; a chat message mid-session
+            steers the doors ahead instead of starting over. Leave the
             music paused for more than 90 seconds and the session ends — you can
             start fresh or resume where Crate was in the maze.
           </p>
