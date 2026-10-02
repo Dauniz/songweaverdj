@@ -35,6 +35,16 @@ Because MemWal offers semantic recall but no list API, Songweaver keeps a local 
 
 Songweaver has been used by multiple independent accounts, each storing their own memories on Walrus (at time of writing: users with 124, 32 and 10 stored memories, plus several smaller testers).
 
+### Integration notes (friction points & workarounds)
+
+The Walrus Memory relayer itself has been very reliable — at the time of writing, 183 memories stored with real `blob_id`s and only 1 pending. But building Songweaver around it surfaced three real architectural gaps worth documenting:
+
+1. **No `list()` or pagination API** — MemWal only offers semantic `recall({ query, limit })` and `rememberAsync()`. There is no way to enumerate or paginate all memories stored in a namespace, so a memory cannot be shown, audited or deleted by ID. To build the Memory Inspector, Songweaver keeps the local `memory_nodes` mirror table; without it, an app can only query its memories blind.
+2. **Asynchronous `rememberAsync()` with no completion event** — saving a memory returns a `job_id` immediately, not the final `blob_id`. The relayer takes time to SEAL-encrypt, embed and store the memory. Songweaver stores the memory locally as `blob_id: "job:<id>"` with status `pending`, then polls `getRememberStatus(jobId)` until the job completes and the permanent blob ID is swapped in. A webhook callback, a synchronous `remember()`, or a `job.waitForCompletion()` helper would remove this plumbing.
+3. **Read-after-write latency** — because embedding and SEAL encryption happen in the background, a memory saved a moment ago does not yet appear in a subsequent `recall()`. When Crate plans the next song right after learning a preference, it reads both the live Walrus `recall()` and its local cache so there is no blind spot while the Walrus job processes.
+
+What worked smoothly: per-user namespace isolation (`namespace: "crate-${userId}"` under one shared delegate key) cleanly prevented taste leakage between testers, and semantic `recall()` quality for vibes and listening preferences was accurate and useful in the DJ prompts.
+
 ---
 
 ## Architecture
