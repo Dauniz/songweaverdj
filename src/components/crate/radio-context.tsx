@@ -2039,7 +2039,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       scoutAbort.current = ctrl;
       const cid = s.current.spotify_id;
       // C is preserved exactly: queued behind the current song (door/preSkip) or already chosen.
-      const queuedSkip = preSkip.current?.forId === cid ? preSkip.current : door.current?.forId === cid ? door.current : null;
+      const queuedSkip = preSkip.current?.forId === cid ? preSkip.current.branch?.track : door.current?.forId === cid ? door.current.track : null;
       const pre: Branch = queuedSkip ? { track: queuedSkip.track, road: advance(s, "skipped").road } : null;
       // w (the skip door's own skip) is re-scouted under the steer note; the old plan is dropped.
       landingPlan.current = null;
