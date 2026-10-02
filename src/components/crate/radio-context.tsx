@@ -9,6 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack } from "@/lib/path.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
+import { saveSteerInsight } from "@/lib/memory.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
 import { pushSpotifyLog, ackSpotifySend, observeSpotify } from "@/lib/spotify-log";
 import { endSpotifySession, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyPlayback,
@@ -2068,6 +2069,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!pre) setUpSkip(null);
       setRadio(next);
       note("steer", trimmed ? `Steering: "${trimmed}" → re-scouting the doors ahead` : "Steer pick applied → re-scouting the doors ahead");
+      if (trimmed)
+        void saveSteerFn({ data: { note: trimmed, sessionId: s.sessionId ?? "", tzOffsetMin: new Date().getTimezoneOffset() } })
+          .then(() => qc.invalidateQueries({ queryKey: ["memories"] }))
+          .catch(() => {});
       void Promise.allSettled([playedB, skippedB, finishSkip]).then(async () => {
         await new Promise((r) => setTimeout(r, 300));
         if (branches.current?.key === key) void checkPlanRef.current?.("recheck");
