@@ -20,5 +20,6 @@
 - Sessions start via Start/search/prompt; compact search opens Memory; pause >90 s ends. Why: show the maze promptly.
 - Alternative roads (src/lib/lenses.ts + alt-roads.ts): single-select, replace the default roads while on. Why: each road has its own picking and skip rules.
 - Onboarding runs once per account (auth metadata flag). Why: first Studio visit only.
+- Motion uses the shared timing/easing primitives in `src/lib/motion.ts`; product actions never wait for animation and reduced motion collapses to short fades. Why: motion stays coherent, accessible, and separate from playback state.
 
 - Radio playback/queue rules live in src/components/crate/AGENTS.md. Why: scoped to radio-context.
