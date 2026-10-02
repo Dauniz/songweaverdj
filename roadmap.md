@@ -24,3 +24,4 @@
 - [x] Spotify observer safety: paused/stale player state cannot trigger endless skips; playback must be confirmed before Songweaver reports success
 - [x] Stabilize Spotify live-status warning: ignore transient polling gaps and Crate-owned handovers
 - [x] Switch compact Studio to Memory after a library-search pick and polish iPhone chat spacing
+- [x] Apply the Kinetic Geometry motion system across shared controls, Studio, public pages, and reduced-motion states

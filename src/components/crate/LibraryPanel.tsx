@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronDown, ChevronUp, Disc3, Loader2 } from "lucide-react";
@@ -24,8 +25,10 @@ import {
 } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { MOTION_EASE } from "@/lib/motion";
 
 export function LibraryPanel() {
+  const reduced = useReducedMotion();
   const qc = useQueryClient();
   const statusFn = useServerFn(getSpotifyStatus);
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
@@ -190,7 +193,13 @@ export function LibraryPanel() {
 
   if (collapsed) {
     return (
-      <div className="fixed left-3 top-16 z-40 sm:left-4">
+      <motion.div
+        layoutId="spotify-panel"
+        initial={{ opacity: 0, scale: reduced ? 1 : 0.92, x: reduced ? 0 : -6 }}
+        animate={{ opacity: 1, scale: 1, x: 0 }}
+        transition={{ duration: reduced ? 0.12 : 0.28, ease: MOTION_EASE }}
+        className="fixed left-3 top-16 z-40 sm:left-4"
+      >
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -198,7 +207,7 @@ export function LibraryPanel() {
                 type="button"
                 onClick={toggleCollapsed}
                 aria-label="Expand Spotify panel"
-                className="flex h-9 items-center gap-2 rounded-full border bg-card/95 px-3 shadow-lg backdrop-blur transition-colors hover:bg-accent"
+                className="kinetic-control flex h-9 items-center gap-2 rounded-full border bg-card/95 px-3 shadow-lg backdrop-blur hover:bg-accent"
               >
                 <span className={cn("inline-block h-2 w-2 rounded-full", orbClass)} />
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
@@ -207,12 +216,18 @@ export function LibraryPanel() {
             <TooltipContent side="right">{orbLabel}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="scrollbar-thin fixed left-3 top-16 z-40 max-h-[calc(100dvh-5rem)] w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur sm:left-4 sm:w-72">
+    <motion.div
+      layoutId="spotify-panel"
+      initial={{ opacity: 0, scale: reduced ? 1 : 0.96, x: reduced ? 0 : -8, clipPath: reduced ? "none" : "inset(0 0 20% 0)" }}
+      animate={{ opacity: 1, scale: 1, x: 0, clipPath: "inset(0)" }}
+      transition={{ duration: reduced ? 0.12 : 0.32, ease: MOTION_EASE }}
+      className="scrollbar-thin fixed left-3 top-16 z-40 max-h-[calc(100dvh-5rem)] w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border bg-card/95 p-3 shadow-lg backdrop-blur sm:left-4 sm:w-72"
+    >
       <div className="flex items-center gap-2 text-sm font-semibold">
         <Disc3 className="h-4 w-4 text-primary" /> Spotify
         <TooltipProvider delayDuration={200}>
@@ -233,7 +248,7 @@ export function LibraryPanel() {
           type="button"
           onClick={toggleCollapsed}
           aria-label="Minimize Spotify panel"
-          className="-m-1.5 rounded-sm p-2 text-muted-foreground transition-colors hover:text-foreground"
+          className="kinetic-control -m-1.5 rounded-sm p-2 text-muted-foreground hover:text-foreground"
         >
           <ChevronUp className="h-4 w-4" />
         </button>
@@ -250,8 +265,16 @@ export function LibraryPanel() {
               ? `synced ${new Date(status.lastSyncedAt).toLocaleString()}`
               : "not synced yet"}
           </p>
+          <AnimatePresence mode="wait">
           {(syncing || summary) && (
-            <div className="mt-3 space-y-2">
+            <motion.div
+              key={syncing ? "syncing" : "summary"}
+              initial={{ opacity: 0, y: reduced ? 0 : 5, clipPath: reduced ? "none" : "inset(0 0 30% 0)" }}
+              animate={{ opacity: 1, y: 0, clipPath: "inset(0)" }}
+              exit={{ opacity: 0, y: reduced ? 0 : -3 }}
+              transition={{ duration: reduced ? 0.12 : 0.24, ease: MOTION_EASE }}
+              className="mt-3 space-y-2"
+            >
               {syncing && (
                 <>
                   <Progress value={pct ?? undefined} className="h-1.5" />
@@ -267,8 +290,9 @@ export function LibraryPanel() {
                   </p>
                 </div>
               )}
-            </div>
+            </motion.div>
           )}
+          </AnimatePresence>
           <div className="mt-2 flex gap-2">
             <Button data-onboarding="spotify-sync" size="sm" onClick={sync} disabled={busy !== null}>
               {busy === "sync" && <Loader2 className="h-3 w-3 animate-spin" />} Sync library
@@ -302,6 +326,6 @@ export function LibraryPanel() {
         )}
       </div>
       <HistoryImport libraryIds={new Set(tracks.map((t) => t.spotify_id))} />
-    </div>
+    </motion.div>
   );
 }

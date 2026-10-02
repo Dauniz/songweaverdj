@@ -23,7 +23,7 @@ export function SteerChips({
   }, [prompt, onClose]);
 
   return (
-    <div className="absolute bottom-full right-3 mb-3 w-[min(430px,calc(100%-1.5rem))] animate-in rounded-lg border border-border bg-popover p-4 shadow-2xl fade-in slide-in-from-bottom-2 sm:right-5">
+    <div className="absolute bottom-full right-3 mb-3 w-[min(430px,calc(100%-1.5rem))] animate-[kinetic-popover-in_240ms_cubic-bezier(0.22,1,0.36,1)] rounded-lg border border-border bg-popover p-4 shadow-2xl sm:right-5 motion-reduce:animate-[kinetic-overlay-in_120ms_ease-out]">
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-bold">
           {prompt ? "Want to steer?" : "Steer the radio"}

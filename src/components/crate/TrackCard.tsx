@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { addMemory } from "@/lib/memory.functions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { motion, useReducedMotion } from "motion/react";
+import { geometricEnter, reducedFade } from "@/lib/motion";
 
 export type CardTrack = {
   id: string;
@@ -33,6 +35,7 @@ export function TrackCard({
   onPlay?: () => void;
 }) {
   const [acted, setActed] = useState<null | "fav" | "skip">(null);
+  const reduced = useReducedMotion();
   const remember = useServerFn(addMemory);
   const qc = useQueryClient();
   const canEmbed = track.spotify_id && !track.spotify_id.startsWith("demo-");
@@ -60,7 +63,9 @@ export function TrackCard({
   }
 
   return (
-    <div
+    <motion.div
+      variants={reduced ? reducedFade : geometricEnter}
+      layout="position"
       className={cn(
         "group rounded-lg border bg-surface p-2 transition hover:bg-surface-2",
         acted === "skip" && "opacity-50",
@@ -129,6 +134,6 @@ export function TrackCard({
           </Button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

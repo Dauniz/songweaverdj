@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Brain, Database, Route as RouteIcon, Sparkles } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
+import { MOTION_EASE } from "@/lib/motion";
 
 export const Route = createFileRoute("/crate-info")({
   head: () => ({
@@ -55,9 +57,15 @@ const SKILLS = [
 ];
 
 function CrateInfoPage() {
+  const reduced = useReducedMotion();
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto max-w-2xl px-6 py-10">
+      <motion.div
+        initial={{ opacity: 0, y: reduced ? 0 : 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reduced ? 0.12 : 0.34, ease: MOTION_EASE }}
+        className="mx-auto max-w-2xl px-6 py-10"
+      >
         <Link
           to="/studio"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -327,7 +335,7 @@ function CrateInfoPage() {
             <ArrowLeft className="h-4 w-4" /> Back to the Studio
           </Link>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

@@ -233,18 +233,36 @@ function JunctionTree({
   const resetting = anim?.type === "reset-out";
 
   const branch = (tx: number, color: string, grownKey: string, delay: number, dim: boolean) => (
-    <motion.path
-      key={grownKey}
-      d={`M ${w / 2} ${oH} C ${w / 2} ${oH + LEVEL_GAP / 2}, ${tx} ${doorsTop - LEVEL_GAP / 2}, ${tx} ${doorsTop}`}
-      fill="none"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      initial={reduced ? false : { pathLength: 0 }}
-      animate={{ pathLength: 1 }}
-      transition={{ duration: 0.55, delay, ease: TREE_EASE }}
-      style={{ opacity: dim ? 0.35 : 1 }}
-    />
+    <g key={grownKey}>
+      <path
+        d={`M ${w / 2} ${oH} C ${w / 2} ${oH + LEVEL_GAP / 2}, ${tx} ${doorsTop - LEVEL_GAP / 2}, ${tx} ${doorsTop}`}
+        fill="none"
+        stroke="var(--border)"
+        strokeWidth={1}
+        strokeDasharray="4 5"
+        strokeLinecap="round"
+      />
+      <motion.path
+        d={`M ${w / 2} ${oH} C ${w / 2} ${oH + LEVEL_GAP / 2}, ${tx} ${doorsTop - LEVEL_GAP / 2}, ${tx} ${doorsTop}`}
+        fill="none"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        initial={reduced ? false : { pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: reduced ? 0.12 : 0.55, delay: reduced ? 0 : delay, ease: TREE_EASE }}
+        style={{ opacity: dim ? 0.35 : 1 }}
+      />
+      <motion.circle
+        cx={tx}
+        cy={doorsTop}
+        r={3}
+        fill={color}
+        initial={reduced ? false : { opacity: 0, scale: 0 }}
+        animate={{ opacity: dim ? 0.35 : 1, scale: 1 }}
+        transition={{ duration: reduced ? 0.12 : 0.18, delay: reduced ? 0 : delay + 0.42, ease: TREE_EASE }}
+      />
+    </g>
   );
 
   return (
