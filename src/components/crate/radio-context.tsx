@@ -752,7 +752,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       awaitingSkipPair.current = false;
       quickSkipUntil.current = 0;
       handledFor.current = "";
-      setAskSteer(false);
       if (!first) {
         setRadio(IDLE);
         return;
@@ -845,7 +844,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     deepCutsRef.current = false;
     setDeepCutsState(false);
     branches.current = null;
-    setAskSteer(false);
     setPlaybackIssue(null);
     door.current = null;
     preSkip.current = null;
@@ -2041,12 +2039,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       scoutAbort.current = ctrl;
       const cid = s.current.spotify_id;
       // C is preserved exactly: queued behind the current song (door/preSkip) or already chosen.
-      const pre =
-        preSkip.current?.forId === cid
-          ? preSkip.current.branch
-          : door.current?.forId === cid
-            ? ({ track: door.current.track, road: advance(s, "skipped").road } as Branch)
-            : null;
+      const queuedSkip = preSkip.current?.forId === cid ? preSkip.current : door.current?.forId === cid ? door.current : null;
+      const pre: Branch = queuedSkip ? { track: queuedSkip.track, road: advance(s, "skipped").road } : null;
       // w (the skip door's own skip) is re-scouted under the steer note; the old plan is dropped.
       landingPlan.current = null;
       const next: RadioState = { ...s, steerNote: trimmed };
