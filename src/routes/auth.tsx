@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { MOTION_EASE } from "@/lib/motion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
@@ -37,6 +39,7 @@ function SpotifyLogo({ className }: { className?: string }) {
 function AuthPage() {
   const navigate = useNavigate();
   const [entry, setEntry] = useState<null | "spotify" | "guest">(null);
+  const reduced = useReducedMotion();
   const loginUrl = useServerFn(getSpotifyLoginUrl);
   const guestFn = useServerFn(createGuestSession);
   const preparedLogin = usePreparedSpotifyUrl(() =>
@@ -105,7 +108,12 @@ function AuthPage() {
 
   return (
     <div className="min-h-screen bg-glow flex items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-2xl border bg-card/80 p-8 backdrop-blur">
+      <motion.div
+        initial={{ opacity: 0, y: reduced ? 0 : 12, clipPath: reduced ? "none" : "inset(0 0 12% 0)" }}
+        animate={{ opacity: 1, y: 0, clipPath: "inset(0)" }}
+        transition={{ duration: reduced ? 0.12 : 0.36, ease: MOTION_EASE }}
+        className="w-full max-w-sm rounded-2xl border bg-card/80 p-8 backdrop-blur"
+      >
         <img src={logo} alt="Songweaver" width={56} height={56} className="mb-6 h-14 w-14 rounded-xl" />
         <h1 className="text-3xl font-bold">Welcome to Songweaver</h1>
         <p className="mt-1 text-sm text-muted-foreground">Your forgotten favorites are waiting.</p>
@@ -133,7 +141,7 @@ function AuthPage() {
         <p className="mt-1.5 text-center text-xs text-muted-foreground">
           Guest mode with sample playlists — no Spotify needed.
         </p>
-      </div>
+      </motion.div>
     </div>
   );
 }

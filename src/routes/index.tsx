@@ -1,5 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { MOTION_EASE } from "@/lib/motion";
 import { readLiveSession } from "@/lib/live-session";
 import logo from "@/assets/crate-logo.jpg";
 
@@ -26,13 +28,20 @@ export const Route = createFileRoute("/")({
 
 function Index() {
   const navigate = useNavigate();
+  const reduced = useReducedMotion();
   useEffect(() => {
     if (readLiveSession()) void navigate({ to: "/studio" });
   }, [navigate]);
   return (
     <main className="min-h-screen bg-glow">
-      <div className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-16">
-        <img src={logo} alt="Songweaver logo" width={72} height={72} className="h-18 w-18 rounded-2xl" />
+      <motion.div
+        className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-16"
+        initial="hidden"
+        animate="visible"
+        variants={{ hidden: {}, visible: { transition: { staggerChildren: reduced ? 0 : 0.07 } } }}
+      >
+        <motion.img variants={{ hidden: { opacity: 0, y: reduced ? 0 : 10 }, visible: { opacity: 1, y: 0, transition: { duration: reduced ? 0.12 : 0.32, ease: MOTION_EASE } } }} src={logo} alt="Songweaver logo" width={72} height={72} className="h-18 w-18 rounded-2xl" />
+        <motion.div variants={{ hidden: { opacity: 0, y: reduced ? 0 : 10 }, visible: { opacity: 1, y: 0, transition: { duration: reduced ? 0.12 : 0.32, ease: MOTION_EASE } } }}>
         <p className="mt-10 text-sm font-semibold uppercase tracking-[0.2em] text-primary">
           Personal rediscovery · Walrus Memory
         </p>
@@ -47,12 +56,13 @@ function Index() {
         <div className="mt-10">
           <Link
             to="/studio"
-            className="inline-flex h-12 items-center rounded-full bg-primary px-8 font-semibold text-primary-foreground transition hover:scale-[1.02]"
+            className="kinetic-control inline-flex h-12 items-center rounded-full bg-primary px-8 font-semibold text-primary-foreground hover:scale-[1.02]"
           >
             Open the studio
           </Link>
         </div>
-      </div>
+        </motion.div>
+      </motion.div>
     </main>
   );
 }

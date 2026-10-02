@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { MOTION_EASE } from "@/lib/motion";
 import { LogOut } from "lucide-react";
 import {
   Tooltip,
@@ -69,6 +71,7 @@ function StudioLayout({
   onSignOut: () => void;
 }) {
   const { sessionLive, radio } = useRadio();
+  const reduced = useReducedMotion();
   const live = sessionLive || radio.active;
   const showMemory = useCallback(() => onTab("memory"), [onTab]);
   return (
@@ -88,10 +91,18 @@ function StudioLayout({
               size="xs"
               className={cn(
                 "h-9 rounded-full px-3 text-xs capitalize sm:h-7",
-                mobileTab === t ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+                "relative isolate overflow-hidden",
+                mobileTab === t ? "text-primary-foreground hover:bg-transparent" : "text-muted-foreground",
               )}
             >
-              {t}
+              {mobileTab === t && (
+                <motion.span
+                  layoutId="studio-mobile-tab"
+                  className="absolute inset-0 -z-10 rounded-full bg-primary"
+                  transition={{ duration: reduced ? 0.12 : 0.24, ease: MOTION_EASE }}
+                />
+              )}
+              <span>{t}</span>
             </Button>
           ))}
         </nav>
