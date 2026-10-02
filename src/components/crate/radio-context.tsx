@@ -2023,31 +2023,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     if (retryTimer.current) clearTimeout(retryTimer.current);
   }, []);
 
-  // Gentle periodic steering offer (~every 20 min of listening)
-  useEffect(() => {
-    if (!radio.active) return;
-    const t = setInterval(() => {
-      if (Date.now() - lastSteerAsk.current > 20 * 60_000) {
-        lastSteerAsk.current = Date.now();
-        setAskSteer(true);
-      }
-    }, 60_000);
-    lastSteerAsk.current = Date.now();
-    return () => clearInterval(t);
-  }, [radio.active, radio.sessionId]);
-
-  const toggleChip = useCallback(
-    (chip: string) => {
-      const s = radioRef.current;
-      const on = !s.chips.includes(chip);
-      const chips = on ? [...s.chips, chip] : s.chips.filter((c) => c !== chip);
-      if (on) log({ name: chip, artists: "" }, "steer", s);
-      branches.current = null; // steering invalidates the prefetched paths
-      if (s.active) note("steer", `${on ? "You steered toward" : "You dropped"} "${chip}" → re-scouting both doors`);
-      setRadio({ ...s, chips });
-    },
-    [log, note],
-  );
 
   /** One entry point for side roads (lenses + deep cuts). Toggling back within 10s restores the old doors. */
   const applySideRoad = useCallback(
