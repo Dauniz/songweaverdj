@@ -309,7 +309,11 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Describe the vibe, setting, or a song to start from…"
+            placeholder={
+              sessionLive
+                ? 'Not feeling it? Tell Crate to steer the session in any direction. For example "More rap", "Less energy", "More nostalgia"'
+                : "Describe the vibe, setting, or a song to start from…"
+            }
             className="min-h-24 px-4 py-3 text-base leading-6 placeholder:text-base sm:min-h-28 sm:text-lg sm:leading-7"
           />
           <PromptInputFooter className="flex items-center justify-between px-3 pb-3">
