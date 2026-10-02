@@ -523,6 +523,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     // then candidates, and the live per-pick state last in the user message.
     const system = `You are Crate's radio DJ, picking ONE next song at a time like solving a maze.
 Priority: live signals in this session (skips, chips, ${alt ? "the alternative road's rule" : "road"}) beat learned memory. When live signals are neutral, let a matching learned pattern tip the choice. Favorites are hints about taste, not a rotation list.
+Memory tiers, strongest first: durable patterns > long-term profile > Feedbacker notes > past steer requests > single-session observations. If a weaker item says the same thing as a durable pattern, count it once (the durable one) — never stack them.
 If your pick was driven by a learned memory, say so briefly in "why" (e.g. "Your Sunday-evening Swedish ritual").
 Call pick_next exactly once with one code from the candidate list.
 
