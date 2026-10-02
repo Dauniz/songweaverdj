@@ -372,6 +372,7 @@ const inputSchema = z.object({
     .default([]),
   road: z.enum(["vibe", "era", "mixed"]),
   chips: z.array(z.string().max(40)).max(10).default([]),
+  steerNote: z.string().max(300).default(""),
   lens: z.enum(LENS_IDS).nullable().default(null),
   deepCuts: z.boolean().default(false),
   tzOffsetMin: z.number().int().min(-900).max(900).default(0),
@@ -437,8 +438,8 @@ export const nextPathTrack = createServerFn({ method: "POST" })
       },
     });
 
-    // ERA road without chips: pure code, instant.
-    if (!alt && data.road === "era" && anchor && !data.chips.length) {
+    // ERA road without chips or steer note: pure code, instant.
+    if (!alt && data.road === "era" && anchor && !data.chips.length && !data.steerNote) {
       const warm = available.filter((x) => !cool.has(x.artists));
       const shifted = data.eraShift ? eraShiftCandidates(anchor, warm.length >= 10 ? warm : available) : [];
       const cands = shifted.length ? shifted : eraCandidates(anchor, warm.length >= 10 ? warm : available);
@@ -538,7 +539,7 @@ ${lines.join("\n")}`;
 Seed song: "${data.seed.name}" by ${data.seed.artists}.${data.seedPrompt ? `\nThe session started from: "${data.seedPrompt}".` : ""}
 Played through${alt ? "" : " (the road that works)"}: ${liked.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(only the seed so far)"}
 Skipped (wrong turns, avoid similar): ${skipped.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(none)"}
-${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
+${data.steerNote ? `Steering instruction from the listener (must respect): ${data.steerNote}\n` : ""}${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
 ${roadRule}
 ${!alt && data.eraShift ? "ERA HOP: the last era didn't land — pick from a nearby era, roughly 1–3 years earlier or later than the anchor's period.\n" : ""}${data.coolArtists.length ? `COOLING (skipped recently, prefer other artists unless one is clearly the best fit): ${data.coolArtists.join("; ")}\n` : ""}HISTORY: "(Nx, last yyyy-mm)" = how often they streamed it and when last. Many plays but not for a long time = a forgotten favorite, great to resurface.
 Other Walrus Memory relevant right now:

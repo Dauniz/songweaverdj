@@ -16,7 +16,6 @@ import { endSpotifySession, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyP
 import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
-import { SteerChips } from "./SteerChips";
 
 export type Road = "vibe" | "era" | "mixed";
 export type RadioTrack = CardTrack & { why?: string };
@@ -42,7 +41,10 @@ export type RadioState = {
   seed: RadioTrack | null;
   seedPrompt: string;
   road: Road;
+  /** Late: chips survive from restored sessions but new chips are chat steering (steerNote). */
   chips: string[];
+  /** Mid-session chat steering: every future pick must respect this until it's reached. */
+  steerNote: string;
   history: HistoryItem[];
   consecutiveSkips: number;
   /** Last Era/Vibe road, used for "if you finish" after a New angle. */
@@ -66,15 +68,14 @@ type RadioContextValue = {
   /** Debug (read-only): snapshot of the prepared doors. undefined = still choosing, null = none. */
   peekDoors: () => Promise<DoorPeek>;
   thinking: boolean;
-  askSteer: boolean;
-  dismissSteer: () => void;
+  /** Chat steering: apply a direction (and optional picks) to the upcoming doors; C stays queued. */
+  steerSession: (note: string, picks?: CardTrack[]) => Promise<void>;
   startRadio: (tracks: CardTrack[], seedPrompt: string, startAt?: number, startRoad?: Road) => void;
   rerootTo: (track: CardTrack, prompt?: string) => void;
   stopRadio: () => void;
   next: (outcome: Outcome) => void;
   /** Media "next" button: always lands on Crate's skip door, never your own Spotify queue. */
   skipNow: () => Promise<void>;
-  toggleChip: (chip: string) => void;
   lens: LensId | null;
   setLens: (lens: LensId | null) => void;
   deepCuts: boolean;
@@ -106,6 +107,7 @@ const IDLE: RadioState = {
   seedPrompt: "",
   road: "vibe",
   chips: [],
+  steerNote: "",
   history: [],
   consecutiveSkips: 0,
   sessionId: "",
@@ -161,7 +163,6 @@ function advance(s: RadioState, outcome: "played" | "skipped"): RadioState {
 export function RadioProvider({ children }: { children: ReactNode }) {
   const [radio, setRadio] = useState<RadioState>(IDLE);
   const [thinking, setThinking] = useState(false);
-  const [askSteer, setAskSteer] = useState(false);
   const logFn = useServerFn(logListeningEvent);
   const pathFn = useServerFn(nextPathTrack);
   const synthFn = useServerFn(synthesizeMemories);
@@ -213,7 +214,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const upNextRef = useRef<RadioTrack | null>(null);
   upNextRef.current = upNext;
   const [upSkip, setUpSkip] = useState<{ track: RadioTrack; road: Road } | null>(null);
-  const lastSteerAsk = useRef(0);
   const lastSkipAsk = useRef(0);
   const lastPlayback = useRef({ spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 });
   const advancing = useRef(false);
@@ -471,6 +471,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             history: s.history,
             road: s.road,
             chips: s.chips,
+            steerNote: (s.steerNote ?? "").slice(0, 300),
             lens: lensRef.current,
             deepCuts: deepCutsRef.current,
             tzOffsetMin: new Date().getTimezoneOffset(),
@@ -500,7 +501,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!s.active || !s.current) return;
       if (calmingRef.current) return; // wait for the clicking to stop before looking for songs
       if (lensTimer.current) return; // side-road misclick buffer: keep the current doors until it settles
-      const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
+      const key = `${s.current.id}|${s.chips.join(",")}|${s.steerNote ?? ""}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
       if (branches.current?.key === key) return;
       scoutAbort.current?.abort(); // drop any scouting still running for an old key
       const ctrl = new AbortController();
@@ -751,7 +752,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       awaitingSkipPair.current = false;
       quickSkipUntil.current = 0;
       handledFor.current = "";
-      setAskSteer(false);
       if (!first) {
         setRadio(IDLE);
         return;
@@ -844,7 +844,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     deepCutsRef.current = false;
     setDeepCutsState(false);
     branches.current = null;
-    setAskSteer(false);
     setPlaybackIssue(null);
     door.current = null;
     preSkip.current = null;
@@ -914,8 +913,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const nextState = advance(s, outcome);
       if (nextState.consecutiveSkips >= 2 && Date.now() - lastSkipAsk.current > 60_000) {
         lastSkipAsk.current = Date.now();
-        lastSteerAsk.current = Date.now();
-        setAskSteer(true);
       }
       const pending = branches.current?.[outcome];
       setThinking(true);
@@ -2024,30 +2021,77 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     if (retryTimer.current) clearTimeout(retryTimer.current);
   }, []);
 
-  // Gentle periodic steering offer (~every 20 min of listening)
-  useEffect(() => {
-    if (!radio.active) return;
-    const t = setInterval(() => {
-      if (Date.now() - lastSteerAsk.current > 20 * 60_000) {
-        lastSteerAsk.current = Date.now();
-        setAskSteer(true);
-      }
-    }, 60_000);
-    lastSteerAsk.current = Date.now();
-    return () => clearInterval(t);
-  }, [radio.active, radio.sessionId]);
 
-  const toggleChip = useCallback(
-    (chip: string) => {
+  /** Chat steering (mid-session): the listener sends a direction like "More rap" or "I'm loving it".
+   *  B (and its v, and C's own w) are re-scouted under the steer note; C stays exactly as queued —
+   *  replacing a queued door would glitch Spotify's audio. Never touches the six-pick prompt queue. */
+  const steerSession = useCallback(
+    async (note_?: string, picks?: CardTrack[]) => {
       const s = radioRef.current;
-      const on = !s.chips.includes(chip);
-      const chips = on ? [...s.chips, chip] : s.chips.filter((c) => c !== chip);
-      if (on) log({ name: chip, artists: "" }, "steer", s);
-      branches.current = null; // steering invalidates the prefetched paths
-      if (s.active) note("steer", `${on ? "You steered toward" : "You dropped"} "${chip}" → re-scouting both doors`);
-      setRadio({ ...s, chips });
+      const trimmed = (note_ ?? "").trim().slice(0, 300);
+      if (!s.active || !s.current || (!trimmed && !picks?.length)) return;
+      const steerPick = picks?.find((t) => t.spotify_id && isPlayable(t));
+      if (!trimmed && !steerPick) return;
+      // Steering owns the maze from here: a running prompt playlist yields to the new direction.
+      promptQueue.current = null;
+      scoutAbort.current?.abort();
+      const ctrl = new AbortController();
+      scoutAbort.current = ctrl;
+      const cid = s.current.spotify_id;
+      // C is preserved exactly: queued behind the current song (door/preSkip) or already chosen.
+      const ps = preSkip.current;
+      const dn = door.current;
+      const queuedTrack = ps && ps.forId === cid ? ps.branch?.track : dn && dn.forId === cid ? dn.track : null;
+      const pre: Branch = queuedTrack ? { track: queuedTrack, road: advance(s, "skipped").road } : null;
+      // w (the skip door's own skip) is re-scouted under the steer note; the old plan is dropped.
+      landingPlan.current = null;
+      const next: RadioState = { ...s, steerNote: trimmed };
+      const playedB: Promise<Branch> = steerPick
+        ? Promise.resolve({
+            track: { ...steerPick, why: trimmed ? `Steering: ${trimmed}` : "You asked Crate to steer" },
+            road: advance(next, "played").road,
+          })
+        : fetchBranch(next, ctrl.signal);
+      const skippedB: Promise<Branch> = pre ? Promise.resolve(pre) : fetchBranch(advance(next, "skipped"), ctrl.signal);
+      // v: the new finish door's own "if you skip" song.
+      const finishSkip: Promise<Branch> = Promise.all([playedB, skippedB]).then(([f, k]) => {
+        if (!f?.track.spotify_id) return null;
+        const onFinish: RadioState = { ...advance(next, "played"), current: f.track, road: f.road };
+        return fetchBranch(advance(onFinish, "skipped"), ctrl.signal, [cid, k?.track.spotify_id].filter(Boolean) as string[]).then(
+          (b) => (b?.track.spotify_id && isPlayable(b.track) && b.track.spotify_id !== f.track.spotify_id ? b : null),
+        );
+      });
+      // Match prefetch's key exactly (plus the steer note) so a later prefetch call keeps these doors.
+      const key = `${s.current.id}|${s.chips.join(",")}|${trimmed}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
+      branches.current = { key, played: playedB, skipped: skippedB, finishSkip };
+      setUpNext(null);
+      if (!pre) setUpSkip(null);
+      setRadio(next);
+      note("steer", trimmed ? `Steering: "${trimmed}" → re-scouting the doors ahead` : "Steer pick applied → re-scouting the doors ahead");
+      void Promise.allSettled([playedB, skippedB, finishSkip]).then(async () => {
+        await new Promise((r) => setTimeout(r, 300));
+        if (branches.current?.key === key) void checkPlanRef.current?.("recheck");
+      });
+      skippedB.then((b) => {
+        if (branches.current?.key !== key) return;
+        setUpSkip(b ?? null);
+        // w: re-choose the skip door's own skip under the steer note (unless a plan already covers it).
+        const cId = b?.track.spotify_id;
+        if (b && cId && !(landingPlan.current && landingPlan.current.forId === cId)) {
+          void playedB.then((f) => {
+            if (branches.current?.key !== key) return;
+            if (landingPlan.current && landingPlan.current.forId === cId) return;
+            planLandingRef.current?.(next, b, [cid, f?.track.spotify_id]);
+          });
+        }
+      });
+      playedB.then((b) => {
+        if (branches.current?.key !== key) return;
+        setUpNext(b?.track ?? null);
+        note("door", b ? `Finish door ready: "${b.track.name}" by ${b.track.artists}${b.track.why ? ` — ${b.track.why}` : ""}` : "Finish door: nothing fits, will fall back");
+      });
     },
-    [log, note],
+    [fetchBranch, note],
   );
 
   /** One entry point for side roads (lenses + deep cuts). Toggling back within 10s restores the old doors. */
@@ -2160,14 +2204,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         upNext,
         upSkip,
         thinking,
-        askSteer,
-        dismissSteer: () => setAskSteer(false),
+        steerSession,
         startRadio: startOrReplan,
         rerootTo,
         stopRadio,
         next,
         skipNow,
-        toggleChip,
         lens,
         setLens,
         deepCuts,
@@ -2190,14 +2232,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      {askSteer && (
-        <SteerChips
-          prompt
-          active={radio.chips}
-          onToggle={toggleChip}
-          onClose={() => setAskSteer(false)}
-        />
-      )}
       <SpotifyOpenDialog
         issue={playbackIssue}
         track={radio.current}

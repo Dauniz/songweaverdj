@@ -36,11 +36,11 @@ const SKILLS = [
   },
   {
     name: "Steer",
-    how: "Every twenty minutes or so of listening, Crate offers small chips like Svenskt, Engelskt, Nostalgi or Instrumental to nudge the maze without stopping the music. After a prompt, Crate's six picks play back to back as long as you finish them (press play on any card to start from there), starting on Vibe Road for a mood or Era Road for nostalgia; a skip sends you back into the maze. Searching for a song, sending a new prompt or picking a song straight in Spotify works the same way — the maze continues from there. A chip you reach for in three or more sessions becomes a permanent taste memory.",
+    how: "While a session plays, tell Crate where to take it in the chat — \"More rap\", \"Less energy\", \"More nostalgia\" — or just \"I'm loving it\". Crate re-plans the doors ahead so the maze drifts onto the path you asked for, without touching the song that's playing. Searching for a song or picking a song straight in Spotify still re-plans the maze from that song. A direction you steer toward in three or more sessions becomes a permanent taste memory.",
   },
   {
     name: "Feedbacker",
-    how: "The sharpest signal Crate gets: a few free words about the song playing right now. \"Nostalgi, högstadiet, sommarens första dag\" ties a feeling to a track forever, and Walrus carries it into every future session.",
+    how: "A valuable hint, not the sharpest signal: a few free words about a specific song. \"Gymnasiet, sommar, Thailand\" ties a feeling, event or location to a track forever, and Walrus carries it into every future session.",
   },
   {
     name: "Alternative roads",
@@ -49,10 +49,6 @@ const SKILLS = [
   {
     name: "Listening history",
     how: "Optional: drop the Spotify history files you requested for stats.fm into the Spotify panel. They're read on your device and only play counts are saved, so Crate knows which songs you once played a hundred times but haven't heard in years — and brings them back.",
-  },
-  {
-    name: "Deep cuts",
-    how: "With Deep cuts on, Crate only picks songs you saved more than a year ago and kept in just one place — the songs you loved and forgot, never the staples.",
   },
 ];
 
@@ -119,8 +115,9 @@ function CrateInfoPage() {
             Spotify already holds the current song, the "if you skip" song and
             the song behind that one. The Maze box in the Studio shows where you
             are, the one song waiting behind each door and which road it came
-            from. Change song in Spotify, search, or send a new prompt mid-session
-            and Crate re-plans the maze from that song within seconds. Leave the
+            from. Change song in Spotify or search for one and Crate re-plans
+            the maze from that song within seconds; a chat message mid-session
+            steers the doors ahead instead of starting over. Leave the
             music paused for more than 90 seconds and the session ends — you can
             start fresh or resume where Crate was in the maze.
           </p>

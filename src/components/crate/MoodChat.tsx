@@ -115,7 +115,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recordingRef = useRef<VoiceRecording | null>(null);
   const stoppingRef = useRef(false);
-  const { startRadio, lens, setLens, deepCuts, setDeepCuts } = useRadio();
+  const { startRadio, steerSession, sessionLive, lens, setLens, deepCuts, setDeepCuts } = useRadio();
   const [wormholeBlocked, setWormholeBlocked] = useState(false);
   const { data: hasYearHistory } = useQuery({
     queryKey: ["listening-history", "years"],
@@ -187,7 +187,18 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
     autoStarted.current.add(last.id);
     for (const part of last.parts) {
       if (part.type === "tool-recommend_tracks" && part.state === "output-available") {
-        const out = part.output as { vibe_title: string; start_road?: "vibe" | "era"; tracks: CardTrack[] };
+        const out = part.output as {
+          vibe_title: string;
+          start_road?: "vibe" | "era";
+          steer_only?: boolean;
+          steer_note?: string;
+          tracks: CardTrack[];
+        };
+        if (out.steer_only) {
+          // Mid-session chat steering: re-scout the upcoming doors, never touch the playing song.
+          void steerSession(out.steer_note ?? "", out.tracks ?? []);
+          break;
+        }
         if (out.tracks.length) {
           // Start on the song the user actually named, if it's among the picks.
           const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N} ]/gu, "").trim();
@@ -201,7 +212,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
         break;
       }
     }
-  }, [status, messages, startRadio]);
+  }, [status, messages, startRadio, steerSession]);
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -215,7 +226,12 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
     if (deepCuts) filters.push("prefer deep cuts I haven't heard in a while");
     const activeLens = LENSES.find((l) => l.id === lens);
     if (activeLens) filters.push(`alternative road ${activeLens.name}: ${activeLens.info}`);
-    sendMessage({ text: filters.length ? `${t}\n\n(Filters: ${filters.join("; ")})` : t });
+    // A live session turns every chat message into steering — Crate re-plans the doors ahead
+    // instead of starting over. The marker is stripped from the visible transcript.
+    const live = sessionLive ? "\n\n(Session is live — steer instead of restarting)" : "";
+    sendMessage({
+      text: `${t}${filters.length ? `\n\n(Filters: ${filters.join("; ")})` : ""}${live}`,
+    });
     setText("");
   }
 
@@ -293,7 +309,11 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Describe the vibe, setting, or a song to start from…"
+            placeholder={
+              sessionLive
+                ? 'Not feeling it? Tell Crate to steer the session in any direction. For example "More rap", "Less energy", "More nostalgia"'
+                : "Describe the vibe, setting, or a song to start from…"
+            }
             className="min-h-24 px-4 py-3 text-base leading-6 placeholder:text-base sm:min-h-28 sm:text-lg sm:leading-7"
           />
           <PromptInputFooter className="flex items-center justify-between px-3 pb-3">
@@ -492,7 +512,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                   if (part.type === "text") {
                     const shown =
                       m.role === "user"
-                        ? part.text.replace(/\n\n\(Filters:[^)]*\)$/, "")
+                        ? part.text.replace(/\n\n\((?:Filters|Session is live)[^)]*\)(?=\n\n\(|$)/g, "")
                         : part.text;
                     return <MessageResponse key={i}>{shown}</MessageResponse>;
                   }
