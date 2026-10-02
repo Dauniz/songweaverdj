@@ -32,6 +32,50 @@ export const addMemory = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Persist a mid-session steer as a weak "Steer" insight (deduped per session). */
+export const saveSteerInsight = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        note: z.string().min(1).max(300),
+        sessionId: z.string().max(100).default(""),
+        tzOffsetMin: z.number().int().min(-900).max(900).default(0),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const local = new Date(Date.now() - data.tzOffsetMin * 60_000);
+    const h = local.getUTCHours();
+    const part = h < 5 ? "night" : h < 12 ? "morning" : h < 17 ? "afternoon" : h < 22 ? "evening" : "night";
+    const day = local.toUTCString().slice(0, 16);
+    const tag = data.sessionId ? ` [s:${data.sessionId.slice(0, 12)}]` : "";
+    const content = `Steer (${day}, ${part}): ${data.note.trim()}${tag}`;
+    // Skip near-duplicates in the same session.
+    if (data.sessionId) {
+      const { data: prior } = await context.supabase
+        .from("memory_nodes")
+        .select("content")
+        .eq("origin", "steer")
+        .like("content", `%[s:${data.sessionId.slice(0, 12)}]`)
+        .limit(20);
+      const head = data.note.trim().toLowerCase().slice(0, 40);
+      if ((prior ?? []).some((p) => p.content.toLowerCase().includes(head))) return { ok: true, skipped: true };
+    }
+    const { jobId, error } = await submitMemory(context.userId, "mood_trigger", content);
+    const { error: dbErr } = await context.supabase.from("memory_nodes").insert({
+      user_id: context.userId,
+      kind: "mood_trigger",
+      content,
+      origin: "steer",
+      blob_id: jobId ? `job:${jobId}` : null,
+      status: jobId ? "pending" : error === "not_configured" ? "local" : "failed",
+    });
+    if (dbErr) throw new Error(dbErr.message);
+    return { ok: true, skipped: false };
+  });
+
+
 /** Wipe everything Crate has learned about this user — keeps the imported library. */
 export const resetMemoryLog = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

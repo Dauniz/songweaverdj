@@ -487,9 +487,9 @@ export const nextPathTrack = createServerFn({ method: "POST" })
       : await supabase
           .from("memory_nodes")
           .select("content, origin, created_at")
-          .or("origin.eq.cross_session,origin.eq.synthesis,origin.eq.history_profile,content.like.Note on%")
+          .or("origin.eq.cross_session,origin.eq.synthesis,origin.eq.history_profile,origin.eq.steer,content.like.Note on%")
           .order("created_at", { ascending: false })
-          .limit(40)
+          .limit(50)
           .then((r: { data: { content: string; origin: string }[] | null }) => r.data ?? []);
 
     const recalled: { text: string }[] =
@@ -502,6 +502,10 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const anchors = learned.filter((m) => m.origin === "cross_session").slice(0, 6);
     const observations = learned.filter((m) => m.origin === "synthesis").slice(0, 4);
     const notes = learned.filter((m) => m.content.startsWith("Note on")).slice(0, 8);
+    const steers = learned
+      .filter((m) => m.origin === "steer")
+      .slice(0, 6)
+      .map((m) => ({ content: m.content.replace(/\s*\[s:[^\]]*\]$/, "") }));
     const profile = learned.filter((m) => m.origin === "history_profile").slice(0, 7);
     const seen = new Set(learned.map((m) => m.content));
     const walrus = recalled.filter((m: { text: string }) => ![...seen].some((c) => m.text.includes(c.slice(0, 40))));
@@ -519,6 +523,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     // then candidates, and the live per-pick state last in the user message.
     const system = `You are Crate's radio DJ, picking ONE next song at a time like solving a maze.
 Priority: live signals in this session (skips, chips, ${alt ? "the alternative road's rule" : "road"}) beat learned memory. When live signals are neutral, let a matching learned pattern tip the choice. Favorites are hints about taste, not a rotation list.
+Memory tiers, strongest first: durable patterns > long-term profile > Feedbacker notes > past steer requests > single-session observations. If a weaker item says the same thing as a durable pattern, count it once (the durable one) — never stack them.
 If your pick was driven by a learned memory, say so briefly in "why" (e.g. "Your Sunday-evening Swedish ritual").
 Call pick_next exactly once with one code from the candidate list.
 
@@ -527,10 +532,12 @@ Durable patterns across many sessions (strongest; apply them, especially rituals
 ${bullets(anchors)}
 Long-term profile from years of their Spotify streaming history (baseline — compare this session against it; tonight may confirm or break the habit):
 ${bullets(profile)}
-Recent single-session observations (weaker hints):
-${bullets(observations)}
 Things they told you about specific songs (Feedbacker — their own words, trust them):
 ${bullets(notes)}
+Directions they asked to steer toward in past sessions (weaker hints — never override this session's live steer):
+${bullets(steers)}
+Recent single-session observations (weakest hints):
+${bullets(observations)}
 
 Candidates (code|title—artist {Spotify genre tags, when known} [playlist yyyy-mm]). Use genre tags together with your own knowledge of the artist's sound:
 ${lines.join("\n")}`;

@@ -9,6 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack } from "@/lib/path.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
+import { saveSteerInsight } from "@/lib/memory.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
 import { pushSpotifyLog, ackSpotifySend, observeSpotify } from "@/lib/spotify-log";
 import { endSpotifySession, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyPlayback,
@@ -166,6 +167,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const logFn = useServerFn(logListeningEvent);
   const pathFn = useServerFn(nextPathTrack);
   const synthFn = useServerFn(synthesizeMemories);
+  const saveSteerFn = useServerFn(saveSteerInsight);
   /** Songs logged this run — Crate reflects every few of them. */
   const logged = useRef(0);
   const reflecting = useRef(false);
@@ -2068,6 +2070,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!pre) setUpSkip(null);
       setRadio(next);
       note("steer", trimmed ? `Steering: "${trimmed}" → re-scouting the doors ahead` : "Steer pick applied → re-scouting the doors ahead");
+      if (trimmed)
+        void saveSteerFn({ data: { note: trimmed, sessionId: s.sessionId ?? "", tzOffsetMin: new Date().getTimezoneOffset() } })
+          .then(() => qc.invalidateQueries({ queryKey: ["memories"] }))
+          .catch(() => {});
       void Promise.allSettled([playedB, skippedB, finishSkip]).then(async () => {
         await new Promise((r) => setTimeout(r, 300));
         if (branches.current?.key === key) void checkPlanRef.current?.("recheck");
@@ -2091,7 +2097,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         note("door", b ? `Finish door ready: "${b.track.name}" by ${b.track.artists}${b.track.why ? ` — ${b.track.why}` : ""}` : "Finish door: nothing fits, will fall back");
       });
     },
-    [fetchBranch, note],
+    [fetchBranch, note, saveSteerFn, qc],
   );
 
   /** One entry point for side roads (lenses + deep cuts). Toggling back within 10s restores the old doors. */

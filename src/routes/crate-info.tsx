@@ -250,7 +250,22 @@ function CrateInfoPage() {
             playlists. Crate only writes down what you can learn by watching how
             someone actually listens: the second their finger hits skip, the
             songs they always let finish, what they reach for at midnight. There
-            are two kinds, and they are held to very different standards.
+            are five tiers, strongest first, and they are held to very different
+            standards.
+          </p>
+          <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm leading-relaxed text-muted-foreground">
+            <li><span className="font-medium text-foreground">Cross-session anchors</span> — durable patterns across many sessions.</li>
+            <li><span className="font-medium text-foreground">History profile</span> — your baseline from the streaming-history import.</li>
+            <li><span className="font-medium text-foreground">Feedbacker notes</span> — your own words about a specific song.</li>
+            <li><span className="font-medium text-foreground">Steer insights</span> — directions you asked Crate to steer toward mid-session.</li>
+            <li><span className="font-medium text-foreground">Session observations</span> — hints from a single session.</li>
+          </ol>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            Notes, steers and observations can be promoted to an anchor only when
+            the same direction shows up in three or more sessions and your
+            listening backs it up. Words alone never become an anchor. Syncing
+            your Spotify library creates no memories; it only fills the pool of
+            songs Crate picks from.
           </p>
 
           <div className="mt-4 space-y-3">

@@ -271,6 +271,19 @@ export async function synthesizeTasteMemories(
     .limit(7);
   const profile = (profRows ?? []).map((p) => `- ${p.content}`);
 
+  // Cross-session pass only: stated intents (steers) and prior single-session observations.
+  let intents: string[] = [];
+  if (opts.scope === "history") {
+    const [{ data: steerRows }, { data: obsRows }] = await Promise.all([
+      supabase.from("memory_nodes").select("content").eq("origin", "steer").order("created_at", { ascending: false }).limit(30),
+      supabase.from("memory_nodes").select("content").eq("origin", "synthesis").order("created_at", { ascending: false }).limit(20),
+    ]);
+    intents = [
+      ...(steerRows ?? []).map((r) => `- [steer] ${r.content}`),
+      ...(obsRows ?? []).map((r) => `- [observation] ${r.content}`),
+    ];
+  }
+
   const sessions = new Set(events.map((e) => e.session_id)).size;
   const skips = events.filter((e) => e.event === "early_skip").length;
   const plays = events.filter((e) => e.event === "play_through").length;
@@ -300,6 +313,7 @@ Write 1–2 DURABLE taste memories — patterns that hold up across sessions, no
 
 - Only write a memory you can support with evidence from at least 3 distinct sessions (or a clear, repeated time-of-day ritual). If nothing reaches that bar, return an empty array [].
 - Say how the pattern shows across sessions ("across seven sessions", "every session started after 23:00"), and mention taste that has shifted over time when you see it.
+- Stated intents (steer requests, Feedbacker notes) and prior session observations may be PROMOTED into a durable memory only when the same direction appears in 3+ distinct sessions AND the listening trace agrees (those songs were played through, not skipped). Words alone never create a memory. When you promote, write the durable version — not a reword of the observation.
 ${shared}
 
 Return ONLY a JSON array, no prose:
@@ -327,6 +341,7 @@ ${signalLines(events, tz, history).join("\n")}
 
 ${traceLines(events, meta, tz).join("\n")}
 ${notes.length ? `\nOptional listener hints (feedbacker notes):\n${notes.join("\n")}` : ""}
+${intents.length ? `\nStated intents & prior observations (candidates for promotion — verify against the trace):\n${intents.join("\n")}` : ""}
 ${profile.length ? `\nLong-term baseline from their years of Spotify streaming history. Evaluate the trace against it: where does this listening confirm, deepen or break the long-term habit? A break (new time of day, a faded artist returning, a usually-skipped artist finished) is a strong memory candidate — say what changed compared to the baseline. Never restate the baseline itself:\n${profile.join("\n")}` : ""}`;
 
   const runIdFetch = createLovableAiGatewayRunIdFetch();
