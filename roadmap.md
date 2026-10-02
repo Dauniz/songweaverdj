@@ -25,3 +25,4 @@
 - [x] Stabilize Spotify live-status warning: ignore transient polling gaps and Crate-owned handovers
 - [x] Switch compact Studio to Memory after a library-search pick and polish iPhone chat spacing
 - [x] Apply the Kinetic Geometry motion system across shared controls, Studio, public pages, and reduced-motion states
+- [x] Chat-based steering: replace the chip popup with mid-session chat steering ("More rap", "I'm loving it") that re-plans B/v/w ahead while C stays queued; the six-pick prompt queue stays prompt-start-only and yields to an explicit steer
