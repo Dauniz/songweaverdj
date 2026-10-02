@@ -16,7 +16,6 @@ import { endSpotifySession, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyP
 import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
-import { SteerChips } from "./SteerChips";
 
 export type Road = "vibe" | "era" | "mixed";
 export type RadioTrack = CardTrack & { why?: string };
@@ -42,7 +41,10 @@ export type RadioState = {
   seed: RadioTrack | null;
   seedPrompt: string;
   road: Road;
+  /** Late: chips survive from restored sessions but new chips are chat steering (steerNote). */
   chips: string[];
+  /** Mid-session chat steering: every future pick must respect this until it's reached. */
+  steerNote: string;
   history: HistoryItem[];
   consecutiveSkips: number;
   /** Last Era/Vibe road, used for "if you finish" after a New angle. */
@@ -66,15 +68,14 @@ type RadioContextValue = {
   /** Debug (read-only): snapshot of the prepared doors. undefined = still choosing, null = none. */
   peekDoors: () => Promise<DoorPeek>;
   thinking: boolean;
-  askSteer: boolean;
-  dismissSteer: () => void;
+  /** Chat steering: apply a direction (and optional picks) to the upcoming doors; C stays queued. */
+  steerSession: (note: string, picks?: CardTrack[]) => Promise<void>;
   startRadio: (tracks: CardTrack[], seedPrompt: string, startAt?: number, startRoad?: Road) => void;
   rerootTo: (track: CardTrack, prompt?: string) => void;
   stopRadio: () => void;
   next: (outcome: Outcome) => void;
   /** Media "next" button: always lands on Crate's skip door, never your own Spotify queue. */
   skipNow: () => Promise<void>;
-  toggleChip: (chip: string) => void;
   lens: LensId | null;
   setLens: (lens: LensId | null) => void;
   deepCuts: boolean;
@@ -106,6 +107,7 @@ const IDLE: RadioState = {
   seedPrompt: "",
   road: "vibe",
   chips: [],
+  steerNote: "",
   history: [],
   consecutiveSkips: 0,
   sessionId: "",
