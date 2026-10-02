@@ -163,7 +163,6 @@ function advance(s: RadioState, outcome: "played" | "skipped"): RadioState {
 export function RadioProvider({ children }: { children: ReactNode }) {
   const [radio, setRadio] = useState<RadioState>(IDLE);
   const [thinking, setThinking] = useState(false);
-  const [askSteer, setAskSteer] = useState(false);
   const logFn = useServerFn(logListeningEvent);
   const pathFn = useServerFn(nextPathTrack);
   const synthFn = useServerFn(synthesizeMemories);
@@ -215,7 +214,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const upNextRef = useRef<RadioTrack | null>(null);
   upNextRef.current = upNext;
   const [upSkip, setUpSkip] = useState<{ track: RadioTrack; road: Road } | null>(null);
-  const lastSteerAsk = useRef(0);
   const lastSkipAsk = useRef(0);
   const lastPlayback = useRef({ spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 });
   const advancing = useRef(false);
@@ -473,6 +471,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             history: s.history,
             road: s.road,
             chips: s.chips,
+            steerNote: (s.steerNote ?? "").slice(0, 300),
             lens: lensRef.current,
             deepCuts: deepCutsRef.current,
             tzOffsetMin: new Date().getTimezoneOffset(),
@@ -502,7 +501,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!s.active || !s.current) return;
       if (calmingRef.current) return; // wait for the clicking to stop before looking for songs
       if (lensTimer.current) return; // side-road misclick buffer: keep the current doors until it settles
-      const key = `${s.current.id}|${s.chips.join(",")}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
+      const key = `${s.current.id}|${s.chips.join(",")}|${s.steerNote ?? ""}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
       if (branches.current?.key === key) return;
       scoutAbort.current?.abort(); // drop any scouting still running for an old key
       const ctrl = new AbortController();
@@ -916,8 +915,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const nextState = advance(s, outcome);
       if (nextState.consecutiveSkips >= 2 && Date.now() - lastSkipAsk.current > 60_000) {
         lastSkipAsk.current = Date.now();
-        lastSteerAsk.current = Date.now();
-        setAskSteer(true);
       }
       const pending = branches.current?.[outcome];
       setThinking(true);
