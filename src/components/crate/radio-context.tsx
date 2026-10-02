@@ -2212,7 +2212,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         stopRadio,
         next,
         skipNow,
-        toggleChip,
         lens,
         setLens,
         deepCuts,
@@ -2235,14 +2234,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      {askSteer && (
-        <SteerChips
-          prompt
-          active={radio.chips}
-          onToggle={toggleChip}
-          onClose={() => setAskSteer(false)}
-        />
-      )}
       <SpotifyOpenDialog
         issue={playbackIssue}
         track={radio.current}
