@@ -38,7 +38,7 @@ function score(row: Row, q: string) {
 
 export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
   const reduced = useReducedMotion();
-  const { rerootTo } = useRadio();
+  const { rerootTo, sessionLive } = useRadio();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [dismissed, setDismissed] = useState(false);
@@ -98,8 +98,8 @@ export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
             if (e.key === "Enter" && results[0]) play(results[0]);
             if (e.key === "Escape") setQ("");
           }}
-          placeholder="Search your library — songs, artists, albums"
-          aria-label="Search your library"
+          placeholder={sessionLive ? "Tailor your session with a specific song" : "Start of your session with a specific song"}
+          aria-label={sessionLive ? "Tailor your session with a specific song" : "Start of your session with a specific song"}
           className="min-w-0 flex-1 bg-transparent text-lg leading-7 text-foreground outline-none placeholder:text-base placeholder:text-muted-foreground"
         />
         {q && (
