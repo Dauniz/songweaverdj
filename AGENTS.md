@@ -22,4 +22,4 @@
 - Onboarding runs once per account (auth metadata flag). Why: first Studio visit only.
 - Motion uses the shared timing/easing primitives in `src/lib/motion.ts`; product actions never wait for animation and reduced motion collapses to short fades. Why: motion stays coherent, accessible, and separate from playback state.
 
-- Radio playback/queue rules live in src/components/crate/AGENTS.md. Why: scoped to radio-context.
+- Radio playback/queue rules live in src/components/crate/AGENTS.md. Why: scoped to radio-context.- Welcome guess (src/lib/welcome.functions.ts): on Studio entry with no session, Crate may suggest one prompt only when strong memories (anchors/history profile) plus 3+ same-weekday/time sessions back it (confidence >= 0.75); accept/decline is stored as an origin "welcome" hint, never a memory. Why: proactive but rare and accurate.
