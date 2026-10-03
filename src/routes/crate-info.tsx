@@ -35,6 +35,10 @@ const SKILLS = [
     how: "Crate counts how you listen. A song played to the end strengthens the road you're on. A replay marks a quiet favorite — but only after it happens in more than one session, so one good evening never becomes a loop. A skipped artist cools down for the next five songs — still possible, just less likely — and only after five skips of the same artist in one session are they left out until the session ends. Songs you've heard come back after 50 songs.",
   },
   {
+    name: "Welcome guess",
+    how: "When you open the Studio, Crate checks the day, the time and his strongest memories. If you have a clear habit — say acoustic songs on Friday nights — he asks if you're in the mood for it. Say yes and the session starts; say no and he waits for you. Your answer is kept as a small hint for next time.",
+  },
+  {
     name: "Steer",
     how: "While a session plays, tell Crate where to take it in the chat — \"More rap\", \"Less energy\", \"More nostalgia\" — or just \"I'm loving it\". Crate re-plans the doors ahead so the maze drifts onto the path you asked for, without touching the song that's playing. Searching for a song or picking a song straight in Spotify still re-plans the maze from that song. A direction you steer toward in three or more sessions becomes a permanent taste memory.",
   },
