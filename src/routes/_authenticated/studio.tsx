@@ -1,8 +1,8 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MOTION_EASE } from "@/lib/motion";
-import { LogOut } from "lucide-react";
+import { Brain, LogOut } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -108,6 +108,9 @@ function StudioLayout({
         </nav>
         <div className="col-start-3 flex shrink-0 items-center gap-1">
           <SessionControl />
+          <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="What Crate knows about you">
+            <Link to="/crate-knows"><Brain className="h-4 w-4" /></Link>
+          </Button>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>

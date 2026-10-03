@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CrateInfoRouteImport } from './routes/crate-info'
+import { Route as AuthenticatedCrateKnowsRouteImport } from './routes/_authenticated/crate-knows'
 import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated/studio'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
@@ -39,6 +40,11 @@ const CrateInfoRoute = CrateInfoRouteImport.update({
   id: '/crate-info',
   path: '/crate-info',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedCrateKnowsRoute = AuthenticatedCrateKnowsRouteImport.update({
+  id: '/crate-knows',
+  path: '/crate-knows',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedStudioRoute = AuthenticatedStudioRouteImport.update({
   id: '/studio',
@@ -83,6 +89,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/crate-info': typeof CrateInfoRoute
+  '/crate-knows': typeof AuthenticatedCrateKnowsRoute
   '/studio': typeof AuthenticatedStudioRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/crate-info': typeof CrateInfoRoute
+  '/crate-knows': typeof AuthenticatedCrateKnowsRoute
   '/studio': typeof AuthenticatedStudioRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/crate-info': typeof CrateInfoRoute
+  '/_authenticated/crate-knows': typeof AuthenticatedCrateKnowsRoute
   '/_authenticated/studio': typeof AuthenticatedStudioRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/crate-info'
+    | '/crate-knows'
     | '/studio'
     | '/api/chat'
     | '/api/transcribe'
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/crate-info'
+    | '/crate-knows'
     | '/studio'
     | '/api/chat'
     | '/api/transcribe'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/crate-info'
+    | '/_authenticated/crate-knows'
     | '/_authenticated/studio'
     | '/api/chat'
     | '/api/transcribe'
@@ -196,6 +208,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/crate-info'
       preLoaderRoute: typeof CrateInfoRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/crate-knows': {
+      id: '/_authenticated/crate-knows'
+      path: '/crate-knows'
+      fullPath: '/crate-knows'
+      preLoaderRoute: typeof AuthenticatedCrateKnowsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/studio': {
       id: '/_authenticated/studio'
@@ -250,6 +269,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCrateKnowsRoute: typeof AuthenticatedCrateKnowsRoute
   AuthenticatedStudioRoute: typeof AuthenticatedStudioRoute
   AuthenticatedAdminBugsRoute: typeof AuthenticatedAdminBugsRoute
   AuthenticatedAdminMemoryRoute: typeof AuthenticatedAdminMemoryRoute
@@ -257,6 +277,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCrateKnowsRoute: AuthenticatedCrateKnowsRoute,
   AuthenticatedStudioRoute: AuthenticatedStudioRoute,
   AuthenticatedAdminBugsRoute: AuthenticatedAdminBugsRoute,
   AuthenticatedAdminMemoryRoute: AuthenticatedAdminMemoryRoute,
