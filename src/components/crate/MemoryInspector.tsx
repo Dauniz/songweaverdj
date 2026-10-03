@@ -118,6 +118,7 @@ export function MemoryInspector() {
           <Database className="h-4 w-4 text-primary" />
           <h2 className="text-sm font-bold uppercase tracking-wider">Walrus Memory</h2>
         </div>
+        <Link to="/crate-knows" className="text-xs font-medium text-primary hover:underline">See everything Crate knows</Link>
       </div>
       <div className="scrollbar-thin flex min-h-0 flex-1 flex-col overflow-y-auto">
       <div className="shrink-0">
