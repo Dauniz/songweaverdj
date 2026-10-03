@@ -42,6 +42,9 @@ function CrateKnowsPage() {
       return res;
     },
   });
+  const insights = data?.learned.filter((m) => m.kind !== "skipped") ?? [];
+  const avoided = data?.learned.filter((m) => m.kind === "skipped") ?? [];
+  const [avoidOpen, setAvoidOpen] = useState(false);
   const item = reduced ? reducedFade : geometricEnter;
   const little = data && data.learned.length + data.history.length < 3;
 
@@ -75,9 +78,9 @@ function CrateKnowsPage() {
                 <Headphones className="h-5 w-5 text-primary" /> Figured out by listening with you
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">Things Crate only knows from hours of sessions alongside you.</p>
-              {data.learned.length ? (
+              {insights.length ? (
                 <ul className="mt-4 space-y-3">
-                  {data.learned.map((m) => (
+                  {insights.map((m) => (
                     <li key={m.id} className="rounded-lg border bg-surface p-3">
                       <p className="text-sm leading-relaxed">{m.content}</p>
                       <p className="mt-1 text-[11px] text-muted-foreground">First noticed {fmt(m.created_at)}</p>
@@ -88,6 +91,20 @@ function CrateKnowsPage() {
                 <p className="mt-4 text-sm text-muted-foreground">Nothing yet. Keep listening and let Crate steer the flow.</p>
               )}
             </motion.section>
+
+            {avoided.length > 0 && (
+              <motion.section variants={item}>
+                <button type="button" onClick={() => setAvoidOpen((o) => !o)} className="flex items-center gap-2 text-sm font-semibold text-muted-foreground" aria-expanded={avoidOpen}>
+                  <ChevronDown className={cn("h-4 w-4 transition-transform", avoidOpen && "rotate-180")} />
+                  Songs Crate learned to avoid ({avoided.length})
+                </button>
+                {avoidOpen && (
+                  <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
+                    {avoided.map((m) => <li key={m.id}>• {m.content}</li>)}
+                  </ul>
+                )}
+              </motion.section>
+            )}
 
             {data.rhythms.length > 0 && (
               <motion.section variants={item}>
