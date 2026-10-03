@@ -3,6 +3,8 @@ import { motion, useReducedMotion } from "motion/react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { answerWelcome, getWelcomeSuggestion, type WelcomeSuggestion } from "@/lib/welcome.functions";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -218,6 +220,42 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
     textareaRef.current?.focus();
   }, []);
 
+  // Proactive welcome guess — once per visit per weekday+hour window, only before a session.
+  const fetchWelcome = useServerFn(getWelcomeSuggestion);
+  const logWelcome = useServerFn(answerWelcome);
+  const [welcome, setWelcome] = useState<WelcomeSuggestion>(null);
+  const welcomeAsked = useRef(false);
+  useEffect(() => {
+    if (welcomeAsked.current || sessionLive) return;
+    welcomeAsked.current = true;
+    const now = new Date();
+    const key = `songweaver-welcome-${now.getDay()}-${now.getHours()}`;
+    const cached = sessionStorage.getItem(key);
+    if (cached === "dismissed") return;
+    if (cached) {
+      try { setWelcome(JSON.parse(cached)); } catch { /* ignore */ }
+      return;
+    }
+    void (async () => {
+      const { data } = await supabase.auth.getUser();
+      const meta = (data.user?.user_metadata ?? {}) as Record<string, string>;
+      const firstName = (meta["full_name"] || meta["name"] || "").split(" ")[0] ?? "";
+      try {
+        const s = await fetchWelcome({ data: { tzOffsetMin: now.getTimezoneOffset(), firstName: firstName.slice(0, 40) } });
+        sessionStorage.setItem(key, s ? JSON.stringify(s) : "dismissed");
+        setWelcome(s);
+      } catch { /* silent: no card */ }
+    })();
+  }, [sessionLive, fetchWelcome]);
+  function answerWelcomeGuess(accepted: boolean) {
+    if (!welcome) return;
+    const now = new Date();
+    sessionStorage.setItem(`songweaver-welcome-${now.getDay()}-${now.getHours()}`, "dismissed");
+    void logWelcome({ data: { prompt: welcome.prompt, accepted, tzOffsetMin: now.getTimezoneOffset() } }).catch(() => {});
+    if (accepted) send(welcome.prompt);
+    setWelcome(null);
+  }
+
   function send(raw: string) {
     const t = raw.trim();
     if (!t || busy) return;
@@ -301,6 +339,21 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
     >
       <div className="mx-auto w-full max-w-3xl">
         <div data-onboarding="prompt">
+        {empty && welcome && !sessionLive && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduced ? 0.12 : 0.35 }}
+            className="mb-4 flex flex-col gap-3 rounded-2xl border bg-surface/90 p-4 shadow-sm sm:flex-row sm:items-center"
+          >
+            <img src={logo} alt="" className="h-9 w-9 shrink-0 rounded-lg" />
+            <p className="flex-1 text-sm leading-relaxed">{welcome.greeting}</p>
+            <div className="flex shrink-0 gap-2">
+              <Button size="sm" className="rounded-full" onClick={() => answerWelcomeGuess(true)}>Yes, play it</Button>
+              <Button size="sm" variant="secondary" className="rounded-full" onClick={() => answerWelcomeGuess(false)}>Not now</Button>
+            </div>
+          </motion.div>
+        )}
         <div className={cn("mb-4", !empty && "pt-3")}>
           <LibrarySearch {...(onSearchSelection ? { onSelect: onSearchSelection } : {})} />
         </div>
