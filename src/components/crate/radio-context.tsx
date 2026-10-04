@@ -2003,7 +2003,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   }, [startSpotifyPlayback]);
 
   const preparedAuth = usePreparedSpotifyUrl(() =>
-    authUrlFn({ data: { origin: window.location.origin } }),
+    authUrlFn({ data: { origin: window.location.origin, framed: window.top !== window.self } }),
   );
   const connectSpotify = useCallback(async () => {
     const ready = preparedAuth.get();
@@ -2012,7 +2012,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       return;
     }
     try {
-      const { url } = await authUrlFn({ data: { origin: window.location.origin } });
+      const { url } = await authUrlFn({ data: { origin: window.location.origin, framed: window.top !== window.self } });
       window.location.assign(url);
     } catch {
       setPlaybackIssue({ status: "unavailable", message: "Spotify could not be connected." });
