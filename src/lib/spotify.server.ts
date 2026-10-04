@@ -21,9 +21,9 @@ function stateSecret() {
   return process.env["SPOTIFY_CLIENT_SECRET"] ?? "";
 }
 
-export function signState(userId: string, returnOrigin: string) {
+export function signState(userId: string, returnOrigin: string, nonce?: string) {
   const payload = Buffer.from(
-    JSON.stringify({ u: userId, o: returnOrigin, t: Date.now() }),
+    JSON.stringify({ u: userId, o: returnOrigin, t: Date.now(), ...(nonce ? { n: nonce } : {}) }),
   ).toString("base64url");
   const sig = createHmac("sha256", stateSecret()).update(payload).digest("base64url");
   return `${payload}.${sig}`;
@@ -40,6 +40,7 @@ export function verifyState(state: string) {
     u: string;
     o: string;
     t: number;
+    n?: string;
   };
   if (Date.now() - data.t > 15 * 60 * 1000) return null;
   return data;
