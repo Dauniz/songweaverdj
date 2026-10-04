@@ -354,7 +354,7 @@ export const endSpotifySession = createServerFn({ method: "POST" })
 
 export const getSpotifyAuthUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) => z.object({ origin: z.string().url() }).parse(d))
+  .inputValidator((d) => z.object({ origin: z.string().url(), framed: z.boolean().optional() }).parse(d))
   .handler(async ({ data, context }) => {
     const creds = spotifyCreds();
     if (!creds) throw new Error("Spotify credentials are not set up yet.");
@@ -364,7 +364,7 @@ export const getSpotifyAuthUrl = createServerFn({ method: "POST" })
       response_type: "code",
       redirect_uri: `${origin}/api/public/spotify/callback`,
       scope: SPOTIFY_SCOPES,
-      state: signState(context.userId, origin),
+      state: signState(context.userId, origin, data.framed ? "f" : undefined),
       show_dialog: "true",
     });
     return { url: `https://accounts.spotify.com/authorize?${params}` };
