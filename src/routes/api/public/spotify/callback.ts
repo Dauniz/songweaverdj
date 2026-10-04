@@ -7,12 +7,22 @@ const esc = (s: string) =>
     (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] ?? c,
   );
 
-function loginPage(origin: string, tokenHash: string) {
+function handoffPage() {
+  return new Response(
+    `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Spotify</title></head><body style="background:#111;color:#eee;font-family:system-ui,-apple-system,sans-serif;display:grid;place-items:center;min-height:100dvh;margin:0;padding:24px;box-sizing:border-box"><div style="text-align:center"><h2>Signed in</h2><p>Return to Lovable — Songweaver will finish signing you in there.</p><p>You can close this tab.</p></div><script>setTimeout(()=>{try{window.close()}catch(e){}},800)</script></body></html>`,
+    { headers: { "content-type": "text/html; charset=utf-8" } },
+  );
+}
+
+function loginPage(origin: string, tokenHash: string, handoff: boolean) {
   const o = JSON.stringify(origin);
   const th = JSON.stringify(tokenHash);
   const fallback = `${origin}/auth?th=${encodeURIComponent(tokenHash)}`;
+  const noOpener = handoff
+    ? `document.body.innerHTML='<div style="text-align:center"><h2>Signed in</h2><p>Return to Lovable — Songweaver will finish signing you in there.</p><p>You can close this tab.</p></div>';setTimeout(()=>{try{window.close()}catch(e){}},800)`
+    : `location.replace(${JSON.stringify(fallback)})`;
   return new Response(
-    `<!doctype html><html><head><title>Spotify</title></head><body style="background:#111;color:#eee;font-family:sans-serif;display:grid;place-items:center;height:100vh;margin:0"><p>Signing you in…</p><script>if(window.opener){window.opener.postMessage({type:"spotify-login",tokenHash:${th}},${o});setTimeout(()=>window.close(),300)}else{location.replace(${JSON.stringify(fallback)})}</script></body></html>`,
+    `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Spotify</title></head><body style="background:#111;color:#eee;font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100dvh;margin:0;padding:24px"><p>Signing you in…</p><script>if(window.opener){window.opener.postMessage({type:"spotify-login",tokenHash:${th}},${o});setTimeout(()=>window.close(),300)}else{${noOpener}}</script></body></html>`,
     { headers: { "content-type": "text/html; charset=utf-8" } },
   );
 }
@@ -78,7 +88,14 @@ export const Route = createFileRoute("/api/public/spotify/callback")({
             updated_at: new Date().toISOString(),
           });
           if (error) throw new Error(error.message);
-          if (tokenHash) return loginPage(st.o, tokenHash);
+          const handoff = !!st.n && st.n.length >= 24;
+          if (tokenHash && handoff) {
+            await supabaseAdmin
+              .from("auth_handoffs" as never)
+              .upsert({ nonce: st.n, token_hash: tokenHash } as never);
+          }
+          if (tokenHash) return loginPage(st.o, tokenHash, handoff);
+          if (st.n) return handoffPage();
           return page(`Signed in as ${me.display_name ?? me.id}.`, true, st.o);
         } catch (e) {
           console.error(e);
