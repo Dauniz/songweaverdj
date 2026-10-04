@@ -176,7 +176,9 @@ function AuthPage() {
           Continue with Spotify
         </Button>
         <p className="mt-1.5 text-center text-xs text-muted-foreground">
-          Signs you in and imports your playlists.
+          {waiting
+            ? "Finish in the Spotify tab, then come back here — you'll be signed in automatically."
+            : "Signs you in and imports your playlists."}
         </p>
         <Button
           onClick={guest}
