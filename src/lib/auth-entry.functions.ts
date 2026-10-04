@@ -3,9 +3,13 @@ import { z } from "zod";
 import { SPOTIFY_SCOPES, signState, spotifyCreds } from "./spotify.server";
 import { buildDemoRows } from "./demo-library";
 
+const nonceSchema = z.string().regex(/^[A-Za-z0-9_-]{24,64}$/);
+
 /** Public: start "Continue with Spotify" (sign in + connect in one step). */
 export const getSpotifyLoginUrl = createServerFn({ method: "POST" })
-  .inputValidator((d) => z.object({ origin: z.string().url() }).parse(d))
+  .inputValidator((d) =>
+    z.object({ origin: z.string().url(), nonce: nonceSchema.optional() }).parse(d),
+  )
   .handler(async ({ data }) => {
     const creds = spotifyCreds();
     if (!creds) throw new Error("Spotify sign-in isn't set up yet. Try the demo library instead.");
@@ -15,10 +19,27 @@ export const getSpotifyLoginUrl = createServerFn({ method: "POST" })
       response_type: "code",
       redirect_uri: `${origin}/api/public/spotify/callback`,
       scope: `${SPOTIFY_SCOPES} user-read-email`,
-      state: signState("login", origin),
+      state: signState("login", origin, data.nonce),
       show_dialog: "true",
     });
     return { url: `https://accounts.spotify.com/authorize?${params}` };
+  });
+
+/** Public: pick up a Spotify sign-in finished in another tab (single use, 10 min). */
+export const claimAuthHandoff = createServerFn({ method: "POST" })
+  .inputValidator((d) => z.object({ nonce: nonceSchema }).parse(d))
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows } = await supabaseAdmin
+      .from("auth_handoffs" as never)
+      .delete()
+      .eq("nonce", data.nonce)
+      .select("token_hash, created_at");
+    const row = (rows as { token_hash: string; created_at: string }[] | null)?.[0];
+    if (!row || Date.now() - new Date(row.created_at).getTime() > 10 * 60_000) {
+      return { tokenHash: null as string | null };
+    }
+    return { tokenHash: row.token_hash as string | null };
   });
 
 /** Public: create a throwaway guest account preloaded with the demo library. */

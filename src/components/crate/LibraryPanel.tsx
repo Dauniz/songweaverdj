@@ -93,7 +93,7 @@ export function LibraryPanel() {
   }, [qc]);
 
   const preparedAuth = usePreparedSpotifyUrl(() =>
-    authUrlFn({ data: { origin: window.location.origin } }),
+    authUrlFn({ data: { origin: window.location.origin, framed: window.top !== window.self } }),
   );
 
   async function connect() {
@@ -104,7 +104,7 @@ export function LibraryPanel() {
     }
     setBusy("connect");
     try {
-      const { url } = await authUrlFn({ data: { origin: window.location.origin } });
+      const { url } = await authUrlFn({ data: { origin: window.location.origin, framed: window.top !== window.self } });
       window.location.assign(url);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't start Spotify sign-in");

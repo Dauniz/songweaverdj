@@ -1,14 +1,14 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MOTION_EASE } from "@/lib/motion";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useServerFn } from "@tanstack/react-start";
 import { Disc3, Loader2 } from "lucide-react";
-import { createGuestSession, getSpotifyLoginUrl } from "@/lib/auth-entry.functions";
+import { claimAuthHandoff, createGuestSession, getSpotifyLoginUrl } from "@/lib/auth-entry.functions";
 import { Button } from "@/components/ui/button";
-import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
+import { isAppleTouchDevice, openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import logo from "@/assets/crate-logo.jpg";
 
 export const Route = createFileRoute("/auth")({
@@ -41,10 +41,53 @@ function AuthPage() {
   const [entry, setEntry] = useState<null | "spotify" | "guest">(null);
   const reduced = useReducedMotion();
   const loginUrl = useServerFn(getSpotifyLoginUrl);
+  const claimFn = useServerFn(claimAuthHandoff);
   const guestFn = useServerFn(createGuestSession);
-  const preparedLogin = usePreparedSpotifyUrl(() =>
-    loginUrl({ data: { origin: window.location.origin } }),
-  );
+  // In the Lovable preview on iPhone/iPad, Spotify opens in a separate tab that
+  // can't talk back to us — so we hand the sign-in over through a one-time code.
+  const nonceRef = useRef<string | null>(null);
+  if (nonceRef.current === null && typeof window !== "undefined") {
+    nonceRef.current =
+      window.top !== window.self && isAppleTouchDevice()
+        ? `${crypto.randomUUID()}${crypto.randomUUID()}`.replace(/-/g, "")
+        : "";
+  }
+  const [waiting, setWaiting] = useState(false);
+  const loginArgs = () => ({
+    data: { origin: window.location.origin, ...(nonceRef.current ? { nonce: nonceRef.current } : {}) },
+  });
+  const preparedLogin = usePreparedSpotifyUrl(() => loginUrl(loginArgs()));
+
+  useEffect(() => {
+    const nonce = nonceRef.current;
+    if (!waiting || !nonce) return;
+    let done = false;
+    const check = async () => {
+      if (done) return;
+      try {
+        const { tokenHash } = await claimFn({ data: { nonce } });
+        if (tokenHash && !done) {
+          done = true;
+          void finishSpotify(tokenHash);
+        }
+      } catch {
+        /* retry */
+      }
+    };
+    const t = setInterval(check, 1500);
+    const onVis = () => document.visibilityState === "visible" && void check();
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onVis);
+    const stop = setTimeout(() => setWaiting(false), 10 * 60_000);
+    return () => {
+      done = true;
+      clearInterval(t);
+      clearTimeout(stop);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waiting]);
 
   async function finishSpotify(tokenHash: string) {
     setEntry("spotify");
@@ -80,12 +123,19 @@ function AuthPage() {
   async function spotify() {
     const ready = preparedLogin.get();
     if (ready) {
+      if (nonceRef.current) setWaiting(true);
       openSpotifyAuth(ready, "spotify-login");
       return;
     }
     setEntry("spotify");
     try {
-      const { url } = await loginUrl({ data: { origin: window.location.origin } });
+      const { url } = await loginUrl(loginArgs());
+      if (nonceRef.current) {
+        setWaiting(true);
+        setEntry(null);
+        window.open(url, "_blank");
+        return;
+      }
       window.location.assign(url);
     } catch (e) {
       setEntry(null);
@@ -126,7 +176,9 @@ function AuthPage() {
           Continue with Spotify
         </Button>
         <p className="mt-1.5 text-center text-xs text-muted-foreground">
-          Signs you in and imports your playlists.
+          {waiting
+            ? "Finish in the Spotify tab, then come back here — you'll be signed in automatically."
+            : "Signs you in and imports your playlists."}
         </p>
         <Button
           onClick={guest}

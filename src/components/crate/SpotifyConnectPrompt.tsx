@@ -11,8 +11,15 @@ import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 export function SpotifyConnectPrompt() {
   const statusFn = useServerFn(getSpotifyStatus);
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
-  const { data: status } = useQuery({ queryKey: ["spotify-status"], queryFn: () => statusFn() });
-  const prepared = usePreparedSpotifyUrl(() => authUrlFn({ data: { origin: window.location.origin } }));
+  const { data: status, refetch } = useQuery({ queryKey: ["spotify-status"], queryFn: () => statusFn() });
+
+  // Connecting in a separate tab (iPhone/iPad preview): recheck when you come back.
+  useEffect(() => {
+    const onVis = () => document.visibilityState === "visible" && void refetch();
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [refetch]);
+  const prepared = usePreparedSpotifyUrl(() => authUrlFn({ data: { origin: window.location.origin, framed: window.top !== window.self } }));
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [tourRunning, setTourRunning] = useState(false);
@@ -61,7 +68,7 @@ export function SpotifyConnectPrompt() {
           onClick={() => {
             const url = prepared.get();
             if (url) openSpotifyAuth(url, "spotify-auth");
-            else void authUrlFn({ data: { origin: window.location.origin } }).then(({ url }) => window.location.assign(url));
+            else void authUrlFn({ data: { origin: window.location.origin, framed: window.top !== window.self } }).then(({ url }) => window.location.assign(url));
           }}
         >
           Connect

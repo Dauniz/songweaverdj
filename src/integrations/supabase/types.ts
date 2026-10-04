@@ -41,6 +41,24 @@ export type Database = {
         }
         Relationships: []
       }
+      auth_handoffs: {
+        Row: {
+          created_at: string
+          nonce: string
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          nonce: string
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          nonce?: string
+          token_hash?: string
+        }
+        Relationships: []
+      }
       bug_reports: {
         Row: {
           created_at: string
