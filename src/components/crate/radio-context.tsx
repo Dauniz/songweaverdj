@@ -1926,18 +1926,23 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     setSessionLive(true);
     idleSince.current = 0;
     if (radioRef.current.active) return;
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    // Spotify reports the last paused song even when the app is closed, so only an
+    // actually-playing song counts as "Spotify is on". Ask quickly; otherwise show
+    // the Open Spotify popup (the no_device retry loop keeps watching after that).
+    for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const state = await playbackFn();
-        if (state.status === "ready" && state.spotifyId) {
+        console.info("[startSession] spotify state", state.status, state.status === "ready" ? state.isPlaying : null);
+        if (state.status === "ready" && state.spotifyId && state.isPlaying) {
           adoptPlaying(state);
           return;
         }
-      } catch {
-        // No Spotify state yet — keep trying a couple more times.
+      } catch (err) {
+        console.warn("[startSession] playback check failed", err);
       }
-      if (attempt < 4) await new Promise((r) => setTimeout(r, 2_000));
+      if (attempt < 1) await new Promise((r) => setTimeout(r, 1_500));
     }
+    if (radioRef.current.active) return;
     noDeviceSince.current = Date.now();
     lastLostPrompt.current = Date.now();
     setPlaybackIssue({ status: "no_device", message: "Open Spotify and play a song to start the session." });
@@ -1957,7 +1962,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   const openSpotify = useCallback(() => {
     const track = radioRef.current.current;
-    if (!track?.spotify_id) return;
     const shownIssue = playbackIssue;
     // Hide the popup for a 10 s cooldown while Crate looks for Spotify; if it
     // still can't see it after that, the popup comes back.
@@ -2032,7 +2036,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const retry = async () => {
       attempts += 1;
       const queuedDoor = door.current;
-      if (await startSpotifyPlayback(track, true, queuedDoor && queuedDoor.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry")) {
+      let ok = false;
+      if (track?.spotify_id) {
+        ok = await startSpotifyPlayback(track, true, queuedDoor && queuedDoor.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry");
+      } else {
+        // No song yet (session just started): adopt whatever the user plays in Spotify.
+        try {
+          const state = await playbackFn();
+          if (state.status === "ready" && state.spotifyId && state.isPlaying) { adoptPlaying(state); ok = true; }
+        } catch { /* keep waiting */ }
+      }
+      if (ok) {
         cycle.ok = true;
         if (reopenTimer.current) { clearTimeout(reopenTimer.current); reopenTimer.current = null; }
         return;
@@ -2040,7 +2054,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (attempts < 4 && reopenTimer.current) retryTimer.current = setTimeout(() => void retry(), 2_500);
     };
     retryTimer.current = setTimeout(() => void retry(), 1_500);
-  }, [startSpotifyPlayback, playbackIssue]);
+  }, [startSpotifyPlayback, playbackIssue, playbackFn, adoptPlaying]);
 
   const preparedAuth = usePreparedSpotifyUrl(() =>
     authUrlFn({ data: { origin: window.location.origin, framed: window.top !== window.self } }),
