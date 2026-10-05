@@ -148,7 +148,7 @@ function StudioLayout({
           <MemoryInspector />
         </aside>
       </div>
-      <OnboardingTour showMemory={showMemory} />
+      <OnboardingTour showMemory={showMemory} showChat={() => onTab("chat")} />
     </div>
   );
 }

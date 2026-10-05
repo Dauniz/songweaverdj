@@ -33,7 +33,7 @@ const SETUP_STEPS: Step[] = [
     target: "side-roads",
     eyebrow: "Step 3 of 3",
     title: "Switch to an alternative road",
-    body: "The buttons under the chat are alternative roads — Deep cuts, Wormhole, Scene and Texture. Turning one on replaces the default roads (Vibe, Era, New Angle) with its own rules for what Crate plays next. Only one can be on at a time, and turning it off puts you back on the default roads. Tap the question mark for what each one does.",
+    body: "The road buttons in the Walrus Memory tab, just above the current song, are alternative roads — Deep cuts, Wormhole, Scene and Texture. Turning one on replaces the default roads (Vibe, Era, New Angle) with its own rules for what Crate plays next. Only one can be on at a time, and turning it off puts you back on the default roads. Tap the question mark for what each one does.",
   },
 ];
 
@@ -80,7 +80,7 @@ function markDone(userId: string | null, key: string) {
   })();
 }
 
-export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
+export function OnboardingTour({ showMemory, showChat }: { showMemory: () => void; showChat: () => void }) {
   const { sessionLive, radio } = useRadio();
   const [setupStep, setSetupStep] = useState<number | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -109,6 +109,15 @@ export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [flags]);
+
+  // The road bars live in the Walrus Memory tab — reveal them for that step,
+  // and keep the chat visible for the earlier steps.
+  useEffect(() => {
+    if (setupStep === null) return;
+    if (SETUP_STEPS[setupStep]?.target === "side-roads") showMemory();
+    else showChat();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setupStep]);
 
   useEffect(() => {
     if (!sessionLive || !radio.active || !radio.current || setupStep !== null || isDone(FEEDBACK_KEY)) return;
@@ -148,6 +157,7 @@ export function OnboardingTour({ showMemory }: { showMemory: () => void }) {
     markDone(userId, SETUP_KEY);
     setFlags((f) => ({ ...(f ?? {}), [SETUP_KEY]: true }));
     setSetupStep(null);
+    showChat();
     window.dispatchEvent(new Event("songweaver-onboarding-done"));
   };
   const dismissFeedback = () => {

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { lensName } from "@/lib/lenses";
+import { SideRoads } from "./SideRoads";
 
 const ROAD: Record<Road, { name: string }> = {
   vibe: { name: "Vibe Road" },
@@ -54,6 +55,7 @@ export function PathMaze() {
         Every song is a junction. Finish it → Crate keeps walking the same road. Skip it → another song on the same road;
         two skips → the other road; four → a new angle. Lessons are written to Walrus.
       </p>
+      <SideRoads />
 
       {!radio.active || !radio.current ? (
         <p className="mt-4 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
