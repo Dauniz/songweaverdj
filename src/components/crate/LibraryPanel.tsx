@@ -193,10 +193,10 @@ export function LibraryPanel() {
 
   if (collapsed) {
     return (
+      // No opacity-0 entrance: on iPad reloads the animation could stall
+      // before running, leaving the pill invisible. It now renders visible.
       <motion.div
-        initial={{ opacity: 0, scale: reduced ? 1 : 0.92, x: reduced ? 0 : -6 }}
-        animate={{ opacity: 1, scale: 1, x: 0 }}
-        transition={{ duration: reduced ? 0.12 : 0.28, ease: MOTION_EASE }}
+        initial={false}
         className="fixed left-3 top-16 z-40 sm:left-4"
       >
         <TooltipProvider delayDuration={200}>
