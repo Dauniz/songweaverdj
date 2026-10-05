@@ -193,10 +193,9 @@ export function LibraryPanel() {
 
   if (collapsed) {
     return (
-      // No opacity-0 entrance: on iPad reloads the animation could stall
-      // before running, leaving the pill invisible. It now renders visible.
-      <motion.div
-        initial={false}
+      // Plain element (no animation library): on iPad the animated version could
+      // stay invisible after entering the Studio.
+      <div
         className="fixed left-3 top-16 z-40 sm:left-4"
       >
         <TooltipProvider delayDuration={200}>
@@ -206,7 +205,7 @@ export function LibraryPanel() {
                 type="button"
                 onClick={toggleCollapsed}
                 aria-label="Expand Spotify panel"
-                className="kinetic-control flex h-9 items-center gap-2 rounded-full border bg-card/95 px-3 shadow-lg backdrop-blur hover:bg-accent"
+                className="flex h-9 items-center gap-2 rounded-full border bg-card px-3 shadow-lg transition-colors hover:bg-accent active:scale-95"
               >
                 <span className={cn("inline-block h-2 w-2 rounded-full", orbClass)} />
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
@@ -215,7 +214,7 @@ export function LibraryPanel() {
             <TooltipContent side="right">{orbLabel}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
-      </motion.div>
+      </div>
     );
   }
 
