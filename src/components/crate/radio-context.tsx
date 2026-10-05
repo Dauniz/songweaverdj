@@ -189,6 +189,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const qc = useQueryClient();
   const [playbackIssue, setPlaybackIssue] = useState<SpotifyPlaybackIssue | null>(null);
+  const [awaitingSpotify, setAwaitingSpotify] = useState(false);
   const lastLostPrompt = useRef(0);
   const [retrying, setRetrying] = useState(false);
 
@@ -1894,30 +1895,55 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [sessionLive, playbackFn, adoptPlaying, note]);
 
-  // "Open Spotify" issue: retry reconnecting every 5 s; give up after the grace.
+  // Waiting for Spotify (popup shown OR in its 10 s cooldown after "Open Spotify"):
+  // check every 3 s, and immediately when the tab comes back into view (iPad/iPhone
+  // freeze timers while you're in the Spotify app/tab). Only visible time counts
+  // toward the give-up grace, so a trip to Spotify never ends the session.
+  const waitingForSpotify = sessionLive && (playbackIssue?.status === "no_device" || awaitingSpotify);
   useEffect(() => {
-    if (!sessionLive || playbackIssue?.status !== "no_device") return;
-    const started = Date.now();
-    const t = setInterval(() => {
-      const current = radioRef.current.current;
-      if (current?.spotify_id) {
-        void startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, lastPlayback.current.progressMs || undefined, "connection retry");
-      } else {
-        void (async () => {
-          try {
-            const state = await playbackFn();
-            if (state.status === "ready" && state.spotifyId && state.isPlaying && !radioRef.current.active) {
-              setPlaybackIssue(null);
-              noDeviceSince.current = 0;
-              adoptPlaying(state);
-            }
-          } catch { /* keep waiting */ }
-        })();
-      }
-      if (Date.now() - started > NO_DEVICE_GRACE) stopRadio({ keepSpotify: true });
-    }, 3_000);
-    return () => clearInterval(t);
-  }, [sessionLive, playbackIssue, stopRadio, startSpotifyPlayback, playbackFn, adoptPlaying]);
+    if (!waitingForSpotify) return;
+    let waitedMs = 0;
+    let lastTick = Date.now();
+    let busyCheck = false;
+    const succeed = () => {
+      if (reopenTimer.current) { clearTimeout(reopenTimer.current); reopenTimer.current = null; }
+      noDeviceSince.current = 0;
+      setPlaybackIssue(null);
+      setAwaitingSpotify(false);
+    };
+    const tick = async () => {
+      const now = Date.now();
+      if (!document.hidden) waitedMs += Math.min(now - lastTick, 3_500);
+      lastTick = now;
+      if (busyCheck) return;
+      busyCheck = true;
+      try {
+        const current = radioRef.current.current;
+        if (current?.spotify_id) {
+          if (await startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, lastPlayback.current.progressMs || undefined, "connection retry")) succeed();
+        } else {
+          const state = await playbackFn();
+          console.info("[spotify watch]", state.status, state.status === "ready" ? state.isPlaying : null);
+          if (state.status === "ready" && state.spotifyId && state.isPlaying && !radioRef.current.active) {
+            succeed();
+            adoptPlaying(state);
+          }
+        }
+      } catch { /* keep waiting */ } finally { busyCheck = false; }
+      if (waitedMs > NO_DEVICE_GRACE) { setAwaitingSpotify(false); stopRadio({ keepSpotify: true }); }
+    };
+    const onBack = () => { if (!document.hidden) { lastTick = Date.now(); void tick(); } };
+    const t = setInterval(() => void tick(), 3_000);
+    document.addEventListener("visibilitychange", onBack);
+    window.addEventListener("focus", onBack);
+    window.addEventListener("pageshow", onBack);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onBack);
+      window.removeEventListener("focus", onBack);
+      window.removeEventListener("pageshow", onBack);
+    };
+  }, [waitingForSpotify, stopRadio, startSpotifyPlayback, playbackFn, adoptPlaying]);
 
   // No background watching without a session: Start session, a search or a prompt connects.
 
