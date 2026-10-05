@@ -190,7 +190,7 @@ export function MemoryInspector() {
         animate={{ height: "auto", opacity: 1 }}
         exit={{ height: 0, opacity: 0 }}
         transition={{ duration: reduced ? 0.12 : 0.3, ease: [0.22, 1, 0.36, 1] }}
-        className="overflow-hidden border-t"
+        className="shrink-0 overflow-hidden border-t"
       >
       <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="space-y-2 px-4 py-3">
         {nodes.length === 0 && (
