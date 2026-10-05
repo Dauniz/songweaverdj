@@ -1995,7 +1995,19 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         a.click();
         a.remove();
       };
-      try { fire("spotify:"); } catch { /* ignore */ }
+      // Fire the app link synchronously inside the tap so iOS shows its
+      // "Open in Spotify?" prompt (or switches straight to the app).
+      // Published site (top-level): navigate the page itself to the scheme.
+      // Inside the Lovable editor (iframe): an iframe can't navigate to a custom
+      // scheme, so ask the hosting browser to open it as a new window.
+      try {
+        if (window.top === window.self) {
+          window.location.href = "spotify:";
+        } else {
+          const w = window.open("spotify:", "_blank");
+          if (!w) fire("spotify:");
+        }
+      } catch { try { fire("spotify:"); } catch { /* ignore */ } }
       setTimeout(() => {
         document.removeEventListener("visibilitychange", onHide);
         window.removeEventListener("pagehide", onBlur);
