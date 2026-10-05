@@ -14,7 +14,7 @@ import { LENS_IDS, type LensId } from "@/lib/lenses";
 import { pushSpotifyLog, ackSpotifySend, observeSpotify } from "@/lib/spotify-log";
 import { endSpotifySession, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyPlayback,
   getNextQueuedId, nextSpotifyTrack, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
-import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
+import { isAppleTouchDevice, openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
 
@@ -221,6 +221,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const advancing = useRef(false);
   const committing = useRef(false);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reopenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionLive, setSessionLive] = useState(false);
   const startingFor = useRef<{ id: string; at: number } | null>(null);
   /** Song the start effect already handled — re-renders must never start it twice. */
@@ -2256,7 +2257,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         issue={playbackIssue}
         track={radio.current}
         retrying={retrying}
-        onDismiss={() => setPlaybackIssue(null)}
+        onDismiss={() => {
+          if (reopenTimer.current) { clearTimeout(reopenTimer.current); reopenTimer.current = null; }
+          setPlaybackIssue(null);
+        }}
         onOpenSpotify={openSpotify}
         onConnect={() => void connectSpotify()}
         onRetry={() => {
