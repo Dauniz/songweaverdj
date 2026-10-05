@@ -2015,7 +2015,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       setTimeout(() => {
         document.removeEventListener("visibilitychange", onHide);
         window.removeEventListener("pagehide", onBlur);
-        if (left || document.hidden) return;
+        if (left || document.hidden || framed) return;
         try { fire("x-safari-https://open.spotify.com/"); } catch { /* ignore */ }
         setTimeout(() => {
           if (!document.hidden && window.top === window.self) window.open(webUrl, "_blank", "noopener,noreferrer");
