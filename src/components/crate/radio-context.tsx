@@ -2000,18 +2000,22 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // Published site (top-level): navigate the page itself to the scheme.
       // Inside the Lovable editor (iframe): an iframe can't navigate to a custom
       // scheme, so ask the hosting browser to open it as a new window.
+      const framed = window.top !== window.self;
       try {
-        if (window.top === window.self) {
+        if (!framed) {
           window.location.href = "spotify:";
         } else {
-          const w = window.open("spotify:", "_blank");
-          if (!w) fire("spotify:");
+          // Inside the Lovable editor the preview is framed: iOS silently drops
+          // custom-scheme opens from frames. Open Spotify's link in a real browser
+          // tab inside the tap; Spotify's page offers "Open in app" from there.
+          const w = window.open(webUrl, "_blank");
+          if (!w) fire(webUrl);
         }
       } catch { try { fire("spotify:"); } catch { /* ignore */ } }
       setTimeout(() => {
         document.removeEventListener("visibilitychange", onHide);
         window.removeEventListener("pagehide", onBlur);
-        if (left || document.hidden) return;
+        if (left || document.hidden || framed) return;
         try { fire("x-safari-https://open.spotify.com/"); } catch { /* ignore */ }
         setTimeout(() => {
           if (!document.hidden && window.top === window.self) window.open(webUrl, "_blank", "noopener,noreferrer");
