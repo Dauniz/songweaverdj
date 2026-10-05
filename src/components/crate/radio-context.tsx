@@ -1932,7 +1932,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
         const state = await playbackFn();
-        console.info("[startSession] spotify state", state.status, "playing" in state ? undefined : (state as { isPlaying?: boolean }).isPlaying);
+        console.info("[startSession] spotify state", state.status, state.status === "ready" ? state.isPlaying : null);
         if (state.status === "ready" && state.spotifyId && state.isPlaying) {
           adoptPlaying(state);
           return;
@@ -2054,7 +2054,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (attempts < 4 && reopenTimer.current) retryTimer.current = setTimeout(() => void retry(), 2_500);
     };
     retryTimer.current = setTimeout(() => void retry(), 1_500);
-  }, [startSpotifyPlayback, playbackIssue]);
+  }, [startSpotifyPlayback, playbackIssue, playbackFn, adoptPlaying]);
 
   const preparedAuth = usePreparedSpotifyUrl(() =>
     authUrlFn({ data: { origin: window.location.origin, framed: window.top !== window.self } }),
