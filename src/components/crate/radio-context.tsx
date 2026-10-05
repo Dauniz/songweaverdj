@@ -1949,6 +1949,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   const startSession = useCallback(async () => {
     watchOff.current = false;
+    setAwaitingSpotify(false);
     setSessionLive(true);
     idleSince.current = 0;
     if (radioRef.current.active) return;
@@ -1971,6 +1972,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     if (radioRef.current.active) return;
     noDeviceSince.current = Date.now();
     lastLostPrompt.current = Date.now();
+    setAwaitingSpotify(true);
     setPlaybackIssue({ status: "no_device", message: "Open Spotify and play a song to start the session." });
   }, [playbackFn, adoptPlaying]);
 
@@ -1992,6 +1994,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     // Hide the popup for a 10 s cooldown while Crate looks for Spotify; if it
     // still can't see it after that, the popup comes back.
     setPlaybackIssue(null);
+    setAwaitingSpotify(true);
     const cycle = { ok: false };
     if (reopenTimer.current) clearTimeout(reopenTimer.current);
     reopenTimer.current = setTimeout(() => {
