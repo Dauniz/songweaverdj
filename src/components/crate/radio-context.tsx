@@ -1957,50 +1957,64 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const openSpotify = useCallback(() => {
     const track = radioRef.current.current;
     if (!track?.spotify_id) return;
-    // Close the popup and wait quietly for the user to open Spotify — it only
-    // reappears if they press play again.
+    const shownIssue = playbackIssue;
+    // Hide the popup for a 10 s cooldown while Crate looks for Spotify; if it
+    // still can't see it after that, the popup comes back.
     setPlaybackIssue(null);
-    // Try the installed desktop/mobile app first; if the page is still visible
-    // shortly after, the app isn't installed, so fall back to Spotify Web.
+    const cycle = { ok: false };
+    if (reopenTimer.current) clearTimeout(reopenTimer.current);
+    reopenTimer.current = setTimeout(() => {
+      reopenTimer.current = null;
+      if (!cycle.ok && shownIssue) setPlaybackIssue((cur) => cur ?? shownIssue);
+    }, 10_000);
     // Open Spotify itself, not the track: a track link makes Spotify play it inside
     // its album, filling "Next up" with album songs. Crate sends its own list instead.
     const webUrl = "https://open.spotify.com/";
-    let appOpened = false;
-    const onBlur = () => { appOpened = true; };
-    const onVis = () => { if (document.hidden) appOpened = true; };
-    window.addEventListener("blur", onBlur);
-    document.addEventListener("visibilitychange", onVis);
-    // Launch the app via the spotify: link without navigating this page, so an
-    // embedded preview frame doesn't swallow it or turn it into a web player.
-    const appUrl = "spotify:";
-    const frame = document.createElement("iframe");
-    frame.style.display = "none";
-    frame.src = appUrl;
-    document.body.appendChild(frame);
-    try {
-      const a = document.createElement("a");
-      a.href = appUrl;
-      a.rel = "noopener";
-      a.click();
-    } catch { /* ignore */ }
-    setTimeout(() => {
-      frame.remove();
-      window.removeEventListener("blur", onBlur);
-      document.removeEventListener("visibilitychange", onVis);
-      // Only fall back to Spotify Web when the app clearly didn't take focus.
-      if (!appOpened && document.hasFocus()) {
-        window.open(webUrl, "_blank", "noopener,noreferrer");
-      }
-    }, 2500);
+    if (isAppleTouchDevice()) {
+      // iPhone/iPad: open the universal link inside the tap. iOS hands it to the
+      // Spotify app when installed, otherwise it opens Spotify Web in a new tab.
+      const w = window.open(webUrl, "_blank");
+      if (!w && window.top === window.self) window.location.assign(webUrl);
+    } else {
+      // Desktop: try the installed app first; fall back to Spotify Web.
+      let appOpened = false;
+      const onBlur = () => { appOpened = true; };
+      const onVis = () => { if (document.hidden) appOpened = true; };
+      window.addEventListener("blur", onBlur);
+      document.addEventListener("visibilitychange", onVis);
+      const appUrl = "spotify:";
+      const frame = document.createElement("iframe");
+      frame.style.display = "none";
+      frame.src = appUrl;
+      document.body.appendChild(frame);
+      try {
+        const a = document.createElement("a");
+        a.href = appUrl;
+        a.rel = "noopener";
+        a.click();
+      } catch { /* ignore */ }
+      setTimeout(() => {
+        frame.remove();
+        window.removeEventListener("blur", onBlur);
+        document.removeEventListener("visibilitychange", onVis);
+        if (!appOpened && document.hasFocus()) {
+          window.open(webUrl, "_blank", "noopener,noreferrer");
+        }
+      }, 2500);
+    }
     let attempts = 0;
     const retry = async () => {
       attempts += 1;
       const queuedDoor = door.current;
-      if (await startSpotifyPlayback(track, true, queuedDoor && queuedDoor.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry")) return;
-      if (attempts < 10) retryTimer.current = setTimeout(() => void retry(), 3_000);
+      if (await startSpotifyPlayback(track, true, queuedDoor && queuedDoor.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry")) {
+        cycle.ok = true;
+        if (reopenTimer.current) { clearTimeout(reopenTimer.current); reopenTimer.current = null; }
+        return;
+      }
+      if (attempts < 4 && reopenTimer.current) retryTimer.current = setTimeout(() => void retry(), 2_500);
     };
-    retryTimer.current = setTimeout(() => void retry(), 2_000);
-  }, [startSpotifyPlayback]);
+    retryTimer.current = setTimeout(() => void retry(), 1_500);
+  }, [startSpotifyPlayback, playbackIssue]);
 
   const preparedAuth = usePreparedSpotifyUrl(() =>
     authUrlFn({ data: { origin: window.location.origin, framed: window.top !== window.self } }),
