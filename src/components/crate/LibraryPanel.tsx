@@ -193,10 +193,9 @@ export function LibraryPanel() {
 
   if (collapsed) {
     return (
-      // No opacity-0 entrance: on iPad reloads the animation could stall
-      // before running, leaving the pill invisible. It now renders visible.
-      <motion.div
-        initial={false}
+      // Plain element (no animation library): on iPad the animated version could
+      // stay invisible after entering the Studio.
+      <div
         className="fixed left-3 top-16 z-40 sm:left-4"
       >
         <TooltipProvider delayDuration={200}>
@@ -215,7 +214,7 @@ export function LibraryPanel() {
             <TooltipContent side="right">{orbLabel}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
-      </motion.div>
+      </div>
     );
   }
 
