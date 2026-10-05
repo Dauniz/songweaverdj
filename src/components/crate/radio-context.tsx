@@ -1972,10 +1972,35 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     // its album, filling "Next up" with album songs. Crate sends its own list instead.
     const webUrl = "https://open.spotify.com/";
     if (isAppleTouchDevice()) {
-      // iPhone/iPad: open the universal link inside the tap. iOS hands it to the
-      // Spotify app when installed, otherwise it opens Spotify Web in a new tab.
-      const w = window.open(webUrl, "_blank");
-      if (!w && window.top === window.self) window.location.assign(webUrl);
+      // iPhone/iPad: in-app browsers (e.g. the Lovable app) swallow window.open
+      // and universal links, showing Spotify Web inside themselves. Instead:
+      // 1) fire the spotify: scheme inside the tap — iOS leaves for the app;
+      // 2) if we're still visible, hand the web URL to Safari (x-safari-https),
+      //    which opens the user's browser rather than an embedded window.
+      let left = false;
+      const onHide = () => { if (document.hidden) left = true; };
+      const onBlur = () => { left = true; };
+      document.addEventListener("visibilitychange", onHide);
+      window.addEventListener("pagehide", onBlur);
+      const fire = (href: string) => {
+        const a = document.createElement("a");
+        a.href = href;
+        a.rel = "noopener";
+        a.target = "_top";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      };
+      try { fire("spotify:"); } catch { /* ignore */ }
+      setTimeout(() => {
+        document.removeEventListener("visibilitychange", onHide);
+        window.removeEventListener("pagehide", onBlur);
+        if (left || document.hidden) return;
+        try { fire("x-safari-https://open.spotify.com/"); } catch { /* ignore */ }
+        setTimeout(() => {
+          if (!document.hidden && window.top === window.self) window.open(webUrl, "_blank", "noopener,noreferrer");
+        }, 1200);
+      }, 1500);
     } else {
       // Desktop: try the installed app first; fall back to Spotify Web.
       let appOpened = false;
