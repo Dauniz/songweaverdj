@@ -194,7 +194,6 @@ export function LibraryPanel() {
   if (collapsed) {
     return (
       <motion.div
-        layoutId="spotify-panel"
         initial={{ opacity: 0, scale: reduced ? 1 : 0.92, x: reduced ? 0 : -6 }}
         animate={{ opacity: 1, scale: 1, x: 0 }}
         transition={{ duration: reduced ? 0.12 : 0.28, ease: MOTION_EASE }}
@@ -222,7 +221,6 @@ export function LibraryPanel() {
 
   return (
     <motion.div
-      layoutId="spotify-panel"
       initial={{ opacity: 0, scale: reduced ? 1 : 0.96, x: reduced ? 0 : -8, clipPath: reduced ? "none" : "inset(0 0 20% 0)" }}
       animate={{ opacity: 1, scale: 1, x: 0, clipPath: "inset(0)" }}
       transition={{ duration: reduced ? 0.12 : 0.32, ease: MOTION_EASE }}
