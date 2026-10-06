@@ -1905,6 +1905,24 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [sessionLive, playbackFn, adoptPlaying, note]);
 
+  // Outside a session, keep the Spotify pill dot live: check every 20 s while the
+  // tab is visible, and immediately when you come back (iPad freezes timers away).
+  useEffect(() => {
+    if (sessionLive) return;
+    let busy = false;
+    const tick = async () => {
+      if (document.hidden || busy) return;
+      busy = true;
+      try { await playbackFn(); } catch { /* dot already went red */ }
+      finally { busy = false; }
+    };
+    void tick();
+    const id = setInterval(tick, 20_000);
+    const onVis = () => { if (!document.hidden) void tick(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
+  }, [sessionLive, playbackFn]);
+
   // Waiting for Spotify (popup shown OR in its 10 s cooldown after "Open Spotify"):
   // check every 3 s, and immediately when the tab comes back into view (iPad/iPhone
   // freeze timers while you're in the Spotify app/tab). Only visible time counts
@@ -2344,6 +2362,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         calming,
         foreignQueued,
         spotifyLost: sessionLive && playbackIssue !== null,
+        spotifyAlive,
       }}
     >
       {children}
