@@ -172,13 +172,16 @@ export function LibraryPanel() {
   }
 
   const hasDemo = tracks.some((t) => t.is_demo);
-  const { spotifyLost } = useRadio();
-  const orbClass = spotifyLost
+  const { spotifyLost, spotifyAlive } = useRadio();
+  // Red the moment Crate can't detect Spotify — during a session (spotifyLost)
+  // or any time a connected account stops answering (spotifyAlive === false).
+  const lost = spotifyLost || (status?.connected === true && spotifyAlive === false);
+  const orbClass = lost
     ? "bg-destructive shadow-[0_0_6px_var(--destructive)]"
     : status?.connected
       ? "bg-primary shadow-[0_0_6px_var(--primary)]"
       : "bg-muted-foreground/40";
-  const orbLabel = spotifyLost
+  const orbLabel = lost
     ? "Spotify connection lost"
     : status?.connected
       ? "Spotify connected"

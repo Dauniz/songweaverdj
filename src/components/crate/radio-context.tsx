@@ -95,6 +95,8 @@ type RadioContextValue = {
   foreignQueued: number;
   /** Live session but Spotify connection is lost (no device / playback refused). */
   spotifyLost: boolean;
+  /** Latest Spotify detection: true = a device/playback seen, false = nothing detected, null = not connected or not checked yet. */
+  spotifyAlive: boolean | null;
 };
 
 // Keep one context instance across hot reloads so provider and consumers never diverge.
@@ -181,10 +183,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const deviceIdRef = useRef<string | null>(null);
   /** Smoothed one-way delay from the browser to Spotify, used to aim the resume position. */
   const pushLatency = useRef(250);
+  /** Drives the Spotify pill dot: green while a device answers, red the moment detection fails. */
+  const [spotifyAlive, setSpotifyAlive] = useState<boolean | null>(null);
   const playbackFn = useCallback(async () => {
-    const st = await playbackRawFn();
-    if (st.status === "ready" && st.deviceId) deviceIdRef.current = st.deviceId;
-    return st;
+    try {
+      const st = await playbackRawFn();
+      if (st.status === "ready" && st.deviceId) deviceIdRef.current = st.deviceId;
+      setSpotifyAlive(st.status === "ready" ? true : st.status === "connect_required" ? null : false);
+      return st;
+    } catch (e) {
+      setSpotifyAlive(false);
+      throw e;
+    }
   }, [playbackRawFn]);
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const qc = useQueryClient();
@@ -1895,6 +1905,24 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [sessionLive, playbackFn, adoptPlaying, note]);
 
+  // Outside a session, keep the Spotify pill dot live: check every 20 s while the
+  // tab is visible, and immediately when you come back (iPad freezes timers away).
+  useEffect(() => {
+    if (sessionLive) return;
+    let busy = false;
+    const tick = async () => {
+      if (document.hidden || busy) return;
+      busy = true;
+      try { await playbackFn(); } catch { /* dot already went red */ }
+      finally { busy = false; }
+    };
+    void tick();
+    const id = setInterval(tick, 20_000);
+    const onVis = () => { if (!document.hidden) void tick(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
+  }, [sessionLive, playbackFn]);
+
   // Waiting for Spotify (popup shown OR in its 10 s cooldown after "Open Spotify"):
   // check every 3 s, and immediately when the tab comes back into view (iPad/iPhone
   // freeze timers while you're in the Spotify app/tab). Only visible time counts
@@ -2334,6 +2362,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         calming,
         foreignQueued,
         spotifyLost: sessionLive && playbackIssue !== null,
+        spotifyAlive,
       }}
     >
       {children}
