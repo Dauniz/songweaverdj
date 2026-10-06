@@ -95,6 +95,8 @@ type RadioContextValue = {
   foreignQueued: number;
   /** Live session but Spotify connection is lost (no device / playback refused). */
   spotifyLost: boolean;
+  /** Latest Spotify detection: true = a device/playback seen, false = nothing detected, null = not connected or not checked yet. */
+  spotifyAlive: boolean | null;
 };
 
 // Keep one context instance across hot reloads so provider and consumers never diverge.
@@ -181,10 +183,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const deviceIdRef = useRef<string | null>(null);
   /** Smoothed one-way delay from the browser to Spotify, used to aim the resume position. */
   const pushLatency = useRef(250);
+  /** Drives the Spotify pill dot: green while a device answers, red the moment detection fails. */
+  const [spotifyAlive, setSpotifyAlive] = useState<boolean | null>(null);
   const playbackFn = useCallback(async () => {
-    const st = await playbackRawFn();
-    if (st.status === "ready" && st.deviceId) deviceIdRef.current = st.deviceId;
-    return st;
+    try {
+      const st = await playbackRawFn();
+      if (st.status === "ready" && st.deviceId) deviceIdRef.current = st.deviceId;
+      setSpotifyAlive(st.status === "ready" ? true : st.status === "connect_required" ? null : false);
+      return st;
+    } catch (e) {
+      setSpotifyAlive(false);
+      throw e;
+    }
   }, [playbackRawFn]);
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const qc = useQueryClient();
