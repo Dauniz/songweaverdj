@@ -172,20 +172,47 @@ export function LibraryPanel() {
   }
 
   const hasDemo = tracks.some((t) => t.is_demo);
-  const { spotifyLost, spotifyAlive } = useRadio();
-  // Red the moment Crate can't detect Spotify — during a session (spotifyLost)
-  // or any time a connected account stops answering (spotifyAlive === false).
+  const { spotifyLost, spotifyAlive, sessionLive } = useRadio();
+  // During a session: red the moment Crate can't reach Spotify, green while it
+  // can. Between sessions the dot sits solid grey — nothing is being steered.
   const lost = spotifyLost || (status?.connected === true && spotifyAlive === false);
-  const orbClass = lost
-    ? "bg-destructive shadow-[0_0_6px_var(--destructive)]"
-    : status?.connected
-      ? "bg-primary shadow-[0_0_6px_var(--primary)]"
-      : "bg-muted-foreground/40";
-  const orbLabel = lost
-    ? "Spotify connection lost"
-    : status?.connected
-      ? "Spotify connected"
-      : "Spotify not connected";
+  const orbClass = sessionLive
+    ? lost
+      ? "bg-destructive shadow-[0_0_6px_var(--destructive)]"
+      : "bg-primary shadow-[0_0_6px_var(--primary)]"
+    : "bg-muted-foreground";
+  const orbLabel = sessionLive
+    ? lost
+      ? "Spotify connection lost"
+      : "Spotify connected"
+    : "Between sessions — see Spotify connection status";
+
+  const conn = !status
+    ? { label: "Checking…", hint: "Asking Spotify what it sees." }
+    : !status.configured
+      ? { label: "Spotify app keys not added yet", hint: "Connect Spotify to start listening." }
+      : sessionLive && lost
+        ? {
+            label: "Connection lost",
+            hint: "Crate can't reach Spotify. Open Spotify and press play — the maze waits until music is on.",
+          }
+        : sessionLive
+          ? {
+              label: "Connected — Crate is steering",
+              hint:
+                spotifyAlive === true
+                  ? "Spotify is answering and the maze is live."
+                  : "Signed in; waiting for Spotify to answer.",
+            }
+          : status.connected
+            ? {
+                label: "Signed in · idle",
+                hint: "Between sessions the dot stays grey. Start a session and Crate wakes Spotify.",
+              }
+            : {
+                label: "Not connected",
+                hint: "Connect Spotify so Crate can build your maze from your library.",
+              };
 
   function toggleCollapsed() {
     setCollapsed((c) => {
@@ -252,6 +279,16 @@ export function LibraryPanel() {
         >
           <ChevronUp className="h-4 w-4" />
         </button>
+      </div>
+      <div className="mt-2 rounded-lg border bg-muted/40 px-2.5 py-2">
+        <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+          Spotify connection status
+        </p>
+        <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-foreground">
+          <span className={cn("inline-block h-2 w-2 shrink-0 rounded-full", orbClass)} />
+          {conn.label}
+        </p>
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{conn.hint}</p>
       </div>
       {!status ? (
         <p className="mt-1 text-xs text-muted-foreground">Checking…</p>
