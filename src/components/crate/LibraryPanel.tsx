@@ -185,13 +185,13 @@ export function LibraryPanel() {
     ? lost
       ? "Spotify connection not found"
       : "Spotify connected"
-    : "Spotify connection status";
+    : "No session ongoing";
 
   // One universal wording everywhere: the pill tooltip and the panel line agree.
   const conn = !status
-    ? { label: "Spotify connection status", hint: "Asking Spotify what it sees." }
+    ? { label: "No session ongoing", hint: "Asking Spotify what it sees." }
     : !status.configured
-      ? { label: "Spotify connection status", hint: "Spotify app keys not added yet." }
+      ? { label: "No session ongoing", hint: "Spotify app keys not added yet." }
       : sessionLive
         ? lost
           ? {
@@ -206,7 +206,7 @@ export function LibraryPanel() {
                   : "Signed in; waiting for Spotify to answer.",
             }
         : {
-            label: "Spotify connection status",
+            label: "No session ongoing",
             hint: status.connected
               ? "Between sessions the dot stays grey. Start a session and Crate wakes Spotify."
               : "Connect Spotify so Crate can build your maze from your library.",
