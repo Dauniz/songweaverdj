@@ -183,36 +183,34 @@ export function LibraryPanel() {
     : "bg-muted-foreground";
   const orbLabel = sessionLive
     ? lost
-      ? "Spotify connection lost"
+      ? "Spotify connection not found"
       : "Spotify connected"
-    : "Between sessions — see Spotify connection status";
+    : "Spotify connection status";
 
+  // One universal wording everywhere: the pill tooltip and the panel line agree.
   const conn = !status
-    ? { label: "Checking…", hint: "Asking Spotify what it sees." }
+    ? { label: "Spotify connection status", hint: "Asking Spotify what it sees." }
     : !status.configured
-      ? { label: "Spotify app keys not added yet", hint: "Connect Spotify to start listening." }
-      : sessionLive && lost
-        ? {
-            label: "Connection lost",
-            hint: "Crate can't reach Spotify. Open Spotify and press play — the maze waits until music is on.",
-          }
-        : sessionLive
+      ? { label: "Spotify connection status", hint: "Spotify app keys not added yet." }
+      : sessionLive
+        ? lost
           ? {
-              label: "Connected — Crate is steering",
+              label: "Spotify connection not found",
+              hint: "Open Spotify and press play — the maze waits until music is on.",
+            }
+          : {
+              label: "Spotify connected",
               hint:
                 spotifyAlive === true
                   ? "Spotify is answering and the maze is live."
                   : "Signed in; waiting for Spotify to answer.",
             }
-          : status.connected
-            ? {
-                label: "Signed in · idle",
-                hint: "Between sessions the dot stays grey. Start a session and Crate wakes Spotify.",
-              }
-            : {
-                label: "Not connected",
-                hint: "Connect Spotify so Crate can build your maze from your library.",
-              };
+        : {
+            label: "Spotify connection status",
+            hint: status.connected
+              ? "Between sessions the dot stays grey. Start a session and Crate wakes Spotify."
+              : "Connect Spotify so Crate can build your maze from your library.",
+          };
 
   function toggleCollapsed() {
     setCollapsed((c) => {
