@@ -28,3 +28,4 @@
 - [x] Chat-based steering: replace the chip popup with mid-session chat steering ("More rap", "I'm loving it") that re-plans B/v/w ahead while C stays queued; the six-pick prompt queue stays prompt-start-only and yields to an explicit steer
 - [x] Move the alternative road bars (Deep cuts, Wormhole, Scene, Texture + info) from under the chat into the Walrus Memory tab, directly above the current song
 - [x] Open Spotify on iPhone/iPad opens app or web; popup returns after 10 s cooldown if no connection
+- [x] Spotify pill dot live-wired to detection: solid grey between sessions, red/green during a session; expanded panel shows "Spotify connection status"
