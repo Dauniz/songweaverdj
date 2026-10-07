@@ -14,7 +14,8 @@ When any session starts (Start button, prompt, search, resume, welcome card), Cr
 - **Same door rules as always:** Crate picks the finish song, the skip song and their skip songs right away, and pushes his skip song into Spotify's next up as soon as it's ready, with the song continuing from where it is. As today, that push can cause one brief sound glitch on a song that was already playing.
 
 **Prompt, search or welcome card:**
-- **App open (playing or paused):** no popup. Crate ignores whatever Spotify was playing and starts his own maze from your input, sending his first song straight to that device.
+- **App open (playing or paused):** no popup. Crate ignores whatever Spotify was playing and starts his own maze from your input.
+- **Skip door sent with the first song:** Crate waits until both his first song and its skip door are picked, then sends them to that device in one go. The skip door is lined up from the start, so nothing needs pushing mid-song and there's no sound glitch. The other doors (finish song and the skip songs behind them) follow the usual rules.
 
 **Either way:**
 - **No open device:** the "Open Spotify" popup appears as it does today, with the 10 s cooldown and background checks.
