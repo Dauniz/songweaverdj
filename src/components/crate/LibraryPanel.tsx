@@ -176,12 +176,17 @@ export function LibraryPanel() {
   // During a session: red the moment Crate can't reach Spotify, green while it
   // can. Between sessions the dot sits solid grey — nothing is being steered.
   const lost = spotifyLost || (status?.connected === true && spotifyAlive === false);
-  const orbClass = sessionLive
+  const waiting = sessionLive && !lost && spotifyAlive !== true;
+  const orbClass = waiting
+    ? "bg-muted-foreground"
+    : sessionLive
     ? lost
       ? "bg-destructive shadow-[0_0_6px_var(--destructive)]"
       : "bg-primary shadow-[0_0_6px_var(--primary)]"
     : "bg-muted-foreground";
-  const orbLabel = sessionLive
+  const orbLabel = waiting
+    ? "Waiting for Spotify to play"
+    : sessionLive
     ? lost
       ? "Spotify connection not found"
       : "Spotify connected"
@@ -193,7 +198,9 @@ export function LibraryPanel() {
     : !status.configured
       ? { label: "No session ongoing", hint: "Spotify app keys not added yet." }
       : sessionLive
-        ? lost
+        ? waiting
+          ? { label: "Waiting for Spotify to play", hint: "Press play in Spotify — Crate picks up the song right away." }
+          : lost
           ? {
               label: "Spotify connection not found",
               hint: "Open Spotify and press play — the maze waits until music is on.",

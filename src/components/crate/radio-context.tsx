@@ -193,7 +193,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // Green only when Crate is following a song or actually hears Spotify playing.
       setSpotifyAlive(
         st.status === "ready"
-          ? (st.isPlaying || radioRef.current?.active ? true : false)
+          ? (st.isPlaying || radioRef.current?.active ? true : null)
           : st.status === "connect_required" ? null : false,
       );
       return st;
