@@ -4,8 +4,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const partOf = (h: number) => (h < 5 ? "night" : h < 12 ? "morning" : h < 17 ? "afternoon" : h < 22 ? "evening" : "night");
-/** Fixed closing line on every welcome card; the model only writes the opening question. */
-const WELCOME_CLOSE = "I'll dig up tracks meant for the moment.";
 
 export type WelcomeSuggestion = { greeting: string; prompt: string; confidence: number } | null;
 
@@ -68,7 +66,7 @@ Walrus recall:\n${recalled.map((r) => `- ${r.text}`).join("\n") || "- (none)"}
 Earlier welcome answers (weak hints; declines lower confidence for similar guesses):\n${(welcomeHints ?? []).map((w) => `- ${w.content}`).join("\n") || "- (none)"}
 
 Decide if you can confidently guess what they want to hear right now, based on a REPEATED pattern for this weekday/time backed by both memories and listening. Reply ONLY with JSON:
-{"confidence": 0-1, "greeting": "exactly one warm question and nothing else, e.g. 'Good evening Isac, are you feeling those acoustic vibes as you usually do on Friday nights?' (use the name if known, greeting fitting ${part}); never add a second sentence", "prompt": "the chat prompt to start the session with, written as the listener, e.g. 'Acoustic Friday night vibes like usual'"}`;
+{"confidence": 0-1, "greeting": "one warm question, e.g. 'Good evening Isac, are you feeling those acoustic vibes as you usually do on Friday nights?' (use the name if known, greeting fitting ${part})", "prompt": "the chat prompt to start the session with, written as the listener, e.g. 'Acoustic Friday night vibes like usual'"}`;
 
     try {
       const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -88,7 +86,7 @@ Decide if you can confidently guess what they want to hear right now, based on a
       const raw = j.choices?.[0]?.message?.content ?? "";
       const out = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)) as { confidence?: number; greeting?: string; prompt?: string };
       if (!out.greeting || !out.prompt || (out.confidence ?? 0) < 0.75) return null;
-      return { greeting: `${out.greeting.slice(0, 200).trim()} ${WELCOME_CLOSE}`, prompt: out.prompt.slice(0, 300), confidence: out.confidence! };
+      return { greeting: out.greeting.slice(0, 220), prompt: out.prompt.slice(0, 300), confidence: out.confidence! };
     } catch (e) {
       console.error("welcome suggestion failed", e);
       return null;
