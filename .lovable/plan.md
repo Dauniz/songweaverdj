@@ -1,4 +1,7 @@
-# Connect straight to an already-open Spotify app (tablet/iPhone)
+# Connect straight to an already-open Spotify app (tablet, iPhone and desktop)
+
+All rules below apply the same on every device: tablet, iPhone and desktop.
+
 
 ## What happens today
 When a session starts, Crate only treats Spotify as "on" if a song is **actively playing**. If the Spotify app is open but paused (or just sitting on its home screen), Crate shows the "Open Spotify" popup anyway. Tapping it then bounces you out to Spotify or a browser tab, even though the app was already open. That's the odd behaviour.
