@@ -1,23 +1,26 @@
-# Fix: song finishes while the tablet tab is away, Crate plays the skip song
+# Connect straight to an already-open Spotify app (tablet/iPhone)
 
-## What the log shows
-- 16:45 Sicily: played through. 16:49 Holdin' On: played through. No skip was recorded.
-- So Crate knew Holdin' On finished, but Spotify ended up on "In the morning", the skip song, instead of the finish song "Running through 2 am".
+## What happens today
+When a session starts, Crate only treats Spotify as "on" if a song is **actively playing**. If the Spotify app is open but paused (or just sitting on its home screen), Crate shows the "Open Spotify" popup anyway. Tapping it then bounces you out to Spotify or a browser tab, even though the app was already open. That's the odd behaviour.
 
-## Cause (yes, it's the tab)
-- iPad pauses Songweaver while the tab is hidden. Crate sends the finish pair about 3 s before a song ends, but a paused tab can't send anything.
-- With nothing sent, Spotify just plays the next song in its own list: Crate's skip song.
-- Crate already has a "late finish" rescue for this case: if the old song was nearly over and Spotify landed on the skip song, it sends the finish pair. But when you come back to the tab, Crate first refreshes its "last seen" snapshot with the new song. That wipes out the memory that the old song was nearly done, so the rescue never fires and the skip song keeps playing.
+The rule exists because Spotify keeps reporting your last paused song even after the app is closed, so a paused song alone doesn't prove the app is open.
 
-## Fix
-1. When you return to the tab, Crate checks before refreshing anything: was the old song near its end (or should it have ended during the time away), and is Spotify now on Crate's lined-up skip song? If yes, that was a finish, so Crate sends "Running through 2 am" (plus its skip song) right away, like a normal finish.
-2. Same check when Spotify is already a little way into the skip song (up to about 20 s in). Past that, Crate leaves the skip song alone so it doesn't cut a song you're already into, and continues the maze from it.
-3. The rescue counts as a finish, not a skip, so your skip history stays clean.
-4. It writes a "LATE FINISH (tab was away)" line to the admin Spotify log.
+## The fix
+When any session starts (Start button, prompt, search, resume, welcome card), Crate first asks Spotify which of your devices are **open right now**. Spotify's device list only includes apps that are actually open and reachable, so it's a reliable answer.
 
-The trade-off: you'll hear a second or two of the skip song before the finish song takes over. Without a running tab there's no way to send earlier.
+- **Spotify app open, and it's playing:** same as today, Crate follows that song.
+- **App open but paused or idle, prompt/search/resume start:** no popup. Crate sends its song straight to that device and playback starts.
+- **App open but paused, plain Start button:** no popup. Crate presses play on the paused song in Spotify and builds the maze from it. If nothing is loaded, it plays Crate's first pick.
+- **No open device:** the "Open Spotify" popup appears as it does today, with the 10 s cooldown and background checks.
+
+The pill dot turns green as soon as the open app is found.
+
+## Limits worth knowing
+iOS drops a paused Spotify app from the device list after a few minutes in the background. In that case Spotify really can't take commands, so the popup is still correct, and opening the app once fixes it.
 
 ## Technical details
-- `radio-context.tsx` visibility handler (~line 1863): read `lastPlayback.current` before overwriting it. Late finish when `previous.spotifyId === current.spotify_id`, the state is on `lineup.current` (not the current song), and either `previous.ratio >= 0.9` or `previous.progressMs + away >= previous.durationMs - 3_000`. With `state.progressMs < 20_000`, call `handOver(0)` and skip the snapshot overwrite. Otherwise treat it as landing on the skip door without a skip event.
-- Clear `swapping`/`handoverGuard` before calling so nothing old blocks it.
-- Verify with mocked playback: hidden at 3:30/3:45, back on the skip door at 0:05 → one finish-pair send, no skip event; back at 0:40 → no send.
+- `spotify.functions.ts`: new `getSpotifyDevices` server fn (authed) returning `{ status, devices: {id,name,isActive}[] }` from `/me/player/devices`, ignoring restricted devices.
+- `radio-context.tsx` `startSession` (~1978): after the `isPlaying` check fails, call devices. If one exists: when the playback state has a `spotifyId`, resume it via `startSpotifyPlayback` with that track at `progressMs` and `adoptPlaying`; otherwise leave the session live and let the first pick start playback. Set `spotifyAlive = true` and skip `setPlaybackIssue`.
+- Prompt/search/resume paths: before showing a no-device popup, run the same devices check; `startSpotifyPlayback`'s existing `pickDevice` + wake transfer already handles inactive devices.
+- Use the same check in the waiting loop (~1955) so a newly opened but idle app also ends the wait.
+- Verify with mocked responses: playing → adopt; devices + paused → no popup, resume sent; no devices → popup.
