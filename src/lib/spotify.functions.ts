@@ -129,6 +129,31 @@ export const resumeSpotifyPlayback = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+/** Is a Spotify app open right now? Spotify's device list only holds reachable apps
+ *  (unlike /me/player, which keeps reporting the last paused song after the app closes).
+ *  With `resume`, an open-but-paused app is told to play where it stopped. */
+export const findOpenSpotify = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { resume?: boolean }) => z.object({ resume: z.boolean().optional() }).parse(d ?? {}))
+  .handler(async ({ data, context }) => {
+    const token = await spotifyAccess(context.userId);
+    if (!token) return { found: false as const, deviceId: null };
+    const headers = { Authorization: `Bearer ${token}` };
+    const r = await fetch("https://api.spotify.com/v1/me/player/devices", { headers }).catch(() => null);
+    if (!r?.ok) return { found: false as const, deviceId: null };
+    const b = (await r.json()) as { devices?: { id: string | null; is_active: boolean; is_restricted: boolean; name: string }[] };
+    const d = b.devices?.find((i) => i.is_active && !i.is_restricted && i.id) ?? b.devices?.find((i) => !i.is_restricted && i.id);
+    if (!d?.id) return { found: false as const, deviceId: null };
+    if (data.resume) {
+      await fetch("https://api.spotify.com/v1/me/player", {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ device_ids: [d.id], play: true }),
+      }).catch(() => undefined);
+    }
+    return { found: true as const, deviceId: d.id };
+  });
+
 /** Skip to the next song — acts exactly like the listener pressing next in Spotify. */
 export const nextSpotifyTrack = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
