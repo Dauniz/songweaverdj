@@ -417,8 +417,8 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             What does today sound like?
           </h2>
           <p className="mt-3 max-w-lg text-base leading-6 text-muted-foreground sm:text-lg sm:leading-7 [@media(max-height:800px)]:text-base [@media(max-height:800px)]:leading-6">
-            Describe your mood, where you are, what you're doing. I'll dig up tracks you already
-            love from your past playlists.
+            Describe your mood, where you are, what you're doing. I'll tune in a track-list meant
+            for the moment.
           </p>
           <p className="mt-2 max-w-lg text-sm leading-5 text-muted-foreground/70 sm:text-base sm:leading-6">
             Either search for a song or send a prompt to Crate to initialize a Songweaver session.
