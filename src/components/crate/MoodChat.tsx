@@ -206,7 +206,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
     if (welcomeAsked.current || sessionLive) return;
     welcomeAsked.current = true;
     const now = new Date();
-    const key = `songweaver-welcome-${now.getDay()}-${now.getHours()}`;
+    const key = `songweaver-welcome-v2-${now.getDay()}-${now.getHours()}`;
     const cached = sessionStorage.getItem(key);
     if (cached === "dismissed") return;
     if (cached) {
@@ -227,7 +227,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   function answerWelcomeGuess(accepted: boolean) {
     if (!welcome) return;
     const now = new Date();
-    sessionStorage.setItem(`songweaver-welcome-${now.getDay()}-${now.getHours()}`, "dismissed");
+    sessionStorage.setItem(`songweaver-welcome-v2-${now.getDay()}-${now.getHours()}`, "dismissed");
     void logWelcome({ data: { prompt: welcome.prompt, accepted, tzOffsetMin: now.getTimezoneOffset() } }).catch(() => {});
     if (accepted) send(welcome.prompt);
     setWelcome(null);
