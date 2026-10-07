@@ -272,7 +272,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // skip door (never seen playing) vs. a real skip by the user (finish song was seen playing).
   const handoverGuard = useRef<{
     finish: RadioTrack; skip: RadioTrack | null; stateAt: RadioState; sentAt: number; finishSeen: boolean; recovered: boolean;
+    /** The song that just finished — Spotify may keep reporting it for a moment. */
+    from: string;
   } | null>(null);
+  const lastLogged = useRef<{ key: string; at: number }>({ key: "", at: 0 });
   const swapAborted = useRef(""); // you picked your own song during the end hand-over
   /** Song ids last sent to Spotify, in order — lets Crate skip re-sending when the next door is already lined up. */
   const lineup = useRef<string[]>([]);
@@ -449,6 +452,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   const log = useCallback(
     (track: { id?: string | null; name: string; artists: string } | null, event: string, s: RadioState) => {
+      // Two paths (hand-over and late-finish rescue) can report the same moment: log it once.
+      const key = `${s.sessionId}|${event}|${track?.id ?? ""}|${track?.name ?? ""}`;
+      if (lastLogged.current.key === key && Date.now() - lastLogged.current.at < 5_000) return;
+      lastLogged.current = { key, at: Date.now() };
       logFn({
         data: {
           trackId: track?.id && !String(track.id).startsWith("demo") ? track.id : null,
@@ -1475,7 +1482,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       handoverGuard.current = {
         finish: finishB.track, skip: skipB?.track ?? null, stateAt: afterState,
-        sentAt: Date.now(), finishSeen: false, recovered: false,
+        sentAt: Date.now(), finishSeen: false, recovered: false, from: cur.spotify_id,
       };
       if (skipB) preSkip.current = { forId: finishB.track.spotify_id, branch: skipB };
       // The finish song starts with its skip door ALREADY queued in Spotify (sent in the
@@ -1492,8 +1499,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       branches.current = null;
       setRadio(afterState);
       noteMove(cur, "played", finishB.track, finishB.road);
+      // Not "seen playing" until Spotify actually reports it: a lagging report of the old song
+      // must never count as a skip off the finish song.
       lastPlayback.current = {
-        spotifyId: finishB.track.spotify_id, ratio: 0, observed: true,
+        spotifyId: finishB.track.spotify_id, ratio: 0, observed: false,
         progressMs: 0, durationMs: 0, at: Date.now(),
       };
       lastTransition.current = Date.now();
@@ -1571,11 +1580,16 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         idlePolls.current = 0;
         return;
       }
+      // Remember which song Crate was on when this check left: if Crate moves on while it's
+      // in flight (hand-over, skip, landing, resume), the answer describes the past — drop it.
+      const sentTransition = lastTransition.current;
+      const sentFor = current.spotify_id;
       try {
         const state = await playbackFn();
         if (state.status === "ready") {
           observeSpotify(state.spotifyId, [state.name, state.artists].filter(Boolean).join(" — ") || state.spotifyId || "", state.progressMs, state.isPlaying);
         }
+        if (lastTransition.current !== sentTransition || radioRef.current.current?.spotify_id !== sentFor) return;
         // The request may have started just before Crate began a hand-over or deliberate
         // skip-spam pause. Discard that now-stale response instead of surfacing it as idle.
         if (calmingRef.current || committing.current) {
@@ -1673,6 +1687,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (state.spotifyId === hg.finish.spotify_id) {
             hg.finishSeen = true; // from now on any move is the user's own skip
             if (hg.recovered) handoverGuard.current = null;
+          } else if (!hg.finishSeen && state.spotifyId === hg.from && Date.now() - hg.sentAt < 5_000) {
+            // Spotify still reports the song that just finished: it hasn't switched yet.
+            // Never read that as a skip or a manual pick — wait for the finish song to show up.
+            return;
           } else if (
             !hg.finishSeen && !hg.recovered && hg.skip?.spotify_id === state.spotifyId &&
             Date.now() - hg.sentAt < 1_500 && current.spotify_id === hg.finish.spotify_id
