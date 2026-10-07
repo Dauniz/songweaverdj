@@ -528,7 +528,7 @@ export function CrateConsole({
             ) : (
               <>
                 {events.length === 0 && (
-                  <div className="text-muted-foreground">Waiting for Crate…</div>
+                  <div className="text-muted-foreground">{sessionLive && !radio.active ? "Waiting for Spotify to play…" : "Waiting for Crate…"}</div>
                 )}
                 {events.map((e, i) => {
                   const t = TAG[e.kind] ?? TAG["think"]!;
