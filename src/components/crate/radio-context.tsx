@@ -12,7 +12,7 @@ import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { saveSteerInsight } from "@/lib/memory.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
 import { pushSpotifyLog, ackSpotifySend, observeSpotify } from "@/lib/spotify-log";
-import { endSpotifySession, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyPlayback,
+import { endSpotifySession, findOpenSpotify, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyPlayback,
   getNextQueuedId, nextSpotifyTrack, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
 import { isAppleTouchDevice, openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import type { CardTrack } from "./TrackCard";
@@ -178,6 +178,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const pauseFn = useServerFn(pauseSpotifyPlayback);
   const nextTrackFn = useServerFn(nextSpotifyTrack);
   const playbackRawFn = useServerFn(getSpotifyPlayback);
+  const findOpenFn = useServerFn(findOpenSpotify);
   const nextQueuedFn = useServerFn(getNextQueuedId);
   /** Spotify device seen in the latest poll — sent with pushes so the server skips a device lookup. */
   const deviceIdRef = useRef<string | null>(null);
@@ -1981,10 +1982,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     setSessionLive(true);
     idleSince.current = 0;
     if (radioRef.current.active) return;
-    // Spotify reports the last paused song even when the app is closed, so only an
-    // actually-playing song counts as "Spotify is on". Ask quickly; otherwise show
-    // the Open Spotify popup (the no_device retry loop keeps watching after that).
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    // A playing song: keep it going and build the maze from it (adopt pushes the skip door).
+    // A paused song alone doesn't prove the app is open (Spotify keeps reporting it after
+    // closing), so ask Spotify's device list; an open app is woken and resumed — no popup.
+    let resumed = false;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         const state = await playbackFn();
         console.info("[startSession] spotify state", state.status, state.status === "ready" ? state.isPlaying : null);
@@ -1992,17 +1994,31 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           adoptPlaying(state);
           return;
         }
+        if (!resumed) {
+          const open = await findOpenFn({ data: { resume: true } });
+          console.info("[startSession] open Spotify device", open.found);
+          if (open.found) {
+            resumed = true;
+            if (open.deviceId) deviceIdRef.current = open.deviceId;
+            setSpotifyAlive(true);
+            pushSpotifyLog({ kind: "event", at: Date.now(), text: "START — Spotify app already open, resuming it" });
+          } else if (attempt > 0) break;
+        }
       } catch (err) {
         console.warn("[startSession] playback check failed", err);
       }
-      if (attempt < 1) await new Promise((r) => setTimeout(r, 1_500));
+      if (radioRef.current.active) return;
+      if (attempt < 2) await new Promise((r) => setTimeout(r, resumed ? 900 : 1_500));
     }
     if (radioRef.current.active) return;
     noDeviceSince.current = Date.now();
     lastLostPrompt.current = Date.now();
     setAwaitingSpotify(true);
+    // The app is open but had nothing to resume: keep watching quietly instead of
+    // sending the user away to open an app that is already open.
+    if (resumed) return;
     setPlaybackIssue({ status: "no_device", message: "Open Spotify and play a song to start the session." });
-  }, [playbackFn, adoptPlaying]);
+  }, [playbackFn, adoptPlaying, findOpenFn]);
 
 
   useEffect(() => {
