@@ -190,7 +190,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     try {
       const st = await playbackRawFn();
       if (st.status === "ready" && st.deviceId) deviceIdRef.current = st.deviceId;
-      setSpotifyAlive(st.status === "ready" ? true : st.status === "connect_required" ? null : false);
+      // Green only when Crate is following a song or actually hears Spotify playing.
+      setSpotifyAlive(
+        st.status === "ready"
+          ? (st.isPlaying || radioRef.current?.active ? true : null)
+          : st.status === "connect_required" ? null : false,
+      );
       return st;
     } catch (e) {
       setSpotifyAlive(false);
@@ -201,6 +206,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [playbackIssue, setPlaybackIssue] = useState<SpotifyPlaybackIssue | null>(null);
   const [awaitingSpotify, setAwaitingSpotify] = useState(false);
+  /** When the Start button resumed an open app; a still-paused loaded song is adopted 5 s later. */
+  const resumeSentAt = useRef(0);
   const lastLostPrompt = useRef(0);
   const [retrying, setRetrying] = useState(false);
 
@@ -1946,6 +1953,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // check every 3 s, and immediately when the tab comes back into view (iPad/iPhone
   // freeze timers while you're in the Spotify app/tab). Only visible time counts
   // toward the give-up grace, so a trip to Spotify never ends the session.
+  // Never a dead session: live, no song followed, no popup → keep waiting/polling.
+  useEffect(() => {
+    if (!sessionLive || radio.active || playbackIssue || awaitingSpotify) return;
+    const t = setTimeout(() => {
+      if (!radioRef.current.active) setAwaitingSpotify(true);
+    }, 4_000);
+    return () => clearTimeout(t);
+  }, [sessionLive, radio.active, playbackIssue, awaitingSpotify]);
   const waitingForSpotify = sessionLive && (playbackIssue?.status === "no_device" || awaitingSpotify);
   useEffect(() => {
     if (!waitingForSpotify) return;
@@ -1969,15 +1984,28 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (current?.spotify_id) {
           if (await startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, lastPlayback.current.progressMs || undefined, "connection retry")) succeed();
         } else {
-          const state = await playbackFn();
-          console.info("[spotify watch]", state.status, state.status === "ready" ? state.isPlaying : null);
-          if (state.status === "ready" && state.spotifyId && state.isPlaying && !radioRef.current.active) {
+          let state = await playbackFn();
+          // A playing report without a song ID is usually Spotify mid-switch: ask once more.
+          if (state.status === "ready" && state.isPlaying && !state.spotifyId) state = await playbackFn();
+          const ready = state.status === "ready" && !!state.spotifyId;
+          const pausedOk = ready && resumeSentAt.current > 0 && Date.now() - resumeSentAt.current >= 5_000;
+          console.info("[spotify watch]", state.status, state.status === "ready" ? state.isPlaying : null, pausedOk ? "adopt paused" : "");
+          if (ready && (state.status === "ready" && state.isPlaying || pausedOk) && !radioRef.current.active) {
+            pushSpotifyLog({ kind: "event", at: Date.now(), text: `WAIT — adopting ${state.status === "ready" && state.isPlaying ? "playing" : "paused"} song from Spotify` });
+            resumeSentAt.current = 0;
             succeed();
-            adoptPlaying(state);
+            adoptPlaying(state as Parameters<typeof adoptPlaying>[0]);
           }
         }
       } catch { /* keep waiting */ } finally { busyCheck = false; }
-      if (waitedMs > NO_DEVICE_GRACE) { setAwaitingSpotify(false); stopRadio({ keepSpotify: true }); }
+      if (waitedMs > NO_DEVICE_GRACE && !radioRef.current.active) {
+        // Only give up when no Spotify app is open; an open app keeps the wait alive.
+        let open = false;
+        try { open = (await findOpenFn({ data: {} })).found; } catch { /* treat as gone */ }
+        if (open) { waitedMs = 0; return; }
+        pushSpotifyLog({ kind: "event", at: Date.now(), text: "WAIT — no Spotify app found for 90 s, ending session" });
+        setAwaitingSpotify(false); stopRadio({ keepSpotify: true });
+      }
     };
     const onBack = () => { if (!document.hidden) { lastTick = Date.now(); void tick(); } };
     const t = setInterval(() => void tick(), 3_000);
@@ -1990,7 +2018,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("focus", onBack);
       window.removeEventListener("pageshow", onBack);
     };
-  }, [waitingForSpotify, stopRadio, startSpotifyPlayback, playbackFn, adoptPlaying]);
+  }, [waitingForSpotify, stopRadio, startSpotifyPlayback, playbackFn, adoptPlaying, findOpenFn]);
 
   // No background watching without a session: Start session, a search or a prompt connects.
 
@@ -2004,7 +2032,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     // A paused song alone doesn't prove the app is open (Spotify keeps reporting it after
     // closing), so ask Spotify's device list; an open app is woken and resumed — no popup.
     let resumed = false;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
+    resumeSentAt.current = 0;
+    for (let attempt = 0; attempt < 6; attempt += 1) {
       try {
         const state = await playbackFn();
         console.info("[startSession] spotify state", state.status, state.status === "ready" ? state.isPlaying : null);
@@ -2017,16 +2046,22 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           console.info("[startSession] open Spotify device", open.found);
           if (open.found) {
             resumed = true;
+            resumeSentAt.current = Date.now();
             if (open.deviceId) deviceIdRef.current = open.deviceId;
-            setSpotifyAlive(true);
             pushSpotifyLog({ kind: "event", at: Date.now(), text: "START — Spotify app already open, resuming it" });
           } else if (attempt > 0) break;
+        } else if (state.status === "ready" && state.spotifyId && Date.now() - resumeSentAt.current >= 5_000) {
+          // Open app, song loaded but still paused after the resume: adopt it anyway.
+          pushSpotifyLog({ kind: "event", at: Date.now(), text: "START — adopting paused song from the open app" });
+          resumeSentAt.current = 0;
+          adoptPlaying(state);
+          return;
         }
       } catch (err) {
         console.warn("[startSession] playback check failed", err);
       }
       if (radioRef.current.active) return;
-      if (attempt < 2) await new Promise((r) => setTimeout(r, resumed ? 900 : 1_500));
+      if (attempt < 5) await new Promise((r) => setTimeout(r, resumed ? 1_100 : 1_500));
     }
     if (radioRef.current.active) return;
     noDeviceSince.current = Date.now();

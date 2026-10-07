@@ -443,7 +443,7 @@ export function CrateConsole({
   setOpen: (v: boolean) => void;
   onAnimatingChange?: (v: boolean) => void;
 }) {
-  const { events, radio } = useRadio();
+  const { events, radio, sessionLive } = useRadio();
   const ref = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState(320);
@@ -521,14 +521,14 @@ export function CrateConsole({
             ref={ref}
             className="scrollbar-thin min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-4 text-xs leading-relaxed"
           >
-            {!live && events.length === 0 ? (
+            {!live && !sessionLive && events.length === 0 ? (
               <div className="text-muted-foreground">
                 Start a session to follow how Crate makes its decisions.
               </div>
             ) : (
               <>
                 {events.length === 0 && (
-                  <div className="text-muted-foreground">Waiting for Crate…</div>
+                  <div className="text-muted-foreground">{sessionLive && !radio.active ? "Waiting for Spotify to play…" : "Waiting for Crate…"}</div>
                 )}
                 {events.map((e, i) => {
                   const t = TAG[e.kind] ?? TAG["think"]!;
