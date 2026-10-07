@@ -40,6 +40,18 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
+    // After an update, Safari can hold on to an outdated piece of the page and fail to
+    // load it ("Importing a module script failed"). One fresh reload fetches the new one.
+    const msg = String(error?.message ?? "");
+    if (/Importing a module script failed|Failed to fetch dynamically imported module|error loading dynamically imported module/i.test(msg)) {
+      const key = "songweaver-chunk-reload";
+      const last = Number(sessionStorage.getItem(key) ?? 0);
+      if (Date.now() - last > 30_000) {
+        sessionStorage.setItem(key, String(Date.now()));
+        window.location.reload();
+        return;
+      }
+    }
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
