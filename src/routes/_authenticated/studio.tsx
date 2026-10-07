@@ -102,7 +102,7 @@ function StudioLayout({
                   transition={{ duration: reduced ? 0.12 : 0.24, ease: MOTION_EASE }}
                 />
               )}
-              <span>{t}</span>
+              <span>{t === "memory" ? "maze" : t}</span>
             </Button>
           ))}
         </nav>
