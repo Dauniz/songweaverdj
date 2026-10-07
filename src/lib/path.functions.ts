@@ -17,7 +17,7 @@ function isForgotten(s: { plays?: number; last_played?: string | null }) {
 const altKind = (lens: LensId | null, deepCuts: boolean): AltKind | null =>
   deepCuts ? "deep" : lens === "wormhole" || lens === "texture" || lens === "scene" ? lens : null;
 
-const MODEL = "openai/gpt-6-luna";
+const MODEL = "google/gemini-3.6-flash";
 
 type Row = {
   id: string;
@@ -560,11 +560,10 @@ Pick the next song.`;
       headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
     });
     const result = streamText({
-      model: provider.responses(MODEL),
+      model: provider.chat(MODEL),
       system,
       messages: [{ role: "user", content: live }],
       stopWhen: stepCountIs(1),
-      providerOptions: { openai: { store: false } },
       tools: {
         pick_next: tool({
           description: "Choose the next song.",

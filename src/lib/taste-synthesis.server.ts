@@ -5,7 +5,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { createLovableAiGatewayRunIdFetch } from "./ai/run-id.server";
 import { submitMemory, type MemoryKind } from "./memwal.server";
 
-const MODEL = "openai/gpt-6-luna";
+const MODEL = "google/gemini-3.6-flash";
 const KINDS: MemoryKind[] = ["taste", "genre", "mood_trigger", "skipped", "session", "favorite"];
 
 type Db = SupabaseClient<Database>;
@@ -353,18 +353,9 @@ ${profile.length ? `\nLong-term baseline from their years of Spotify streaming h
   });
 
   const result = streamText({
-    model: provider.responses(MODEL),
+    model: provider.chat(MODEL),
     system,
     prompt,
-    providerOptions: {
-      openai: {
-        forceReasoning: true,
-        reasoningEffort: "medium",
-        reasoningSummary: "auto",
-        store: false,
-        include: ["reasoning.encrypted_content"],
-      },
-    },
   });
   const text = await result.text;
   const insights = parseInsights(text);

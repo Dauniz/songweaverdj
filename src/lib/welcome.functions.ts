@@ -73,7 +73,7 @@ Decide if you can confidently guess what they want to hear right now, based on a
         method: "POST",
         headers: { "content-type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "google/gemini-3.6-flash",
           messages: [
             { role: "system", content: "You are Crate, a careful music DJ. Only claim high confidence for clear recurring habits." },
             { role: "user", content: prompt },

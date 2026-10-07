@@ -46,7 +46,7 @@ Using ONLY these memories (never invent), reply with JSON:
           method: "POST",
           headers: { "content-type": "application/json", Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
+            model: "google/gemini-3.6-flash",
             messages: [
               { role: "system", content: "You are Crate, a warm music companion summarising what you know about your listener." },
               { role: "user", content: prompt },

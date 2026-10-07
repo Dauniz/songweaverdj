@@ -10,7 +10,7 @@ import {
 } from "./ai/run-id.server";
 import { recallMemories, submitMemory } from "./memwal.server";
 
-const MODEL = "openai/gpt-6-luna";
+const MODEL = "google/gemini-3.6-flash";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -179,17 +179,11 @@ SESSION IS LIVE: music is already playing — never start a new session or a new
   });
 
   const result = streamText({
-    model: provider.responses(MODEL),
+    model: provider.chat(MODEL),
     system,
     messages: await convertToModelMessages(messages),
     abortSignal: request.signal,
     stopWhen: stepCountIs(4),
-    providerOptions: {
-      openai: {
-        store: false,
-        reasoningEffort: "low",
-      },
-    },
     tools: {
       recommend_tracks: tool({
         description: "Show rediscovery cards for tracks from the user's library.",

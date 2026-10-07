@@ -51,7 +51,7 @@ export async function learnFromHistory(supabase: SupabaseClient<Database>, userI
   });
 
   const { text } = await generateText({
-    model: provider.responses("openai/gpt-6-luna"),
+    model: provider.chat("google/gemini-3.6-flash"),
     system: `You are Crate, a music companion. ${who} just handed you their full Spotify streaming history. Study it carefully like a detective and write a LONG-TERM LISTENER PROFILE as 5–7 durable memories.
 
 Look for: daily/weekly rituals (when they listen, and what), how their taste evolved year by year (phases, eras, turning points), artists they outgrew vs. artists that survived every era, songs they protect, what they reliably skip, patience (skip rate, shuffle habit), late-night vs daytime sound, binge behaviour, and contradictions.
@@ -68,7 +68,6 @@ Return ONLY a JSON array: [{"kind":"taste","content":"..."}]. kind is one of: ta
 Existing memories:
 ${(existing ?? []).map((m) => `- ${m.content}`).join("\n") || "- (none)"}`,
     prompt: digestText(digest),
-    providerOptions: { openai: { store: false } },
   });
 
   let insights: { kind: MemoryKind; content: string }[] = [];
