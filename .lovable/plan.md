@@ -8,10 +8,16 @@ The rule exists because Spotify keeps reporting your last paused song even after
 ## The fix
 When any session starts (Start button, prompt, search, resume, welcome card), Crate first asks Spotify which of your devices are **open right now**. Spotify's device list only includes apps that are actually open and reachable, so it's a reliable answer.
 
-- **Spotify app open, and it's playing:** same as today, Crate follows that song.
-- **App open but paused or idle, prompt/search/resume start:** no popup. Crate sends its song straight to that device and playback starts.
-- **App open but paused, plain Start button:** no popup. Crate presses play on the paused song in Spotify and builds the maze from it. If nothing is loaded, it plays Crate's first pick.
+**Start session button:**
+- **Spotify playing:** the song keeps playing without interruption. Crate doesn't restart it or send anything that would cut it. It becomes "You are here", and the maze builds from it.
+- **App open but paused:** no popup. Crate presses play on the paused song and builds from it. If nothing is loaded, it plays Crate's first pick.
+
+**Prompt, search or welcome card:**
+- **App open (playing or paused):** no popup. Crate ignores whatever Spotify was playing and starts his own maze from your input, sending his first song straight to that device.
+
+**Either way:**
 - **No open device:** the "Open Spotify" popup appears as it does today, with the 10 s cooldown and background checks.
+- **Resume last session:** continues Crate's saved maze on the open device.
 
 The pill dot turns green as soon as the open app is found.
 
