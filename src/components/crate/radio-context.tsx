@@ -875,7 +875,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const first = ordered.find(isPlayable);
       if (first) {
         // Live session: the current song keeps playing; the first pick becomes B, the rest follow.
-        setPQ(cur ? { list: [cur, ...list], idx: 0, offset: 1 } : null; // A first, so finishing A plays pick 1); offset keeps labels at "song n of 6"
+        setPQ(cur ? { list: [cur, ...list], idx: 0, offset: 1 } : null); // A first, so finishing A plays pick 1; offset keeps labels at "song n of 6"
         void steerRef.current?.("", [first], { source: "prompt", keepW: true, keepQueue: true, prompt: seedPrompt });
       }
     },
