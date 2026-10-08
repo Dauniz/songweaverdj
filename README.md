@@ -34,7 +34,7 @@ Because MemWal offers semantic recall but no list API, Songweaver keeps a local 
 
 ### Multi-user showcase
 
-Songweaver has been used by multiple independent accounts, each storing their own memories on Walrus (at time of writing: users with 124, 32 and 10 stored memories, plus several smaller testers).
+Songweaver has been used by three independent accounts, each storing their own memories on Walrus — Isac with 154 memories, Lukas with 33 and Anna with 11 — plus several smaller test accounts. The [multi-user showcase](docs/multi-user-showcase.md) lists each tester's namespace, memory count, listening span and sample blob IDs.
 
 ### Integration notes (friction points & workarounds)
 
