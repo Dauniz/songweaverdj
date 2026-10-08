@@ -1,4 +1,5 @@
 # Songweaver
+https://songweaverdj.lovable.app
 
 Songweaver is a personal music rediscovery companion. Its AI DJ, **Crate**, turns moods, prompts and your real listening behaviour into a living path through your own Spotify library — one song at a time — and remembers your taste across sessions with **Walrus Memory**.
 
