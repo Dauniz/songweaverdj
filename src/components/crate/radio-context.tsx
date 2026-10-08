@@ -8,6 +8,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack, judgeForeignPick } from "@/lib/path.functions";
+import { saveHandoverNote, takeHandoverNote } from "@/lib/handover.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { saveSteerInsight } from "@/lib/memory.functions";
 import { LENS_IDS, lensName, type LensId } from "@/lib/lenses";
@@ -182,6 +183,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const playbackRawFn = useServerFn(getSpotifyPlayback);
   const findOpenFn = useServerFn(findOpenSpotify);
   const nextQueuedFn = useServerFn(getNextQueuedId);
+  const saveNoteFn = useServerFn(saveHandoverNote);
+  const takeNoteFn = useServerFn(takeHandoverNote);
+  /** Set while the page checks what the background helper did; Spotify reads wait until then. */
+  const remoteCheck = useRef(false);
   /** Spotify device seen in the latest poll — sent with pushes so the server skips a device lookup. */
   const deviceIdRef = useRef<string | null>(null);
   /** Smoothed one-way delay from the browser to Spotify, used to aim the resume position. */
