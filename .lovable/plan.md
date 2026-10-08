@@ -1,4 +1,4 @@
-# Reframe the home page: a DJ that learns you, not a playlist
+# Reframe the home page: stop curating, start listening
 
 ## What will change
 
@@ -6,7 +6,7 @@ The home page keeps its exact shape — logo, small green kicker line, big headl
 
 **Headline** (one magenta accent stays, on the shortest possible phrase):
 
-> Not a queue. A path that **learns** as you listen.
+> Stop curating. Start **listening**.
 
 **Kicker** above it, same green small-caps treatment:
 
@@ -18,8 +18,6 @@ The home page keeps its exact shape — logo, small green kicker line, big headl
 
 **Button** stays exactly as it is: "Open the studio".
 
-One alternate for the headline, if you'd rather swap the tone — a one-line change:
-- "Playlists sit still. A DJ **learns**."
 
 ## Technical details
 
