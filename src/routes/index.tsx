@@ -8,16 +8,17 @@ import logo from "@/assets/crate-logo.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Songweaver — Rediscover the music you already love" },
+      { title: "Songweaver — a DJ that learns how you listen" },
       {
         name: "description",
         content:
-          "An AI music companion that resurfaces buried favorites from your monthly Spotify playlists, powered by Walrus Memory.",
+          "Tell Crate how today feels and he builds a path through your own Spotify library — one song at a time, with two doors lined up. What he learns is stored on Walrus Memory, and the music plays in your Spotify app.",
       },
-      { property: "og:title", content: "Songweaver — Rediscover the music you already love" },
+      { property: "og:title", content: "Songweaver — a DJ that learns how you listen" },
       {
         property: "og:description",
-        content: "Tell Crate, Songweaver's AI companion, your vibe and rediscover forgotten gems.",
+        content:
+          "Tell Crate how today feels and he builds a path through your own Spotify library. What he learns is stored on Walrus Memory.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -43,15 +44,16 @@ function Index() {
         <motion.img variants={{ hidden: { opacity: 0, y: reduced ? 0 : 10 }, visible: { opacity: 1, y: 0, transition: { duration: reduced ? 0.12 : 0.32, ease: MOTION_EASE } } }} src={logo} alt="Songweaver logo" width={72} height={72} className="h-18 w-18 rounded-2xl" />
         <motion.div variants={{ hidden: { opacity: 0, y: reduced ? 0 : 10 }, visible: { opacity: 1, y: 0, transition: { duration: reduced ? 0.12 : 0.32, ease: MOTION_EASE } } }}>
         <p className="mt-10 text-sm font-semibold uppercase tracking-[0.2em] text-primary">
-          Personal rediscovery · Walrus Memory
+          The Maze · Walrus Memory
         </p>
         <h1 className="mt-4 max-w-3xl text-5xl font-extrabold leading-[1.02] md:text-7xl">
-          Your best songs are buried in <span className="text-magenta">Oct 2024</span>.
+          Stop curating. Start <span className="text-magenta">listening</span>.
         </h1>
         <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-          Tell Crate, Songweaver's AI, how today feels — late-night coding, nostalgic drive, rainy focus — and it digs
-          through every monthly playlist you've ever made to bring back the tracks you forgot you
-          loved. It remembers your taste on Walrus, so every session gets sharper.
+          Tell Crate how today feels and he builds a path through your own library — one song at a time, with two
+          doors already lined up: one if you let it finish, one if you skip. What he learns from how you listen is
+          stored on Walrus, so every session starts sharper than the last. The music plays in your Spotify app;
+          Crate just drives.
         </p>
         <div className="mt-10">
           <Link
