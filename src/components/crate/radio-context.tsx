@@ -1621,7 +1621,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           else if (Date.now() - stNow.at < 8_000) {
             if (!stNow.logged) {
               stNow.logged = true;
-              pushSpotifyLog({ kind: "event", at: Date.now(), text: `START WAIT — Spotify still reports ${state.status === "ready" ? state.name ?? state.spotifyId : state.status}` });
+              pushSpotifyLog({ kind: "event", at: Date.now(), text: `START WAIT — Spotify still reports ${(state as { name?: string }).name ?? state.status}` });
               note("think", `Waiting for Spotify to switch to "${current.name}"`);
             }
             return;
