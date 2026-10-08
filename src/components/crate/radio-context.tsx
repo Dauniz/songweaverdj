@@ -1191,11 +1191,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         pushSpotifyLog({ kind: "event", at: Date.now(), text: `ADOPT — "${current.name}" re-sent once with its skip door` });
       }
       await startSpotifyPlayback(current, false, skip?.track ?? null, pos ? Math.max(1, Math.round(pos)) : undefined, alreadyPlaying ? "adopt" : "session start", null);
+      // Keep ignoring foreign reports until Spotify shows the sent song (max 8 s from now).
+      if (!alreadyPlaying && startingFor.current?.id === startId) startingFor.current = { id: startId, at: Date.now(), sent: true };
       if (!alreadyPlaying) {
         // Give Spotify a moment to report the new song before the mirror resumes.
         lastPlayback.current = { spotifyId: startId, ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: Date.now() };
       }
-      setTimeout(release, 1_500);
+      if (alreadyPlaying) setTimeout(release, 1_500);
+      else setTimeout(release, 8_000);
     })();
   }, [sessionLive, radio.active, radio.current?.spotify_id, startSpotifyPlayback, fetchBranch, playbackFn]);
 
@@ -1582,7 +1585,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // First list for this song not sent yet: Spotify still reports the old/paused song.
       // Reading it now would reroot or end the session and wipe the picked song.
       const st = startingFor.current;
-      if (st && st.id === current.spotify_id && Date.now() - st.at < 10_000) return;
+      if (st && st.id === current.spotify_id && !st.sent && Date.now() - st.at < 20_000) return;
+      if (st && st.sent && Date.now() - st.at >= 8_000) startingFor.current = null;
       // Desktop keeps watching in the background (you're usually in the Spotify app).
       // Mobile throttles hidden tabs heavily, so there we wait until Songweaver is visible.
       if (document.hidden && window.matchMedia("(pointer: coarse)").matches) {
@@ -1600,6 +1604,18 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           observeSpotify(state.spotifyId, [state.name, state.artists].filter(Boolean).join(" — ") || state.spotifyId || "", state.progressMs, state.isPlaying);
         }
         if (lastTransition.current !== sentTransition || radioRef.current.current?.spotify_id !== sentFor) return;
+        // Fresh start: Spotify lags ~1–2 s after a play command. Never read the old song as your pick.
+        const stNow = startingFor.current;
+        if (stNow && stNow.sent && stNow.id === sentFor) {
+          if (state.status === "ready" && state.spotifyId === stNow.id) startingFor.current = null;
+          else if (Date.now() - stNow.at < 8_000) {
+            if (!stNow.logged) {
+              stNow.logged = true;
+              note("think", `Waiting for Spotify to switch to "${current.name}"`);
+            }
+            return;
+          } else startingFor.current = null;
+        }
         // The request may have started just before Crate began a hand-over or deliberate
         // skip-spam pause. Discard that now-stale response instead of surfacing it as idle.
         if (calmingRef.current || committing.current) {
