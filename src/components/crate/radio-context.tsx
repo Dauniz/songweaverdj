@@ -271,8 +271,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   /** The queued pick that is the fixed finish door for song `cid`, if the playlist is still running. */
   const queuedNext = (cid: string | null | undefined) => {
     const q = promptQueue.current;
-    if (!q || !cid || q.list[q.idx]?.spotify_id !== cid) return null;
-    return q.list[q.idx + 1] ?? null;
+    const cur = q?.list[q.idx];
+    if (!q || !cid || cur?.spotify_id !== cid) return null;
+    // Never the playing song again: step past any repeats of it.
+    const i = nextDistinctIndex(q.list, q.idx, cur);
+    return i < 0 ? null : q.list[i] ?? null;
   };
   const lensTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sidePending = useRef<{ lens: LensId | null; deep: boolean } | null>(null);
@@ -667,9 +670,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       promptQueue.current = null;
       return;
     }
-    if (id === q.list[q.idx]?.spotify_id) return;
-    if (id === q.list[q.idx + 1]?.spotify_id) {
-      q.idx += 1;
+    const curPick = q.list[q.idx];
+    if (id === curPick?.spotify_id) return;
+    const ni = curPick ? nextDistinctIndex(q.list, q.idx, curPick) : -1;
+    if (ni >= 0 && id === q.list[ni]?.spotify_id) {
+      if (ni > q.idx + 1) note("think", "Skipped a repeat in your playlist");
+      q.idx = ni;
       if (q.idx >= q.list.length - 1) {
         promptQueue.current = null;
         note("think", "Last song of your playlist — after this Crate is back in the maze");
@@ -1453,9 +1459,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const deadline = Date.now() + remainingMs;
       // Use exactly the "if you finish" pick shown on screen — never a different one.
       const shown = upNextRef.current;
-      let finishB: Branch = shown?.spotify_id && isPlayable(shown) ? { track: shown, road: s.road } : null;
-      if (!finishB) finishB = (await branches.current?.played) ?? null;
-      if (!finishB) finishB = await fetchBranch(advance(s, "played"));
+      const notCur = (b: Branch) => (b?.track.spotify_id && b.track.spotify_id !== cur.spotify_id ? b : null);
+      let finishB: Branch = shown?.spotify_id && isPlayable(shown) ? notCur({ track: shown, road: s.road }) : null;
+      if (!finishB) finishB = notCur((await branches.current?.played) ?? null);
+      if (!finishB) finishB = notCur(await fetchBranch(advance(s, "played"), undefined, [cur.spotify_id]));
+      if (shown?.spotify_id === cur.spotify_id) note("think", "Skipped a repeat in your playlist");
       if (!finishB?.track.spotify_id || !isPlayable(finishB.track)) {
         swapping.current = ""; // let the next check try again
         return;
