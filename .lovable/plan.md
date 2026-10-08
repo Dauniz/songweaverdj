@@ -5,8 +5,10 @@
 - The moment the playlist is over (song 6 finished) or left (a skip, your own Spotify pick, a road change or a steer), the Chat tab switches back to the normal live-session screen: "Want to steer your session?", the steering prompt box and the search bar.
 - The music and maze are not touched — only what the Chat tab shows.
 - If no session is live, nothing changes.
+- The 6 song cards in the chat become display-only: no play buttons and clicking them does nothing. The first song still starts automatically, as today.
 
 ## Technical details
 - radio-context: add a `promptPlaylistActive` boolean state, set true wherever `promptQueue.current` is assigned a list and false wherever it is cleared (single helper `setPromptQueue` so every exit path updates it). Expose it in the context value.
 - MoodChat: take `setMessages` from `useChat`; an effect watches `promptPlaylistActive` going true → false while `sessionLive` and calls `setMessages([])`, so the existing empty live-session screen renders.
 - Chat steering replies (steer_only) never start a playlist, so steering chats stay visible until the user leaves the tab or a playlist ends.
+- TrackCard: make `onPlay` optional; when absent, hide the play button and remove the click handler. MoodChat stops passing `onPlay`. Roadmap gets this item when building.
