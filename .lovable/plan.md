@@ -16,7 +16,7 @@
 
 4. **Testing note for judges.** Add a short "Trying it out" section: because the Spotify app is in Development mode, syncing a real personal library requires the account to be whitelisted by the author (Spotify's 25-user dev quota) — judges can request access. Everyone else can use the **"Try Demo Library"** button on the login page, which works without any whitelist.
 
-4. **Small accuracy pass.** Confirm the "Using it" steps still match the current Studio flow (Start session / prompt / search, Memory Inspector now under the "Maze" tab label) and adjust wording where stale.
+5. **Small accuracy pass.** Confirm the "Using it" steps still match the current Studio flow (Start session / prompt / search, Memory Inspector now under the "Maze" tab label) and adjust wording where stale.
 
 ## Technical details
 - Single file edited: `README.md`. No code changes, no data changes.
