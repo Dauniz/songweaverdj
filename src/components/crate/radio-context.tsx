@@ -85,6 +85,8 @@ type RadioContextValue = {
   deepCuts: boolean;
   setDeepCuts: (enabled: boolean) => void;
   sessionLive: boolean;
+  /** Crate's prompt playlist while it is still running (display only). */
+  promptPlaylist: CardTrack[] | null;
   startSession: () => Promise<void>;
   endSession: () => void;
   hasLastSession: boolean;
@@ -268,6 +270,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   /** Prompt playlist: Crate's chat picks play in order while each is finished. idx = the playing pick.
    *  `offset` hides a prepended currently-playing song from the "song n of m" labels. */
   const promptQueue = useRef<{ list: CardTrack[]; idx: number; offset?: number } | null>(null);
+  const [promptPlaylist, setPromptPlaylist] = useState<CardTrack[] | null>(null);
+  const setPQ = (q: { list: CardTrack[]; idx: number; offset?: number } | null) => {
+    promptQueue.current = q;
+    setPromptPlaylist(q ? q.list.slice(q.offset ?? 0) : null);
+  };
   /** The queued pick that is the fixed finish door for song `cid`, if the playlist is still running. */
   const queuedNext = (cid: string | null | undefined) => {
     const q = promptQueue.current;
@@ -667,7 +674,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     if (!q) return;
     const id = radio.current?.spotify_id;
     if (!radio.active || !id) {
-      promptQueue.current = null;
+      setPQ(null);
       return;
     }
     const curPick = q.list[q.idx];
@@ -677,12 +684,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (ni > q.idx + 1) note("think", "Skipped a repeat in your playlist");
       q.idx = ni;
       if (q.idx >= q.list.length - 1) {
-        promptQueue.current = null;
+        setPQ(null);
         note("think", "Last song of your playlist — after this Crate is back in the maze");
       } else note("think", `Your playlist: song ${q.idx + 1 - (q.offset ?? 0)} of ${q.list.length - (q.offset ?? 0)}`);
       return;
     }
-    promptQueue.current = null;
+    setPQ(null);
     note("think", "Left your playlist — Crate is back in the maze");
   }, [radio.active, radio.current?.spotify_id, note]);
 
@@ -862,13 +869,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (pickedAt) startAt = Math.max(0, tracks.indexOf(pickedAt));
       // From the chosen pick onward, Crate's picks play in order while each is finished.
       const list = tracks.slice(startAt, 6).filter(isPlayable);
-      promptQueue.current = list.length > 1 ? { list, idx: 0 } : null;
+      setPQ(list.length > 1 ? { list, idx: 0 } : null);
       if (!radioRef.current.active) return startRadio(tracks, seedPrompt, startAt, startRoad);
       const ordered = [...tracks.slice(startAt), ...tracks.slice(0, startAt)];
       const first = ordered.find(isPlayable);
       if (first) {
         // Live session: the current song keeps playing; the first pick becomes B, the rest follow.
-        promptQueue.current = cur ? { list: [cur, ...list], idx: 0, offset: 1 } : null; // A first, so finishing A plays pick 1; offset keeps labels at "song n of 6"
+        setPQ(cur ? { list: [cur, ...list], idx: 0, offset: 1 } : null; // A first, so finishing A plays pick 1); offset keeps labels at "song n of 6"
         void steerRef.current?.("", [first], { source: "prompt", keepW: true, keepQueue: true, prompt: seedPrompt });
       }
     },
@@ -1864,7 +1871,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             const cId = upSkipRef.current?.track.spotify_id;
             const plan = landingPlan.current;
             if (plan && cId && plan.forId === cId && plan.sessionId === radioRef.current.sessionId) plan.forId = state.spotifyId;
-            promptQueue.current = null;
+            setPQ(null);
             pushSpotifyLog({ kind: "event", at: Date.now(), text: `FOREIGN SKIP — "${foreignTrack.name}" picked in Spotify, counted as a skip; pushing w behind it` });
             const before = radioRef.current;
             acceptObserved(foreignTrack, "skipped", false, state.progressMs, state.durationMs);
@@ -2382,7 +2389,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         return;
       }
       // Steering owns the maze from here: a running prompt playlist yields to the new direction.
-      if (!opts?.keepQueue) promptQueue.current = null;
+      if (!opts?.keepQueue) setPQ(null);
       scoutAbort.current?.abort();
       const ctrl = new AbortController();
       scoutAbort.current = ctrl;
@@ -2570,6 +2577,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         deepCuts,
         setDeepCuts,
         sessionLive,
+        promptPlaylist,
         startSession,
         endSession: () => {
           watchOff.current = true; // don't re-adopt the song you just ended on
