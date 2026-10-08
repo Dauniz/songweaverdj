@@ -1,4 +1,5 @@
 import { LIVE_KEY, readLiveSession } from "@/lib/live-session";
+import { dedupePicks } from "@/lib/dedupe-picks";
 
 const LAST_KEY = "songweaver-last-session";
 /** End the session when Spotify shows no open device for this long. */
