@@ -2247,27 +2247,30 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const next: RadioState = { ...s, steerNote: opts?.source ? s.steerNote : trimmed, ...(opts?.prompt ? { seedPrompt: opts.prompt } : {}) };
       const playedB: Promise<Branch> = steerPick
         ? Promise.resolve({
-            track: { ...steerPick, why: trimmed ? `Steering: ${trimmed}` : "You asked Crate to steer" },
+            track: { ...steerPick, why: opts?.source === "search" ? "You picked it" : opts?.source === "prompt" ? (steerPick.why ?? "From your prompt") : trimmed ? `Steering: ${trimmed}` : "You asked Crate to steer" },
             road: advance(next, "played").road,
           })
         : fetchBranch(next, ctrl.signal);
       const skippedB: Promise<Branch> = pre ? Promise.resolve(pre) : fetchBranch(advance(next, "skipped"), ctrl.signal);
-      // v: the new finish door's own "if you skip" song.
+      // v: the new finish door's own "if you skip" song, picked from B's direction.
       const finishSkip: Promise<Branch> = Promise.all([playedB, skippedB]).then(([f, k]) => {
         if (!f?.track.spotify_id) return null;
-        const onFinish: RadioState = { ...advance(next, "played"), current: f.track, road: f.road };
+        const onFinish: RadioState = { ...advance(next, "played"), current: f.track, seed: opts?.source ? f.track : next.seed, road: f.road };
         return fetchBranch(advance(onFinish, "skipped"), ctrl.signal, [cid, k?.track.spotify_id].filter(Boolean) as string[]).then(
           (b) => (b?.track.spotify_id && isPlayable(b.track) && b.track.spotify_id !== f.track.spotify_id ? b : null),
         );
       });
       // Match prefetch's key exactly (plus the steer note) so a later prefetch call keeps these doors.
-      const key = `${s.current.id}|${s.chips.join(",")}|${trimmed}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
+      const key = `${s.current.id}|${s.chips.join(",")}|${next.steerNote ?? ""}|${s.road}|${s.history.length}|${lensRef.current ?? ""}|${deepCutsRef.current ? "deep" : ""}`;
       branches.current = { key, played: playedB, skipped: skippedB, finishSkip };
       setUpNext(null);
       if (!pre) setUpSkip(null);
       setRadio(next);
-      note("steer", trimmed ? `Steering: "${trimmed}" → re-scouting the doors ahead` : "Steer pick applied → re-scouting the doors ahead");
-      if (trimmed)
+      if (steerPick && opts?.source) {
+        log(steerPick, "steer", s); // a deliberate choice — Walrus learns from it
+        note("reroot", `Your pick is next: "${steerPick.name}" plays when this song ends`);
+      } else note("steer", trimmed ? `Steering: "${trimmed}" → re-scouting the doors ahead` : "Steer pick applied → re-scouting the doors ahead");
+      if (trimmed && !opts?.source)
         void saveSteerFn({ data: { note: trimmed, sessionId: s.sessionId ?? "", tzOffsetMin: new Date().getTimezoneOffset() } })
           .then(() => qc.invalidateQueries({ queryKey: ["memories"] }))
           .catch(() => {});
