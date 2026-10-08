@@ -550,12 +550,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const qNext = queuedNext(cid);
       const qPos = promptQueue.current;
       const qOff = qPos?.offset ?? 0;
-      const playedB: Promise<Branch> = qNext
-        ? Promise.resolve({ track: { ...qNext, why: `Your playlist, song ${(qPos?.idx ?? 0) + 2 - qOff} of ${(qPos?.list.length ?? 0) - qOff}` }, road: advance(s, "played").road })
-        : fetchBranch(advance(s, "played"), ctrl.signal, knownSkipId ? [knownSkipId] : []);
       const skippedState = advance(s, "skipped");
       // The skip door must not be a later playlist song.
       const queueRest = qNext && qPos ? qPos.list.slice(qPos.idx + 1).map((t) => t.spotify_id).filter(Boolean) as string[] : [];
+      // Fresh start: C first (so [A, C] goes out asap), then B avoiding C.
+      const freshStart = !pre && !plan && s.history.length === 0;
+      const earlyC: Promise<Branch> | null = freshStart ? fetchBranch(skippedState, ctrl.signal, queueRest) : null;
+      const playedB: Promise<Branch> = qNext
+        ? Promise.resolve({ track: { ...qNext, why: `Your playlist, song ${(qPos?.idx ?? 0) + 2 - qOff} of ${(qPos?.list.length ?? 0) - qOff}` }, road: advance(s, "played").road })
+        : earlyC
+          ? earlyC.catch(() => null).then((c) => fetchBranch(advance(s, "played"), ctrl.signal, [c?.track.spotify_id].filter(Boolean) as string[]))
+          : fetchBranch(advance(s, "played"), ctrl.signal, knownSkipId ? [knownSkipId] : []);
       // Fresh scout, in parallel with the finish door: the two must never be the same song.
       const freshSkip = () =>
         Promise.all([playedB, fetchBranch(skippedState, ctrl.signal, queueRest)]).then(([finish, first]) => {
@@ -563,7 +568,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (first && finishId && first.track.spotify_id === finishId) return fetchBranch(skippedState, ctrl.signal, [finishId, ...queueRest]);
           return first;
         });
-      const skippedB: Promise<Branch> = pre
+      const skippedB: Promise<Branch> = earlyC
+        ? earlyC.then((c) => (c && qNext && c.track.spotify_id === qNext.spotify_id ? fetchBranch(skippedState, ctrl.signal, [qNext.spotify_id!, ...queueRest]) : c))
+        : pre
         ? Promise.resolve(pre)
         : plan
           ? plan.door.then((b) => (b?.track && isPlayable(b.track) ? b : freshSkip()))
@@ -1167,7 +1174,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         // fast so Spotify doesn't drift into that list (and Crate chase it) while Crate thinks.
         branch = await withTimeout(
           (b ? b.skipped : fetchBranch(advance(radioRef.current, "skipped"))).catch(() => null),
-          15_000,
+          alreadyPlaying ? 15_000 : 6_000, // fresh start: A must not wait long for C
           null,
         );
       }
@@ -1190,6 +1197,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (stale()) return release();
         pushSpotifyLog({ kind: "event", at: Date.now(), text: `ADOPT — "${current.name}" re-sent once with its skip door` });
       }
+      pushSpotifyLog({ kind: "event", at: Date.now(), text: `START PAIR — "${current.name}" + skip door ${skip ? `"${skip.track.name}"` : "(none yet, pushed when ready)"}` });
       await startSpotifyPlayback(current, false, skip?.track ?? null, pos ? Math.max(1, Math.round(pos)) : undefined, alreadyPlaying ? "adopt" : "session start", null);
       // Keep ignoring foreign reports until Spotify shows the sent song (max 8 s from now).
       if (!alreadyPlaying && startingFor.current?.id === startId) startingFor.current = { id: startId, at: Date.now(), sent: true };
@@ -1606,10 +1614,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         // Fresh start: Spotify lags ~1–2 s after a play command. Never read the old song as your pick.
         const stNow = startingFor.current;
         if (stNow && stNow.sent && stNow.id === sentFor) {
-          if (state.status === "ready" && state.spotifyId === stNow.id) startingFor.current = null;
+          if (state.status === "ready" && state.spotifyId === stNow.id) {
+            pushSpotifyLog({ kind: "event", at: Date.now(), text: `START SEEN — Spotify now reports "${current.name}"` });
+            startingFor.current = null;
+          }
           else if (Date.now() - stNow.at < 8_000) {
             if (!stNow.logged) {
               stNow.logged = true;
+              pushSpotifyLog({ kind: "event", at: Date.now(), text: `START WAIT — Spotify still reports ${(state as { name?: string }).name ?? state.status}` });
               note("think", `Waiting for Spotify to switch to "${current.name}"`);
             }
             return;
