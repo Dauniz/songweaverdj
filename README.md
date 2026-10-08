@@ -68,6 +68,16 @@ A memory submitted on 2026-09-25 still showed `blob_id: "job:a0b6e630-…"` and 
 
 The cause is Songweaver's own repair loop: `refreshMemories()` polls every 6 seconds, but only while the Memory Inspector is open, so a job still running when the tab closes is never picked up again. The underlying friction is that job state is only reachable by polling with the job ID — a client that loses or never stores that ID has no way to reconcile what it wrote with what is actually on Walrus.
 
+## Proposal for an improvement
+
+Both bugs above, and all three friction points, come down to one missing capability: a client cannot enumerate its own memories. Three concrete asks, in priority order:
+
+1. **A `list()` for memories** — `listMemories(namespace, { cursor, limit })` returning `blob_id`, `text` and `created_at` per page. `listNamespaces()` already paginates with a cursor and reports `memory_count`, so the shape exists; only the memory level is missing. The whole `memory_nodes` mirror table in Songweaver exists to compensate for it, and with a `list()` it would no longer be needed.
+2. **`forget(blobId)` and `clear(namespace)` on the real client** — already modelled in the SDK's mock client, so the API design is settled. Until they ship on the real one, a wrong, duplicated or privacy-sensitive memory is permanent, which is hard to square with a user asking an app to forget something about them.
+3. **Duplicate protection by default** — content-hash idempotency inside `rememberAsync()`, or a `rememberIfNew()` that returns the existing blob ID instead of writing a second copy. Idempotency keys exist today but are opt-in, and the common failure is a caller that never thought to pass one.
+
+The fixes on our side are smaller: repair pending jobs on app load and on a schedule instead of only while the Inspector is open, and pass an idempotency key on every write so a retried submit collapses onto the original job instead of creating a second blob.
+
 ---
 
 ## Architecture
