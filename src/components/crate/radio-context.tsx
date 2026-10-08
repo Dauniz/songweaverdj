@@ -1476,6 +1476,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!skipB) skipB = okSkip(await withTimeout(fetchBranch(advance(afterState, "skipped")), Math.max(0, deadline - Date.now() - 2_500), null));
       // Never leave Spotify's "next up" empty: fall back to the current skip door.
       if (!skipB && door.current?.forId === cur.spotify_id) skipB = okSkip({ track: door.current.track, road: advance(afterState, "skipped").road });
+      if (!skipB) skipB = okSkip((await withTimeout((branches.current?.skipped ?? Promise.resolve(null)).catch(() => null), 1_000, null)) ?? null);
       // Get close to the end, then re-read Spotify's real position so the swap lands
       // right as the song ends — not seconds early, and not after the skip door has started.
       let end = deadline;
