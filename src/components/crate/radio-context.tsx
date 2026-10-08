@@ -230,6 +230,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // Late-bound helpers so earlier callbacks can reach functions declared further down.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const planLandingRef = useRef<((...a: any[]) => { door: Promise<Branch> } | null) | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const steerRef = useRef<((...a: any[]) => Promise<void>) | null>(null);
   const checkPlanRef = useRef<((reason: "recheck" | "interval") => Promise<void>) | null>(null);
   const [upNext, setUpNext] = useState<RadioTrack | null>(null);
   const upNextRef = useRef<RadioTrack | null>(null);
@@ -818,22 +820,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         startRadio([track], prompt ?? "");
         return;
       }
-      listGeneration.current += 1; // late answers from the old plan are discarded
-      scoutAbort.current?.abort();
-      branches.current = null; // the prefetched doors are stale from here on
-      door.current = null;
-      preSkip.current = null;
-      landingPlan.current = null;
-      awaitingSkipPair.current = false;
-      quickSkipUntil.current = 0;
-      noPlayFor.current = "";
-      handledFor.current = "";
+      // Mid-session: the current song keeps playing; the pick becomes the finish door (B).
       if (!sessionLive) setSessionLive(true);
-      idleSince.current = 0;
-      lastPlayback.current = { spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 };
-      setRadio({ ...s, current: track, seed: track, consecutiveSkips: 0, ...(prompt ? { seedPrompt: prompt } : {}) });
-      log(track, "steer", s); // a deliberate choice — Walrus learns from it
-      note("reroot", prompt ? `New prompt → the path continues from "${track.name}"` : `You picked "${track.name}" → the path continues from here`);
+      void steerRef.current?.("", [track], { source: prompt ? "prompt" : "search", keepW: true, keepQueue: !!prompt, prompt });
     },
     [startRadio, log, note, sessionLive],
   );
@@ -848,8 +837,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const ordered = [...tracks.slice(startAt), ...tracks.slice(0, startAt)];
       const first = ordered.find(isPlayable);
       if (first) {
-        if (startRoad) radioRef.current = { ...radioRef.current, road: startRoad }; // rerootTo carries it into state
-        rerootTo(first, seedPrompt);
+        // Live session: the current song keeps playing; the first pick becomes B, the rest follow.
+        if (promptQueue.current) promptQueue.current = { list, idx: 0 };
+        void steerRef.current?.("", [first], { source: "prompt", keepW: true, keepQueue: true, prompt: seedPrompt });
       }
     },
     [startRadio, rerootTo],
@@ -2297,8 +2287,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         note("door", b ? `Finish door ready: "${b.track.name}" by ${b.track.artists}${b.track.why ? ` — ${b.track.why}` : ""}` : "Finish door: nothing fits, will fall back");
       });
     },
-    [fetchBranch, note, saveSteerFn, qc],
+    [fetchBranch, note, saveSteerFn, qc, log],
   );
+  steerRef.current = steerSession;
 
   /** One entry point for side roads (lenses + deep cuts). Toggling back within 10s restores the old doors. */
   const applySideRoad = useCallback(
