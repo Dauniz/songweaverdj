@@ -584,3 +584,53 @@ Pick the next song.`;
     const song = (picked && index.get(picked.code.trim())) || shortlist[0]!;
     return toTrack(song, withLens(picked?.why || "Continuing the path"), data.road);
   });
+
+/** A song the listener started in Spotify mid-session: is it far from where the maze is heading? */
+export const judgeForeignPick = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        pick: z.object({ name: z.string(), artists: z.string() }),
+        recent: z.array(z.object({ name: z.string(), artists: z.string() })).max(8),
+        road: z.string().optional(),
+        steerNote: z.string().optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data }) => {
+    const apiKey = process.env["LOVABLE_API_KEY"];
+    if (!apiKey) return { far: false, note: "" };
+    const provider = createOpenAI({
+      baseURL: "https://ai.gateway.lovable.dev/v1",
+      apiKey,
+      headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
+    });
+    const result = streamText({
+      model: provider.chat(MODEL),
+      system:
+        "You judge whether a song a listener chose themselves is clearly far (different genre/scene, era or mood) from the music session so far. Be strict: similar sound = not far.",
+      messages: [
+        {
+          role: "user",
+          content: `Session so far: ${data.recent.map((r) => `${r.name} — ${r.artists}`).join("; ") || "(none)"}\n${data.road ? `Road: ${data.road}\n` : ""}${data.steerNote ? `Current steer: ${data.steerNote}\n` : ""}Listener picked: "${data.pick.name}" by ${data.pick.artists}.`,
+        },
+      ],
+      stopWhen: stepCountIs(1),
+      tools: {
+        judge: tool({
+          description: "Report the verdict.",
+          inputSchema: z.object({
+            far: z.boolean(),
+            note: z.string().describe("If far: a short steer instruction, max 12 words, describing the new direction"),
+          }),
+          execute: async (i) => i,
+        }),
+      },
+    });
+    const steps = await result.steps;
+    for (const st of steps)
+      for (const tc of st.toolCalls)
+        if (tc.toolName === "judge") return tc.input as { far: boolean; note: string };
+    return { far: false, note: "" };
+  });

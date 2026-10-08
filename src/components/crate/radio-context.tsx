@@ -7,7 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { logListeningEvent } from "@/lib/radio.functions";
-import { nextPathTrack } from "@/lib/path.functions";
+import { nextPathTrack, judgeForeignPick } from "@/lib/path.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { saveSteerInsight } from "@/lib/memory.functions";
 import { LENS_IDS, type LensId } from "@/lib/lenses";
@@ -168,6 +168,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [thinking, setThinking] = useState(false);
   const logFn = useServerFn(logListeningEvent);
   const pathFn = useServerFn(nextPathTrack);
+  const judgeFn = useServerFn(judgeForeignPick);
   const synthFn = useServerFn(synthesizeMemories);
   const saveSteerFn = useServerFn(saveSteerInsight);
   /** Songs logged this run — Crate reflects every few of them. */
@@ -1346,6 +1347,25 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     await startSpotifyPlayback(d.track, true, null, undefined, "next button");
   }, [nextTrackFn, acceptObserved, startSpotifyPlayback]);
 
+  /** A song you started in Spotify that's far from the maze's direction steers B and v toward it. */
+  const judgeForeign = async (pick: RadioTrack, before: RadioState) => {
+    const recent = [
+      ...(before.current ? [{ name: before.current.name, artists: before.current.artists }] : []),
+      ...before.history.slice(-5).map((h) => ({ name: h.name, artists: h.artists })),
+    ];
+    const pa = pick.artists.toLowerCase();
+    if (recent.some((r) => r.artists && pa && (r.artists.toLowerCase().includes(pa) || pa.includes(r.artists.toLowerCase())))) return;
+    try {
+      const r = await judgeFn({ data: { pick: { name: pick.name, artists: pick.artists }, recent: recent.slice(0, 8), road: before.road, steerNote: before.steerNote || undefined } });
+      if (!r.far || !r.note) return;
+      if (radioRef.current.current?.spotify_id !== pick.spotify_id || radioRef.current.sessionId !== before.sessionId) return;
+      note("steer", `Your pick in Spotify — steering toward ${r.note}`);
+      await steerRef.current?.(r.note);
+    } catch {
+      // The maze just continues as a normal skip.
+    }
+  };
+
   // Line up exactly one song behind the current one: the "if you skip" door.
   // Spotify then lands on it if you skip; near the end Crate swaps in the "if you finish" pick.
   useEffect(() => {
@@ -1807,20 +1827,26 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             // a different pick, or Spotify and the screen drift apart.
             acceptObserved(lineupTracks.current.get(state.spotifyId)!, outcome, false, state.progressMs, state.durationMs);
           } else {
-            acceptObserved(
-              {
-                id: `demo-ext-${state.spotifyId}`,
-                spotify_id: state.spotifyId,
-                name: state.name || "Unknown song",
-                artists: state.artists,
-                album: state.album,
-                image_url: state.imageUrl,
-                spotify_url: state.spotifyUrl,
-                source_name: "Spotify",
-              },
-              outcome,
-              true, // you picked it in Spotify — the path starts over from here
-            );
+            // Your own Spotify pick mid-song = a skip. It takes C's place, so C's planned
+            // skip door (w) goes straight in behind it: [your song, w] in one push.
+            const foreignTrack = {
+              id: `demo-ext-${state.spotifyId}`,
+              spotify_id: state.spotifyId,
+              name: state.name || "Unknown song",
+              artists: state.artists,
+              album: state.album,
+              image_url: state.imageUrl,
+              spotify_url: state.spotifyUrl,
+              source_name: "Spotify",
+            } as RadioTrack;
+            const cId = upSkipRef.current?.track.spotify_id;
+            const plan = landingPlan.current;
+            if (plan && cId && plan.forId === cId && plan.sessionId === radioRef.current.sessionId) plan.forId = state.spotifyId;
+            promptQueue.current = null;
+            pushSpotifyLog({ kind: "event", at: Date.now(), text: `FOREIGN SKIP — "${foreignTrack.name}" picked in Spotify, counted as a skip; pushing w behind it` });
+            const before = radioRef.current;
+            acceptObserved(foreignTrack, "skipped", false, state.progressMs, state.durationMs);
+            void judgeForeign(foreignTrack, before);
           }
           return;
         }
