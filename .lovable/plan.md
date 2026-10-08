@@ -14,7 +14,9 @@
 
 3. **Live link + repo hygiene.** The live URL is already at the top; add a one-line note that the app needs a Spotify account (Premium for Connect playback) to try it, so judges aren't surprised.
 
-4. **Small accuracy pass.** Confirm the "Using it" steps still match the current Studio flow (Start session / prompt / search, Memory Inspector now under the "Maze" tab label) and adjust wording where stale.
+4. **Testing note for judges.** Add a short "Trying it out" section: because the Spotify app is in Development mode, syncing a real personal library requires the account to be whitelisted by the author (Spotify's 25-user dev quota) — judges can request access. Everyone else can use the **"Try Demo Library"** button on the login page, which works without any whitelist.
+
+5. **Small accuracy pass.** Confirm the "Using it" steps still match the current Studio flow (Start session / prompt / search, Memory Inspector now under the "Maze" tab label) and adjust wording where stale.
 
 ## Technical details
 - Single file edited: `README.md`. No code changes, no data changes.
