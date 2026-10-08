@@ -1,3 +1,4 @@
+import { readAllRows } from "@/lib/keyset";
 import { createOpenAI } from "@ai-sdk/openai";
 import { dedupePicks } from "@/lib/dedupe-picks";
 import { createClient } from "@supabase/supabase-js";
@@ -86,17 +87,18 @@ export async function handleChat(request: Request) {
     source_period: string | null;
     source_type: string;
   }[] = [];
-  for (let from = 0; from < 6000; from += 1000) {
-    const { data: page } = await supabase
-      .from("library_tracks")
-      .select("id, name, artists, album, source_name, source_period, source_type")
-      .order("source_period", { ascending: true, nullsFirst: true })
-      .order("id")
-      .range(from, from + 999);
-    if (!page?.length) break;
-    tracks.push(...page);
-    if (page.length < 1000) break;
-  }
+  const libRows = await readAllRows<(typeof tracks)[number] & { spotify_id: string }>(
+    supabase,
+    "library_tracks",
+    "id, spotify_id, name, artists, album, source_name, source_period, source_type",
+    "id",
+    userId,
+    6000,
+  );
+  libRows.sort((x, y) =>
+    (x.source_period ?? "") === (y.source_period ?? "") ? (x.id < y.id ? -1 : 1) : (x.source_period ?? "") < (y.source_period ?? "") ? -1 : 1,
+  );
+  tracks.push(...libRows);
   // Deep cuts: know what the user has heard lately so Crate can avoid it
   const deepCuts = /deep cuts/i.test(lastText);
   // Mid-session chat steering: the client marks the message while a session is playing.
@@ -115,18 +117,15 @@ export async function handleChat(request: Request) {
   const hist = new Map<string, { plays: number; last: string | null }>();
   const idToSpotify = new Map<string, string>();
   {
-    const ids = await supabase.from("library_tracks").select("id, spotify_id").limit(6000);
-    for (const r of ids.data ?? []) idToSpotify.set(r.id, r.spotify_id);
-    for (let from = 0; from < 200000; from += 1000) {
-      const { data: h } = await supabase
-        .from("listening_history")
-        .select("spotify_id, plays, last_played")
-        .order("spotify_id")
-        .range(from, from + 999);
-      if (!h?.length) break;
-      for (const x of h) hist.set(x.spotify_id, { plays: x.plays, last: x.last_played });
-      if (h.length < 1000) break;
-    }
+    for (const r of libRows) idToSpotify.set(r.id, r.spotify_id);
+    const h = await readAllRows<{ spotify_id: string; plays: number; last_played: string | null }>(
+      supabase,
+      "listening_history",
+      "spotify_id, plays, last_played",
+      "spotify_id",
+      userId,
+    );
+    for (const x of h) hist.set(x.spotify_id, { plays: x.plays, last: x.last_played });
   }
   const index = new Map<string, (typeof tracks)[number]>();
   const libLines = tracks.map((t, i) => {

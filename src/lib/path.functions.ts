@@ -1,3 +1,4 @@
+import { readAllRows, libraryPoolCache } from "@/lib/keyset";
 import { createServerFn } from "@tanstack/react-start";
 import { createOpenAI } from "@ai-sdk/openai";
 import { stepCountIs, streamText, tool } from "ai";
@@ -45,24 +46,19 @@ type Song = Row & {
 };
 
 // Short-lived per-worker cache of the merged library (plain cache, not state).
-const poolCache = new Map<string, { at: number; songs: Song[] }>();
+const poolCache = libraryPoolCache as unknown as Map<string, { at: number; songs: Song[] }>;
 
 async function loadPool(supabase: any, userId: string): Promise<Song[]> {
   const hit = poolCache.get(userId);
-  if (hit && Date.now() - hit.at < 5 * 60_000) return hit.songs;
-  const rows: Row[] = [];
-  for (let from = 0; from < 30000; from += 1000) {
-    const { data } = await supabase
-      .from("library_tracks")
-      .select(
-        "id, spotify_id, name, artists, album, image_url, preview_url, spotify_url, source_type, source_name, source_period, genres",
-      )
-      .order("id")
-      .range(from, from + 999);
-    if (!data?.length) break;
-    rows.push(...data);
-    if (data.length < 1000) break;
-  }
+  if (hit && Date.now() - hit.at < 15 * 60_000) return hit.songs;
+  const rows = await readAllRows<Row>(
+    supabase,
+    "library_tracks",
+    "id, spotify_id, name, artists, album, image_url, preview_url, spotify_url, source_type, source_name, source_period, genres",
+    "id",
+    userId,
+    30000,
+  );
   const bySpotify = new Map<string, Song>();
   for (const r of rows) {
     const src = { name: r.source_name, type: r.source_type, period: r.source_period };
@@ -76,23 +72,21 @@ async function loadPool(supabase: any, userId: string): Promise<Song[]> {
     }
   }
   // Optional imported listening history (Spotify Extended Streaming History / stats.fm files).
-  for (let from = 0; from < 200000; from += 1000) {
-    const { data } = await supabase
-      .from("listening_history")
-      .select("spotify_id, plays, last_played, first_played, plays_by_year")
-      .order("spotify_id")
-      .range(from, from + 999);
-    if (!data?.length) break;
-    for (const h of data) {
-      const s = bySpotify.get(h.spotify_id);
-      if (s) {
-        s.plays = h.plays;
-        s.last_played = h.last_played;
-        s.first_played = h.first_played;
-        s.plays_by_year = (h.plays_by_year as Record<string, number> | null) ?? null;
-      }
+  const history = await readAllRows<{ spotify_id: string; plays: number; last_played: string | null; first_played: string | null; plays_by_year: unknown }>(
+    supabase,
+    "listening_history",
+    "spotify_id, plays, last_played, first_played, plays_by_year",
+    "spotify_id",
+    userId,
+  );
+  for (const h of history) {
+    const s = bySpotify.get(h.spotify_id);
+    if (s) {
+      s.plays = h.plays;
+      s.last_played = h.last_played;
+      s.first_played = h.first_played;
+      s.plays_by_year = (h.plays_by_year as Record<string, number> | null) ?? null;
     }
-    if (data.length < 1000) break;
   }
   const songs = [...bySpotify.values()];
   poolCache.set(userId, { at: Date.now(), songs });
