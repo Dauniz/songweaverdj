@@ -257,8 +257,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // "If you skip" door for the upcoming song, computed before the hand-over near the end.
   const preSkip = useRef<{ forId: string; branch: Branch } | null>(null);
   const scoutAbort = useRef<AbortController | null>(null);
-  /** Prompt playlist: Crate's chat picks play in order while each is finished. idx = the playing pick. */
-  const promptQueue = useRef<{ list: CardTrack[]; idx: number } | null>(null);
+  /** Prompt playlist: Crate's chat picks play in order while each is finished. idx = the playing pick.
+   *  `offset` hides a prepended currently-playing song from the "song n of m" labels. */
+  const promptQueue = useRef<{ list: CardTrack[]; idx: number; offset?: number } | null>(null);
   /** The queued pick that is the fixed finish door for song `cid`, if the playlist is still running. */
   const queuedNext = (cid: string | null | undefined) => {
     const q = promptQueue.current;
@@ -548,8 +549,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const knownSkipId = pre?.track.spotify_id ?? plan?.doorVal?.track.spotify_id;
       const qNext = queuedNext(cid);
       const qPos = promptQueue.current;
+      const qOff = qPos?.offset ?? 0;
       const playedB: Promise<Branch> = qNext
-        ? Promise.resolve({ track: { ...qNext, why: `Your playlist, song ${(qPos?.idx ?? 0) + 2} of ${qPos?.list.length ?? 0}` }, road: advance(s, "played").road })
+        ? Promise.resolve({ track: { ...qNext, why: `Your playlist, song ${(qPos?.idx ?? 0) + 2 - qOff} of ${(qPos?.list.length ?? 0) - qOff}` }, road: advance(s, "played").road })
         : fetchBranch(advance(s, "played"), ctrl.signal, knownSkipId ? [knownSkipId] : []);
       const skippedState = advance(s, "skipped");
       // The skip door must not be a later playlist song.
@@ -655,7 +657,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (q.idx >= q.list.length - 1) {
         promptQueue.current = null;
         note("think", "Last song of your playlist — after this Crate is back in the maze");
-      } else note("think", `Your playlist: song ${q.idx + 1} of ${q.list.length}`);
+      } else note("think", `Your playlist: song ${q.idx + 1 - (q.offset ?? 0)} of ${q.list.length - (q.offset ?? 0)}`);
       return;
     }
     promptQueue.current = null;
@@ -839,7 +841,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (first) {
         // Live session: the current song keeps playing; the first pick becomes B, the rest follow.
         const cur = radioRef.current.current;
-        promptQueue.current = cur ? { list: [cur, ...list], idx: 0 } : null; // A first, so finishing A plays pick 1
+        promptQueue.current = cur ? { list: [cur, ...list], idx: 0, offset: 1 } : null; // A first, so finishing A plays pick 1; offset keeps labels at "song n of 6"
         void steerRef.current?.("", [first], { source: "prompt", keepW: true, keepQueue: true, prompt: seedPrompt });
       }
     },
