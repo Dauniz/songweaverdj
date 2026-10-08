@@ -1807,20 +1807,26 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             // a different pick, or Spotify and the screen drift apart.
             acceptObserved(lineupTracks.current.get(state.spotifyId)!, outcome, false, state.progressMs, state.durationMs);
           } else {
-            acceptObserved(
-              {
-                id: `demo-ext-${state.spotifyId}`,
-                spotify_id: state.spotifyId,
-                name: state.name || "Unknown song",
-                artists: state.artists,
-                album: state.album,
-                image_url: state.imageUrl,
-                spotify_url: state.spotifyUrl,
-                source_name: "Spotify",
-              },
-              outcome,
-              true, // you picked it in Spotify — the path starts over from here
-            );
+            // Your own Spotify pick mid-song = a skip. It takes C's place, so C's planned
+            // skip door (w) goes straight in behind it: [your song, w] in one push.
+            const foreignTrack = {
+              id: `demo-ext-${state.spotifyId}`,
+              spotify_id: state.spotifyId,
+              name: state.name || "Unknown song",
+              artists: state.artists,
+              album: state.album,
+              image_url: state.imageUrl,
+              spotify_url: state.spotifyUrl,
+              source_name: "Spotify",
+            } as RadioTrack;
+            const cId = upSkipRef.current?.track.spotify_id;
+            const plan = landingPlan.current;
+            if (plan && cId && plan.forId === cId && plan.sessionId === radioRef.current.sessionId) plan.forId = state.spotifyId;
+            promptQueue.current = null;
+            pushSpotifyLog({ kind: "event", at: Date.now(), text: `FOREIGN SKIP — "${foreignTrack.name}" picked in Spotify, counted as a skip; pushing w behind it` });
+            const before = radioRef.current;
+            acceptObserved(foreignTrack, "skipped", false, state.progressMs, state.durationMs);
+            void judgeForeign(foreignTrack, before);
           }
           return;
         }
