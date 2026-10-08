@@ -2224,14 +2224,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
    *  B (and its v, and C's own w) are re-scouted under the steer note; C stays exactly as queued —
    *  replacing a queued door would glitch Spotify's audio. Never touches the six-pick prompt queue. */
   const steerSession = useCallback(
-    async (note_?: string, picks?: CardTrack[]) => {
+    async (note_?: string, picks?: CardTrack[], opts?: { keepQueue?: boolean; keepW?: boolean; source?: "search" | "prompt"; prompt?: string }) => {
       const s = radioRef.current;
       const trimmed = (note_ ?? "").trim().slice(0, 300);
       if (!s.active || !s.current || (!trimmed && !picks?.length)) return;
       const steerPick = picks?.find((t) => t.spotify_id && isPlayable(t));
       if (!trimmed && !steerPick) return;
       // Steering owns the maze from here: a running prompt playlist yields to the new direction.
-      promptQueue.current = null;
+      if (!opts?.keepQueue) promptQueue.current = null;
       scoutAbort.current?.abort();
       const ctrl = new AbortController();
       scoutAbort.current = ctrl;
@@ -2241,9 +2241,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const dn = door.current;
       const queuedTrack = ps && ps.forId === cid ? ps.branch?.track : dn && dn.forId === cid ? dn.track : null;
       const pre: Branch = queuedTrack ? { track: queuedTrack, road: advance(s, "skipped").road } : null;
-      // w (the skip door's own skip) is re-scouted under the steer note; the old plan is dropped.
-      landingPlan.current = null;
-      const next: RadioState = { ...s, steerNote: trimmed };
+      // w: re-scouted under a steer note; search/prompt picks keep an existing plan for C.
+      const keepPlan = !!(opts?.keepW && pre && landingPlan.current && landingPlan.current.forId === pre.track.spotify_id);
+      if (!keepPlan) landingPlan.current = null;
+      const next: RadioState = { ...s, steerNote: opts?.source ? s.steerNote : trimmed, ...(opts?.prompt ? { seedPrompt: opts.prompt } : {}) };
       const playedB: Promise<Branch> = steerPick
         ? Promise.resolve({
             track: { ...steerPick, why: trimmed ? `Steering: ${trimmed}` : "You asked Crate to steer" },
