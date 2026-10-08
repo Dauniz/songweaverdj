@@ -46,7 +46,7 @@ function Index() {
         <p className="mt-10 text-sm font-semibold uppercase tracking-[0.2em] text-primary">
           The Maze · Walrus Memory
         </p>
-        <h1 className="mt-4 max-w-3xl text-5xl font-extrabold leading-[1.02] md:text-7xl">
+        <h1 className="mt-4 max-w-4xl text-[2.75rem] font-extrabold leading-[1.02] md:text-6xl lg:text-7xl">
           Stop curating. Start <span className="text-magenta">listening</span>.
         </h1>
         <p className="mt-6 max-w-xl text-lg text-muted-foreground">
