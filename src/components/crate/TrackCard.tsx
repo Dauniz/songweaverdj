@@ -102,6 +102,7 @@ export function TrackCard({
           <div className="truncate text-sm text-muted-foreground">{track.artists}</div>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
+          {onPlay && (
           <Button
             aria-label="Play on Spotify"
             onClick={onPlay}
@@ -111,6 +112,7 @@ export function TrackCard({
           >
             <Play className="h-5 w-5 fill-current" />
           </Button>
+          )}
           {track.spotify_url && (
             <Button asChild variant="ghost" size="icon-sm" className="rounded-full text-muted-foreground">
               <a href={track.spotify_url} target="_blank" rel="noreferrer" aria-label="Open in Spotify">

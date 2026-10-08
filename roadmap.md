@@ -33,3 +33,5 @@
 - [x] Skips put songs/artists on a short cooldown (max a few sessions), never a permanent block
 - [x] Your own Spotify pick mid-song counts as a skip with instant w push; far picks steer
 - [x] Background finish helper for frozen phone/tablet pages (cost check after a few days of use)
+- [x] Prompt playlist shown above the live steering screen; disappears when the playlist ends or is left
+- [x] Prompt playlist cards are display-only (no play buttons)

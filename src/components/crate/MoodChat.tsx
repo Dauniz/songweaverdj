@@ -108,7 +108,8 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recordingRef = useRef<VoiceRecording | null>(null);
   const stoppingRef = useRef(false);
-  const { startRadio, steerSession, sessionLive, lens, deepCuts } = useRadio();
+  const { startRadio, steerSession, sessionLive, lens, deepCuts, promptPlaylist } = useRadio();
+  const [playlistTitle, setPlaylistTitle] = useState("");
   const lastUserText = useRef("");
   const { data: promptMemories = [] } = useQuery({
     queryKey: ["prompt-memories"],
@@ -144,7 +145,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
     [],
   );
 
-  const { messages, sendMessage, status, stop } = useChat({
+  const { messages, sendMessage, status, stop, setMessages } = useChat({
     id: "crate-main",
     messages: [],
     transport,
@@ -176,6 +177,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
         if (out.steer_only) {
           // Mid-session chat steering: re-scout the upcoming doors, never touch the playing song.
           void steerSession(out.steer_note ?? "", out.tracks ?? []);
+          setMessages([]);
           break;
         }
         if (out.tracks.length) {
@@ -187,11 +189,13 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             return n.length > 1 && asked.includes(n);
           });
           startRadio(out.tracks, lastUserText.current || out.vibe_title, Math.max(0, idx), out.start_road);
+          setPlaylistTitle(out.vibe_title);
+          setMessages([]);
         }
         break;
       }
     }
-  }, [status, messages, startRadio, steerSession]);
+  }, [status, messages, startRadio, steerSession, setMessages]);
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -405,6 +409,18 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   if (empty) {
     return (
       <div className="chat-enter scrollbar-thin flex h-full flex-col items-center justify-start overflow-y-auto px-4 pb-8 pt-32 sm:px-6 sm:pb-16 sm:pt-36 xl:justify-center xl:pb-24 xl:pt-0 [@media(max-height:850px)]:pt-28 [@media(max-height:800px)]:justify-start [@media(max-height:800px)]:pb-6 [@media(max-height:800px)]:pt-24 sm:[@media(max-height:800px)]:pt-7">
+        {sessionLive && promptPlaylist && promptPlaylist.length > 0 && (
+          <div className="song-results-reveal mb-8 w-full max-w-3xl">
+            <div className="mb-1.5 font-display text-lg font-bold text-primary">
+              {playlistTitle || "Crate's playlist"}
+            </div>
+            <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="grid gap-1.5 sm:grid-cols-2">
+              {promptPlaylist.slice(0, 6).map((t, j) => (
+                <TrackCard key={t.id} track={t} index={j} />
+              ))}
+            </motion.div>
+          </div>
+        )}
         <div className="flex flex-col items-center text-center">
           <img
             src={logo}
@@ -480,9 +496,6 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                                   key={t.id}
                                   track={t}
                                   index={j}
-                                  onPlay={() =>
-                                    startRadio(out.tracks, lastUserText.current || out.vibe_title, j, out.start_road)
-                                  }
                                 />
                               ))}
                             </motion.div>
