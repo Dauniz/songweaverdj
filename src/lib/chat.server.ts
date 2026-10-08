@@ -1,4 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import { dedupePicks } from "@/lib/dedupe-picks";
 import { createClient } from "@supabase/supabase-js";
 import { convertToModelMessages, stepCountIs, streamText, tool, type UIMessage } from "ai";
 import { z } from "zod";
