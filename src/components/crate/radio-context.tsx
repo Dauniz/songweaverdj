@@ -244,7 +244,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reopenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionLive, setSessionLive] = useState(false);
-  const startingFor = useRef<{ id: string; at: number } | null>(null);
+  const startingFor = useRef<{ id: string; at: number; sent?: boolean; logged?: boolean } | null>(null);
   /** Song the start effect already handled — re-renders must never start it twice. */
   const handledFor = useRef("");
   const watchOff = useRef(false);
@@ -1197,8 +1197,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         // Give Spotify a moment to report the new song before the mirror resumes.
         lastPlayback.current = { spotifyId: startId, ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: Date.now() };
       }
-      if (alreadyPlaying) setTimeout(release, 1_500);
-      else setTimeout(release, 8_000);
+      if (alreadyPlaying) setTimeout(release, 1_500); // fresh starts are released by the poll
     })();
   }, [sessionLive, radio.active, radio.current?.spotify_id, startSpotifyPlayback, fetchBranch, playbackFn]);
 
