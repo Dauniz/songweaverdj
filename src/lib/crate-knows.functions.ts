@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { isForeverSkipMemory, loadCooldowns, type Cooldowns } from "./cooldowns";
 
 export type KnowItem = { id: string; content: string; created_at: string; kind: string };
 export type CrateKnows = {
@@ -9,6 +10,7 @@ export type CrateKnows = {
   history: KnowItem[];
   hints: (KnowItem & { origin: string })[];
   sessions: number;
+  resting: Cooldowns;
 };
 
 const LEARNED = ["cross_session", "synthesis", "listening"];
@@ -23,7 +25,8 @@ export const getCrateKnows = createServerFn({ method: "POST" })
       supabase.from("memory_nodes").select("id, kind, content, origin, created_at").order("created_at", { ascending: false }).limit(300),
       supabase.from("listening_events").select("session_id").not("session_id", "is", null).limit(20000),
     ]);
-    const all = (nodes ?? []).map((n) => ({ ...n, content: clean(n.content) }));
+    const all = (nodes ?? []).map((n) => ({ ...n, content: clean(n.content) })).filter((n) => !isForeverSkipMemory(n.content, n.kind));
+    const resting = await loadCooldowns(supabase).catch(() => ({ songs: [], artists: [] }));
     const learned = all.filter((n) => LEARNED.includes(n.origin) && n.kind !== "session");
     const history = all.filter((n) => n.origin === "history_profile");
     const hints = all.filter((n) => !LEARNED.includes(n.origin) && n.origin !== "history_profile").slice(0, 40);
@@ -69,5 +72,5 @@ Using ONLY these memories (never invent), reply with JSON:
       }
     }
     const strip = ({ id, content, created_at, kind }: KnowItem) => ({ id, content, created_at, kind });
-    return { portrait, rhythms, learned: learned.map(strip), history: history.map(strip), hints, sessions };
+    return { portrait, rhythms, learned: learned.map(strip), history: history.map(strip), hints, sessions, resting };
   });

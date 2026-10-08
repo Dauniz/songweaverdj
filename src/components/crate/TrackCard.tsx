@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Heart, Play, SkipForward, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { addMemory } from "@/lib/memory.functions";
+import { logListeningEvent } from "@/lib/radio.functions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { motion, useReducedMotion } from "motion/react";
@@ -37,13 +38,20 @@ export function TrackCard({
   const [acted, setActed] = useState<null | "fav" | "skip">(null);
   const reduced = useReducedMotion();
   const remember = useServerFn(addMemory);
+  const logEvent = useServerFn(logListeningEvent);
   const qc = useQueryClient();
   const canEmbed = track.spotify_id && !track.spotify_id.startsWith("demo-");
 
   async function act(kind: "favorite" | "skipped") {
     setActed(kind === "favorite" ? "fav" : "skip");
     try {
-      await remember({
+      if (kind === "skipped") {
+        // A rest for a few sessions, never a permanent block.
+        await logEvent({
+          data: { trackId: null, trackName: track.name, artists: track.artists, event: "explicit_skip", sessionId: `cards-${new Date().toISOString().slice(0, 10)}`, mode: null },
+        });
+      } else
+        await remember({
         data: {
           kind,
           content:
@@ -54,7 +62,7 @@ export function TrackCard({
       });
       qc.invalidateQueries({ queryKey: ["memories"] });
       toast.success(
-        kind === "favorite" ? "Saved to your taste memory" : "Won't suggest that again",
+        kind === "favorite" ? "Saved to your taste memory" : "Resting it for a few sessions",
       );
     } catch (e) {
       setActed(null);

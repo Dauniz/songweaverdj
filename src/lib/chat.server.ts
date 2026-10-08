@@ -9,6 +9,7 @@ import {
   withLovableAiGatewayRunIdHeader,
 } from "./ai/run-id.server";
 import { recallMemories, submitMemory } from "./memwal.server";
+import { isForeverSkipMemory } from "./cooldowns";
 
 const MODEL = "google/gemini-3.6-flash";
 
@@ -145,8 +146,8 @@ export async function handleChat(request: Request) {
       .limit(25),
   ]);
   const memoryLines = [
-    ...recalled.map((m) => `- (walrus) ${m.text}`),
-    ...(localMem ?? []).map((m) => `- [${m.kind}] ${m.content}`),
+    ...recalled.filter((m) => !isForeverSkipMemory(m.text)).map((m) => `- (walrus) ${m.text}`),
+    ...(localMem ?? []).filter((m) => !isForeverSkipMemory(m.content, m.kind)).map((m) => `- [${m.kind}] ${m.content}`),
   ];
 
   // Prompt order is cache-friendly: stable rules + library first (identical between

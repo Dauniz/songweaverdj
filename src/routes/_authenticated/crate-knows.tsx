@@ -43,7 +43,11 @@ function CrateKnowsPage() {
     },
   });
   const insights = data?.learned.filter((m) => m.kind !== "skipped") ?? [];
-  const avoided = data?.learned.filter((m) => m.kind === "skipped") ?? [];
+  const back = (n: number) => (n === 1 ? "back next session" : `back in ${n} sessions`);
+  const avoided = [
+    ...(data?.resting?.songs ?? []).map((x) => ({ id: `s:${x.name}|${x.artists}`, content: `"${x.name}" by ${x.artists} — ${back(x.sessionsLeft)}` })),
+    ...(data?.resting?.artists ?? []).map((x) => ({ id: `a:${x.artists}`, content: `${x.artists} (played less often) — ${back(x.sessionsLeft)}` })),
+  ];
   const [avoidOpen, setAvoidOpen] = useState(false);
   const item = reduced ? reducedFade : geometricEnter;
   const little = data && data.learned.length + data.history.length < 3;
@@ -96,7 +100,7 @@ function CrateKnowsPage() {
               <motion.section variants={item}>
                 <button type="button" onClick={() => setAvoidOpen((o) => !o)} className="flex items-center gap-2 text-sm font-semibold text-muted-foreground" aria-expanded={avoidOpen}>
                   <ChevronDown className={cn("h-4 w-4 transition-transform", avoidOpen && "rotate-180")} />
-                  Songs Crate learned to avoid ({avoided.length})
+                  Resting for now ({avoided.length})
                 </button>
                 {avoidOpen && (
                   <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">

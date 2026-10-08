@@ -10,7 +10,7 @@ import { logListeningEvent } from "@/lib/radio.functions";
 import { nextPathTrack, judgeForeignPick } from "@/lib/path.functions";
 import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { saveSteerInsight } from "@/lib/memory.functions";
-import { LENS_IDS, type LensId } from "@/lib/lenses";
+import { LENS_IDS, lensName, type LensId } from "@/lib/lenses";
 import { pushSpotifyLog, ackSpotifySend, observeSpotify } from "@/lib/spotify-log";
 import { endSpotifySession, findOpenSpotify, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyPlayback,
   getNextQueuedId, nextSpotifyTrack, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
@@ -19,7 +19,8 @@ import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
 
 export type Road = "vibe" | "era" | "mixed";
-export type RadioTrack = CardTrack & { why?: string };
+/** altRoad: the alternative road it was picked under (its tag), if any. */
+export type RadioTrack = CardTrack & { why?: string; altRoad?: string };
 export type SpotifyPlaybackIssue = {
   status: "no_device" | "premium_required" | "connect_required" | "unavailable";
   message: string;
@@ -520,7 +521,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           },
         });
         if (!r.track) return null;
-        return { track: { ...(r.track as CardTrack), why: r.why }, road: r.road };
+        const altRoad = deepCutsRef.current ? "Deep cuts" : lensRef.current ? lensName(lensRef.current) : undefined;
+        return { track: { ...(r.track as CardTrack), why: r.why, ...(altRoad ? { altRoad } : {}) }, road: r.road };
       } catch {
         return null;
       }
@@ -687,7 +689,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // sure B (finish), v (B's skip), C (skip) and w (C's skip) are all picked. Repairs only
   // prepare picks — nothing is sent to Spotify mid-song.
   const repairing = useRef(false);
-  const pendingSteer = useRef<{ note: string | undefined; picks: CardTrack[] | undefined; opts: undefined | { keepQueue?: boolean; keepW?: boolean; source?: "search" | "prompt"; prompt?: string } } | null>(null);
+  const pendingSteer = useRef<{ note: string | undefined; picks: CardTrack[] | undefined; opts: undefined | { keepQueue?: boolean; keepW?: boolean; source?: "search" | "prompt" | "road"; prompt?: string; label?: string } } | null>(null);
   const checkPlan = useCallback(
     async (reason: "recheck" | "interval") => {
       const s = radioRef.current;
@@ -2280,12 +2282,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
    *  B (and its v, and C's own w) are re-scouted under the steer note; C stays exactly as queued —
    *  replacing a queued door would glitch Spotify's audio. Never touches the six-pick prompt queue. */
   const steerSession = useCallback(
-    async (note_?: string, picks?: CardTrack[], opts?: { keepQueue?: boolean; keepW?: boolean; source?: "search" | "prompt"; prompt?: string }) => {
+    async (note_?: string, picks?: CardTrack[], opts?: { keepQueue?: boolean; keepW?: boolean; source?: "search" | "prompt" | "road"; prompt?: string; label?: string }) => {
       const s = radioRef.current;
       const trimmed = (note_ ?? "").trim().slice(0, 300);
-      if (!s.active || !s.current || (!trimmed && !picks?.length)) return;
+      const road = opts?.source === "road";
+      if (!s.active || !s.current || (!road && !trimmed && !picks?.length)) return;
       const steerPick = picks?.find((t) => t.spotify_id && isPlayable(t));
-      if (!trimmed && !steerPick) return;
+      if (!road && !trimmed && !steerPick) return;
       // Last-seconds lock: the hand-over already holds B and v — hold the steer for the next song.
       if (swapping.current && swapping.current === s.current.spotify_id) {
         pendingSteer.current = { note: note_, picks, opts };
@@ -2328,7 +2331,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       setUpNext(null);
       if (!pre) setUpSkip(null);
       setRadio(next);
-      if (steerPick && opts?.source) {
+      if (road) note("steer", opts?.label ?? "Alternative road changed → steering the doors ahead");
+      else if (steerPick && opts?.source) {
         log(steerPick, "steer", s); // a deliberate choice — Walrus learns from it
         note("reroot", `Your pick is next: "${steerPick.name}" plays when this song ends`);
       } else note("steer", trimmed ? `Steering: "${trimmed}" → re-scouting the doors ahead` : "Steer pick applied → re-scouting the doors ahead");
@@ -2426,17 +2430,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const d = deepCutsRef.current;
         if (l) log({ name: `lens:${l}`, artists: "" }, "steer", cur);
         if (d) log({ name: "deep cuts", artists: "" }, "steer", cur);
-        scoutAbort.current?.abort();
-        branches.current = null;
-        preSkip.current = null;
-        landingPlan.current = null;
-        listGeneration.current += 1;
-        awaitingSkipPair.current = false;
-        setUpNext(null);
-        setUpSkip(null);
-        const label = l ?? (d ? "deep cuts" : null);
-        note("steer", label ? `Alternative road ${label} on → rewiring both doors` : "Alternative road off → back to the default roads");
-        setRadio({ ...cur });
+        // Steer, don't reset: the playing song and C stay; B, v and w are re-picked under the new road.
+        const label = d ? "Deep cuts" : l ? lensName(l) : null;
+        void steerRef.current?.("", undefined, {
+          source: "road",
+          keepQueue: false,
+          label: label ? `Alternative road ${label} on → steering the doors ahead` : "Alternative road off → back to the default roads",
+        });
       }, 1200);
     },
     [log, note],

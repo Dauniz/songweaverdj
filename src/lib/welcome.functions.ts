@@ -54,7 +54,8 @@ export const getWelcomeSuggestion = createServerFn({ method: "POST" })
     let recalled: { text: string }[] = [];
     try {
       const { recallMemories } = await import("./memwal.server");
-      recalled = await recallMemories(userId, `${DAYS[day]} ${part} listening habits`, 6);
+      const { isForeverSkipMemory } = await import("./cooldowns");
+      recalled = (await recallMemories(userId, `${DAYS[day]} ${part} listening habits`, 6)).filter((r) => !isForeverSkipMemory(r.text));
     } catch { /* optional */ }
 
     const prompt = `Now: ${DAYS[day]} ${part} (${hour}:00 local). Listener first name: ${data.firstName || "(unknown)"}.

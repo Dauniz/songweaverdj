@@ -88,49 +88,8 @@ export const logListeningEvent = createServerFn({ method: "POST" })
         learned.push("favorite");
       }
     }
-    if (data.event === "explicit_skip") {
-      await saveSignalMemory(
-        supabase,
-        userId,
-        "skipped",
-        `Skipped "${data.trackName}" by ${data.artists} — don't resurface it for now.`,
-      );
-      learned.push("skipped");
-    }
-    if (data.event === "early_skip") {
-      // 2 early skips of the same track -> skip memory
-      const { count: trackSkips } = await supabase
-        .from("listening_events")
-        .select("id", { count: "exact", head: true })
-        .eq("event", "early_skip")
-        .eq("track_name", data.trackName)
-        .eq("artists", data.artists);
-      if ((trackSkips ?? 0) >= 2) {
-        await saveSignalMemory(
-          supabase,
-          userId,
-          "skipped",
-          `Skipped "${data.trackName}" by ${data.artists} early more than once — don't resurface it.`,
-        );
-        learned.push("skipped");
-      }
-      // 3 early skips of the same artist this session -> avoid artist for now
-      const { count: artistSkips } = await supabase
-        .from("listening_events")
-        .select("id", { count: "exact", head: true })
-        .eq("event", "early_skip")
-        .eq("session_id", data.sessionId)
-        .eq("artists", data.artists);
-      if ((artistSkips ?? 0) >= 3) {
-        await saveSignalMemory(
-          supabase,
-          userId,
-          "taste",
-          `Isn't feeling ${data.artists} right now — skipped several of their tracks in one session.`,
-        );
-        learned.push("artist-avoid");
-      }
-    }
+    // Skips never write permanent memories: they put songs/artists on a short cooldown
+    // (see cooldowns.ts), computed from these logged events.
     if (data.event === "steer") {
       // A chip tapped in 3+ different sessions becomes a gentle taste memory.
       const { data: steers } = await supabase

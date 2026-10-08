@@ -23,10 +23,11 @@ const ROAD: Record<Road, { name: string }> = {
   mixed: { name: "New Angle" },
 };
 
-/** Door/road label: an alternative road's name replaces the default road while it's on. */
+/** Road tag: follows the song (the road it was picked under). An empty door shows the road its pick will use. */
 function useRoadName() {
   const { lens, deepCuts } = useRadio();
-  return (r: Road) => (deepCuts ? "Deep cuts" : lens ? lensName(lens) : ROAD[r].name);
+  return (r: Road, t?: { altRoad?: string } | null) =>
+    t ? (t.altRoad ?? ROAD[r].name) : deepCuts ? "Deep cuts" : lens ? lensName(lens) : ROAD[r].name;
 }
 
 function Art({ src, alt, className }: { src: string | null | undefined; alt: string; className?: string }) {
@@ -321,7 +322,7 @@ function JunctionTree({
                 />
               ))}
             </span>
-            You are here · {roadName(shown.road)}
+            You are here · {roadName(shown.road, shown.current)}
           </div>
           <div className="mt-2.5 flex items-center gap-3">
             <Art src={shown.current.image_url} alt={shown.current.name} className="h-14 w-14" />
@@ -355,6 +356,7 @@ function JunctionTree({
           label="Keep walking"
           sublabel="if you finish"
           road={shown.road}
+          track={shown.upNext}
           title={shown.upNext?.name}
           artists={shown.upNext?.artists}
           image={shown.upNext?.image_url}
@@ -375,6 +377,7 @@ function JunctionTree({
           label="Take a turn"
           sublabel="if you skip"
           road={skipRoad}
+          track={shown.upSkip?.track}
           title={shown.upSkip?.track.name}
           artists={shown.upSkip?.track.artists}
           image={shown.upSkip?.track.image_url}
@@ -729,7 +732,9 @@ function Door({
   artists,
   image,
   icon,
+  track,
 }: {
+  track?: { altRoad?: string } | null | undefined;
   label: string;
   sublabel: string;
   tone: "keep" | "turn";
@@ -767,7 +772,7 @@ function Door({
       </div>
       <div className="mt-2 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
         <CornerDownRight className="mt-0.5 h-3 w-3 shrink-0" />
-        <span>{roadName(road)}</span>
+        <span>{roadName(road, track)}</span>
       </div>
     </div>
   );
