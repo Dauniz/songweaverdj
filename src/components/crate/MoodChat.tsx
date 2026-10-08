@@ -421,7 +421,9 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             for the moment.
           </p>
           <p className="mt-2 max-w-lg text-sm leading-5 text-muted-foreground/70 sm:text-base sm:leading-6">
-            Either search for a song or send a prompt to Crate to initialize a Songweaver session.
+            {sessionLive
+              ? "Steering the session will make Crate replace the current finish door with the desired track."
+              : "Either search for a song or send a prompt to Crate to initialize a Songweaver session."}
           </p>
         </div>
         {composer}
