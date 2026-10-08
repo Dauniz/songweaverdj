@@ -54,7 +54,7 @@ const tokenCache = new Map<string, { token: string; expiresAt: number }>();
 const deviceCache = new Map<string, { id: string; name: string; at: number }>();
 const deviceInit = new Map<string, number>();
 
-async function spotifyAccess(userId: string, marginMs = 60_000) {
+export async function spotifyAccess(userId: string, marginMs = 60_000) {
   const cached = tokenCache.get(userId);
   if (cached && cached.expiresAt >= Date.now() + marginMs) return cached.token;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

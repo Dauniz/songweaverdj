@@ -32,3 +32,4 @@
 - [x] Alternative roads steer B/v/w instead of resetting; road tags follow each song
 - [x] Skips put songs/artists on a short cooldown (max a few sessions), never a permanent block
 - [x] Your own Spotify pick mid-song counts as a skip with instant w push; far picks steer
+- [x] Background finish helper for frozen phone/tablet pages (cost check after a few days of use)
