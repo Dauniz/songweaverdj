@@ -29,3 +29,6 @@
 - [x] Move the alternative road bars (Deep cuts, Wormhole, Scene, Texture + info) from under the chat into the Walrus Memory tab, directly above the current song
 - [x] Open Spotify on iPhone/iPad opens app or web; popup returns after 10 s cooldown if no connection
 - [x] Spotify pill dot live-wired to detection: solid grey between sessions, red/green during a session; expanded panel shows "Spotify connection status"
+- [x] Alternative roads steer B/v/w instead of resetting; road tags follow each song
+- [x] Skips put songs/artists on a short cooldown (max a few sessions), never a permanent block
+- [x] Your own Spotify pick mid-song counts as a skip with instant w push; far picks steer
