@@ -2238,7 +2238,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const next: RadioState = { ...s, steerNote: opts?.source ? s.steerNote : trimmed, ...(opts?.prompt ? { seedPrompt: opts.prompt } : {}) };
       const playedB: Promise<Branch> = steerPick
         ? Promise.resolve({
-            track: { ...steerPick, why: opts?.source === "search" ? "You picked it" : opts?.source === "prompt" ? (steerPick.why ?? "From your prompt") : trimmed ? `Steering: ${trimmed}` : "You asked Crate to steer" },
+            track: { ...steerPick, why: opts?.source === "search" ? "You picked it" : opts?.source === "prompt" ? "From your prompt" : trimmed ? `Steering: ${trimmed}` : "You asked Crate to steer" },
             road: advance(next, "played").road,
           })
         : fetchBranch(next, ctrl.signal);
