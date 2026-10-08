@@ -217,26 +217,37 @@ SESSION IS LIVE: music is already playing — never start a new session or a new
             .describe("Omit entirely when steering without specific song requests."),
         }),
         execute: async ({ vibe_title, start_road, picks, steer_only, steer_note }) => {
-          const cards = (picks ?? [])
-            .map((p) => {
-              const t = index.get(p.code.trim());
-              return t
-                ? { ...t, reason: p.reason, period_label: fmtPeriod(t.source_period) }
-                : null;
-            })
-            .filter(Boolean) as Array<Record<string, unknown>>;
+          const cards = dedupePicks(
+            (picks ?? [])
+              .map((p) => {
+                const t = index.get(p.code.trim());
+                return t
+                  ? { ...t, reason: p.reason, period_label: fmtPeriod(t.source_period) }
+                  : null;
+              })
+              .filter(Boolean) as Array<Record<string, unknown> & { name: string; artists: string }>,
+          );
+          // Fresh start: refill to 6 distinct songs, preferring shared artists.
+          if (!steer_only && cards.length && cards.length < 6) {
+            const artists = new Set(cards.map((c) => c.artists.toLowerCase()));
+            const pool = [...index.values()].sort(
+              (a, b) => Number(artists.has(b.artists.toLowerCase())) - Number(artists.has(a.artists.toLowerCase())),
+            );
+            for (const t of pool) {
+              if (cards.length >= 6) break;
+              const next = dedupePicks([...cards, { ...t, reason: "Fits the same mood.", period_label: fmtPeriod(t.source_period) }]);
+              if (next.length > cards.length) cards.push(next[next.length - 1]);
+            }
+          }
           const ids = cards.map((c) => c["id"] as string);
           const { data: full } = await supabase
             .from("library_tracks")
             .select("id, spotify_id, image_url, preview_url, spotify_url")
             .in("id", ids.length ? ids : ["00000000-0000-0000-0000-000000000000"]);
           const byId = new Map((full ?? []).map((f) => [f.id, f]));
-          if (steer_only) return { steer_only: true, steer_note: steer_note ?? "", tracks: cards.map((c) => ({ ...c, ...(byId.get(c["id"] as string) ?? {}) })) };
-          return {
-            vibe_title,
-            start_road,
-            tracks: cards.map((c) => ({ ...c, ...(byId.get(c["id"] as string) ?? {}) })),
-          };
+          const merged = dedupePicks(cards.map((c) => ({ ...c, ...(byId.get(c["id"] as string) ?? {}) })));
+          if (steer_only) return { steer_only: true, steer_note: steer_note ?? "", tracks: merged };
+          return { vibe_title, start_road, tracks: merged };
         },
       }),
       save_memory: tool({
