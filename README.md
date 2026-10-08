@@ -55,7 +55,7 @@ What worked smoothly: per-user namespace isolation (`namespace: "crate-${userId}
 | Frontend | TanStack Start v1, React 19, Tailwind CSS v4, shadcn/ui |
 | Server | TanStack server functions and server routes (edge runtime) |
 | Database & auth | Lovable Cloud (Postgres with row-level security) |
-| AI | Lovable AI Gateway (chat, song picking, transcription) |
+| AI | Google Gemini 3.6 Flash via Lovable AI Gateway (chat, song picking, synthesis) — no OpenAI or Anthropic models |
 | Memory | Walrus Memory via MemWal SDK |
 | Music | Spotify Web API + Spotify Connect (custom OAuth, tokens server-only) |
 
@@ -110,7 +110,15 @@ LOVABLE_API_KEY=
 LOVABLE_CRON_SECRET=
 ```
 
-Add `http://localhost:8080/api/public/spotify/callback` as a redirect URI in your Spotify app. Database migrations live in `supabase/migrations`.
+Add `http://localhost:8080/api/public/spotify/callback` as a redirect URI in your Spotify app.
+
+### Database setup
+
+Create a Supabase project, then apply the migrations in `supabase/migrations` in order — either with the Supabase CLI (`supabase db push`) or by pasting each file into the SQL editor. Enable email authentication in the project's auth settings.
+
+## Trying it out
+
+The live app is at https://songweaverdj.lovable.app. Because the Spotify app runs in Development mode, syncing a real personal library requires your Spotify account to be whitelisted by the author (Spotify's 25-user development quota) — reach out to request access. Everyone else can use the **Try Demo Library** button on the login page, which works without any whitelist. A Spotify Premium account is needed for Connect playback.
 
 ---
 
@@ -118,5 +126,5 @@ Add `http://localhost:8080/api/public/spotify/callback` as a redirect URI in you
 
 1. Sign in and connect Spotify.
 2. (Optional) Sync your library and import your streaming history for Wormhole, Deep cuts and better picks.
-3. Open Spotify on any device, then type a prompt or press **Start session** in Studio.
-4. Finish or skip songs and watch the Maze react. Open the Memory Inspector to see what Crate remembers.
+3. Open Spotify on any device, then type a prompt, search for a song, or press **Start session** in Studio.
+4. Finish or skip songs and watch the Maze react. Open the **Maze** tab to see the path and the Memory Inspector with everything Crate remembers.
