@@ -49,7 +49,7 @@ export function PathMaze() {
     <div className="border-b px-4 py-4">
       <div className="flex items-center gap-2">
         <Route className="h-4 w-4 text-primary" />
-        <h3 className="text-xs font-bold uppercase tracking-wider">The maze</h3>
+        <h2 className="text-xs font-bold uppercase tracking-wider">The maze</h2>
       </div>
       <p className="mt-1.5 min-h-[3.75rem] text-xs leading-relaxed text-muted-foreground">
         Every song is a junction. Finish it → Crate keeps walking the same road. Skip it → another song on the same road;
