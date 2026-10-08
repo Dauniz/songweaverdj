@@ -113,6 +113,21 @@ export type Database = {
         }
         Relationships: []
       }
+      handover_config: {
+        Row: {
+          id: number
+          token: string
+        }
+        Insert: {
+          id?: number
+          token?: string
+        }
+        Update: {
+          id?: number
+          token?: string
+        }
+        Relationships: []
+      }
       library_tracks: {
         Row: {
           album: string | null
@@ -277,6 +292,42 @@ export type Database = {
         }
         Relationships: []
       }
+      pending_handovers: {
+        Row: {
+          b_id: string
+          created_at: string
+          ends_at: string
+          session_id: string
+          status: string
+          track_id: string
+          updated_at: string
+          user_id: string
+          v_id: string | null
+        }
+        Insert: {
+          b_id: string
+          created_at?: string
+          ends_at: string
+          session_id: string
+          status?: string
+          track_id: string
+          updated_at?: string
+          user_id: string
+          v_id?: string | null
+        }
+        Update: {
+          b_id?: string
+          created_at?: string
+          ends_at?: string
+          session_id?: string
+          status?: string
+          track_id?: string
+          updated_at?: string
+          user_id?: string
+          v_id?: string | null
+        }
+        Relationships: []
+      }
       spotify_connections: {
         Row: {
           access_token: string
@@ -354,6 +405,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      arm_handover_tick: { Args: never; Returns: undefined }
+      disarm_handover_tick: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
