@@ -52,8 +52,8 @@ function Index() {
         <p className="mt-6 max-w-xl text-lg text-muted-foreground">
           Tell Crate how today feels and he builds a path through your own library — one song at a time, with two
           doors already lined up: one if you let it finish, one if you skip. What he learns from how you listen is
-          stored on Walrus, so every session starts sharper than the last. The music plays in your Spotify app;
-          Crate just drives.
+          stored on Walrus, so every session starts sharper than the last.
+          The music plays in Spotify, Crate just drives.
         </p>
         <div className="mt-10">
           <Link
