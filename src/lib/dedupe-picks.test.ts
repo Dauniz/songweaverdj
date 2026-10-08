@@ -22,3 +22,14 @@ describe("dedupePicks", () => {
     expect(r.map((t) => t.spotify_id)).toEqual(["b"]);
   });
 });
+
+import { nextDistinctIndex } from "./dedupe-picks";
+describe("nextDistinctIndex", () => {
+  const s = (id: string) => ({ spotify_id: id, name: id, artists: "X" });
+  it("skips a repeat of the playing song", () => {
+    expect(nextDistinctIndex([s("a"), s("b"), s("b"), s("c")], 1, s("b"))).toBe(3);
+  });
+  it("returns -1 when only repeats are left", () => {
+    expect(nextDistinctIndex([s("a"), s("b"), s("b")], 1, s("b"))).toBe(-1);
+  });
+});
