@@ -1615,6 +1615,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const check = async () => {
       const current = radioRef.current.current;
       if (!current?.spotify_id || advancing.current || committing.current) return;
+      if (remoteCheck.current && !document.hidden) return; // reading the background helper's result first
       if (Date.now() < cooldownUntil.current) return; // catching our breath
       // First list for this song not sent yet: Spotify still reports the old/paused song.
       // Reading it now would reroot or end the session and wipe the picked song.
@@ -1921,6 +1922,70 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       void sentinel?.release().catch(() => {});
     };
   }, [sessionLive]);
+
+  // Phones freeze hidden pages, so a song can end with no one to hand over the finish song.
+  // On hide: leave a note for the backend helper. On return: adopt what it did.
+  useEffect(() => {
+    if (!sessionLive) return;
+    const noted = { trackId: "", bId: "", vId: null as string | null };
+    const onVis = async () => {
+      const s = radioRef.current;
+      const cur = s.current;
+      if (document.hidden) {
+        const b = upNextRef.current;
+        const lp = lastPlayback.current;
+        if (!cur?.spotify_id || !b?.spotify_id || !s.sessionId || lp.spotifyId !== cur.spotify_id || !lp.durationMs) return;
+        const endsAt = Math.round(lp.at + lp.durationMs - lp.progressMs);
+        const pre = branches.current?.key.startsWith(`${cur.id}|`) ? branches.current.finishSkip : undefined;
+        const v = pre ? await withTimeout(pre.catch(() => null), 300, null) : null;
+        const vId = v?.track.spotify_id && v.track.spotify_id !== b.spotify_id ? v.track.spotify_id : null;
+        noted.trackId = cur.spotify_id; noted.bId = b.spotify_id; noted.vId = vId;
+        remoteCheck.current = true;
+        void saveNoteFn({ data: { sessionId: s.sessionId, trackId: cur.spotify_id, endsAt, bId: b.spotify_id, vId } }).catch(() => {});
+        return;
+      }
+      if (!remoteCheck.current) return;
+      try {
+        const res = await withTimeout(takeNoteFn().catch(() => null), 4_000, null);
+        const now = radioRef.current;
+        const b = upNextRef.current;
+        if (res?.status !== "sent" || !now.current?.spotify_id || now.current.spotify_id !== res.track_id || b?.spotify_id !== res.b_id) return;
+        // The helper finished the song into B: record it exactly like the page's own hand-over.
+        const finishB: Branch = { track: b, road: now.road };
+        const afterState = { ...advance(now, "played"), current: b, road: now.road };
+        const pre = branches.current?.key.startsWith(`${now.current.id}|`) ? branches.current.finishSkip : undefined;
+        const v = pre ? await withTimeout(pre.catch(() => null), 1_000, null) : null;
+        const skipB: Branch = v?.track.spotify_id === res.v_id ? v : null;
+        const cur = now.current;
+        noPlayFor.current = b.spotify_id ?? "";
+        handledFor.current = b.spotify_id ?? "";
+        handoverGuard.current = { finish: b, skip: skipB?.track ?? null, stateAt: afterState, sentAt: Date.now(), finishSeen: true, recovered: false, from: cur.spotify_id ?? "" };
+        lineup.current = [b.spotify_id!, ...(skipB?.track.spotify_id ? [skipB.track.spotify_id] : [])];
+        lineupTracks.current = new Map([[b.spotify_id!, b], ...(skipB?.track.spotify_id ? [[skipB.track.spotify_id, skipB.track] as [string, RadioTrack]] : [])]);
+        if (skipB?.track.spotify_id) {
+          preSkip.current = { forId: b.spotify_id!, branch: skipB };
+          door.current = { forId: b.spotify_id!, track: skipB.track };
+          setUpSkip(skipB);
+        } else setUpSkip(null);
+        log(cur, "play_through", now);
+        played.current.push(cur.spotify_id!);
+        branches.current = null;
+        setRadio(afterState);
+        noteMove(cur, "played", finishB!.track, finishB!.road);
+        pushSpotifyLog({ kind: "event", at: Date.now(), text: `BACKGROUND FINISH — helper handed over "${b.name}" while the page slept` });
+        lastPlayback.current = { spotifyId: b.spotify_id, ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: Date.now() };
+        lastTransition.current = Date.now();
+      } finally {
+        remoteCheck.current = false;
+      }
+    };
+    const handler = () => void onVis();
+    document.addEventListener("visibilitychange", handler);
+    return () => {
+      document.removeEventListener("visibilitychange", handler);
+      if (remoteCheck.current) { remoteCheck.current = false; void takeNoteFn().catch(() => {}); }
+    };
+  }, [sessionLive, saveNoteFn, takeNoteFn, log, noteMove]);
 
   /** Turn what Spotify is playing into the session seed without restarting it. */
   const adoptPlaying = useCallback(
