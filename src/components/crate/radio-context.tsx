@@ -679,6 +679,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // sure B (finish), v (B's skip), C (skip) and w (C's skip) are all picked. Repairs only
   // prepare picks — nothing is sent to Spotify mid-song.
   const repairing = useRef(false);
+  const pendingSteer = useRef<{ note?: string; picks?: CardTrack[]; opts?: { keepQueue?: boolean; keepW?: boolean; source?: "search" | "prompt"; prompt?: string } } | null>(null);
   const checkPlan = useCallback(
     async (reason: "recheck" | "interval") => {
       const s = radioRef.current;
@@ -1451,6 +1452,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (swapAborted.current === cur.spotify_id) return; // the poll saw your own pick
       if (now.sessionId !== s.sessionId || now.current?.spotify_id !== cur.spotify_id) {
         if (swapping.current === cur.spotify_id) swapping.current = "";
+        pendingSteer.current = null;
         return; // you moved on yourself
       }
       // Tell Spotify first; only move Crate forward once Spotify actually took the finish pick.
@@ -1507,6 +1509,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       };
       lastTransition.current = Date.now();
       swapping.current = ""; // hand-over done — keep watching for your skips
+      const ps = pendingSteer.current;
+      if (ps) {
+        pendingSteer.current = null;
+        setTimeout(() => {
+          if (radioRef.current.sessionId !== s.sessionId) return;
+          void steerRef.current?.(ps.note, ps.picks, ps.opts);
+        }, 1_000);
+      }
     },
     [fetchBranch, log, note, startSpotifyPlayback, noteMove, playbackFn],
   );
@@ -2223,6 +2233,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!s.active || !s.current || (!trimmed && !picks?.length)) return;
       const steerPick = picks?.find((t) => t.spotify_id && isPlayable(t));
       if (!trimmed && !steerPick) return;
+      // Last-seconds lock: the hand-over already holds B and v — hold the steer for the next song.
+      if (swapping.current && swapping.current === s.current.spotify_id) {
+        pendingSteer.current = { note: note_, picks, opts };
+        note("steer", "Steer saved — applies after this hand-over");
+        return;
+      }
       // Steering owns the maze from here: a running prompt playlist yields to the new direction.
       if (!opts?.keepQueue) promptQueue.current = null;
       scoutAbort.current?.abort();
