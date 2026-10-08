@@ -23,3 +23,6 @@ export async function readAllRows<T extends Record<string, unknown>>(
   }
   return out;
 }
+
+/** Per-worker cache of each user's merged song pool (see path.functions loadPool). Cleared after library writes. */
+export const libraryPoolCache = new Map<string, { at: number; songs: unknown[] }>();

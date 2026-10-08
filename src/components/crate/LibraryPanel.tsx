@@ -1,3 +1,4 @@
+import { readAllRows } from "@/lib/keyset";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -63,20 +64,23 @@ export function LibraryPanel() {
   const { data: status } = useQuery({ queryKey: ["spotify-status"], queryFn: () => statusFn() });
   const { data: tracks = [] } = useQuery({
     queryKey: ["library"],
-    staleTime: 10 * 60_000,
+    staleTime: Infinity,
     queryFn: async () => {
-      const all = [];
-      for (let from = 0; ; from += 1000) {
-        const { data, error } = await supabase
-          .from("library_tracks")
-          .select("id, spotify_id, name, artists, source_name, source_period, source_type, is_demo, image_url")
-          .order("source_period", { ascending: false, nullsFirst: false })
-          .order("id")
-          .range(from, from + 999);
-        if (error) throw error;
-        all.push(...data);
-        if (data.length < 1000) break;
-      }
+      const all = await readAllRows<{ id: string; spotify_id: string; name: string; artists: string; source_name: string; source_period: string | null; source_type: string; is_demo: boolean; image_url: string | null }>(
+        supabase,
+        "library_tracks",
+        "id, spotify_id, name, artists, source_name, source_period, source_type, is_demo, image_url",
+        "id",
+        null,
+      );
+      // Newest playlist period first, undated last (same order as before, sorted here instead of by the database).
+      all.sort((x, y) => {
+        const a = x.source_period, b = y.source_period;
+        if (a === b) return x.id < y.id ? -1 : 1;
+        if (!a) return 1;
+        if (!b) return -1;
+        return a < b ? 1 : -1;
+      });
       return all;
     },
   });

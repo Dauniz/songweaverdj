@@ -1,4 +1,4 @@
-import { readAllRows } from "@/lib/keyset";
+import { readAllRows, libraryPoolCache } from "@/lib/keyset";
 import { createServerFn } from "@tanstack/react-start";
 import { createOpenAI } from "@ai-sdk/openai";
 import { stepCountIs, streamText, tool } from "ai";
@@ -46,7 +46,7 @@ type Song = Row & {
 };
 
 // Short-lived per-worker cache of the merged library (plain cache, not state).
-const poolCache = new Map<string, { at: number; songs: Song[] }>();
+const poolCache = libraryPoolCache as unknown as Map<string, { at: number; songs: Song[] }>;
 
 async function loadPool(supabase: any, userId: string): Promise<Song[]> {
   const hit = poolCache.get(userId);

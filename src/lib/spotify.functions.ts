@@ -1,3 +1,4 @@
+import { libraryPoolCache } from "@/lib/keyset";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -605,6 +606,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
       setP({ done: Math.min(i + 500, unique.length) });
     }
+    libraryPoolCache.delete(context.userId);
     await supabaseAdmin
       .from("spotify_connections")
       .update({ last_synced_at: new Date().toISOString() })
@@ -776,6 +778,7 @@ export const syncRecentSpotify = createServerFn({ method: "POST" })
         { onConflict: "user_id,spotify_id,source_name" },
       );
       if (error) throw new Error(error.message);
+      libraryPoolCache.delete(uid);
     }
 
     // 3) Recent plays (Spotify shares at most the last 50).
