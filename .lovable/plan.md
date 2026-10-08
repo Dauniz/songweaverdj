@@ -10,11 +10,11 @@ The home page keeps its exact shape — logo, small green kicker line, big headl
 
 **Kicker** above it, same green small-caps treatment:
 
-> Path radio · Walrus Memory
+> The Maze · Walrus Memory
 
 **Paragraph** below it, same width and grey tone — covers the maze, memory that lasts, and playback in your own Spotify app:
 
-> Tell Crate how today feels and he builds a path through your own library — one song at a time, with two doors already lined up: one if you let it finish, one if you skip. What he learns from how you listen is stored on Walrus Memory, so every session starts sharper than the last. The music plays in your Spotify app; Crate just drives.
+> Tell Crate how today feels and he builds a path through your own library — one song at a time, with two doors already lined up: one if you let it finish, one if you skip. What he learns from how you listen is stored on Walrus, so every session starts sharper than the last. The music plays in your Spotify app; Crate just drives.
 
 **Button** stays exactly as it is: "Open the studio".
 
