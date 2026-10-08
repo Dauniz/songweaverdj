@@ -4,6 +4,7 @@ import { stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { recallMemories } from "./memwal.server";
+import { isForeverSkipMemory, loadCooldowns, songKey, type Cooldowns } from "./cooldowns";
 import { LENS_IDS, type LensId } from "./lenses";
 import { altPool, planAltRoad, type AltKind } from "./alt-roads";
 
@@ -298,6 +299,15 @@ type MemoryBundle = {
 };
 const memoryCache = new Map<string, { at: number; bundle: MemoryBundle }>();
 const MEMORY_TTL = 90_000;
+const cooldownCache = new Map<string, { at: number; c: Cooldowns }>();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function cooldownsFor(supabase: any, userId: string): Promise<Cooldowns> {
+  const hit = cooldownCache.get(userId);
+  if (hit && Date.now() - hit.at < MEMORY_TTL) return hit.c;
+  const c = await loadCooldowns(supabase).catch(() => ({ songs: [], artists: [] }));
+  cooldownCache.set(userId, { at: Date.now(), c });
+  return c;
+}
 
 
 const reserveSchema = z.object({
@@ -321,11 +331,13 @@ export const pathReserves = createServerFn({ method: "POST" })
     const pool = await loadPool(context.supabase, context.userId);
     const excluded = new Set([data.seed.spotifyId, ...data.excludeSpotifyIds]);
     const avoid = new Set(data.avoidArtists);
+    const resting = new Set((await cooldownsFor(context.supabase, context.userId)).songs.map((x) => songKey(x.name, x.artists)));
     const playableOnly = pool.some((s) => !s.spotify_id.startsWith("demo-") || s.preview_url);
     const unlensed = pool.filter(
       (s) =>
         !excluded.has(s.spotify_id) &&
         !avoid.has(s.artists) &&
+        !resting.has(songKey(s.name, s.artists)) &&
         !s.spotify_id.startsWith("demo-") &&
         (!playableOnly || !s.spotify_id.startsWith("demo-") || s.preview_url),
     );
@@ -393,14 +405,19 @@ export const nextPathTrack = createServerFn({ method: "POST" })
 
     const excluded = new Set([data.seed.spotifyId, ...data.excludeSpotifyIds]);
     const avoid = new Set(data.avoidArtists);
+    const cd = await cooldownsFor(supabase, userId);
+    const resting = new Set(cd.songs.map((x) => songKey(x.name, x.artists)));
     const playableOnly = pool.some((s) => !s.spotify_id.startsWith("demo-") || s.preview_url);
-    const unlensed = pool.filter(
+    const unlensed0 = pool.filter(
       (s) =>
         !excluded.has(s.spotify_id) &&
         !avoid.has(s.artists) &&
         (!playableOnly || !s.spotify_id.startsWith("demo-") || s.preview_url),
     );
-    const cool = new Set(data.coolArtists);
+    // Resting songs (skip cooldown) sit out — unless nothing else is left.
+    const rested = unlensed0.filter((s) => !resting.has(songKey(s.name, s.artists)));
+    const unlensed = rested.length ? rested : unlensed0;
+    const cool = new Set([...data.coolArtists, ...cd.artists.map((a) => a.artists)]);
     // Cooling artists (skipped in the last 5 songs) go to the back: still possible, less likely.
     const available = cool.size ? [...unlensed.filter((x) => !cool.has(x.artists)), ...unlensed.filter((x) => cool.has(x.artists))] : unlensed;
     const kind = altKind(data.lens, data.deepCuts);
@@ -490,10 +507,10 @@ export const nextPathTrack = createServerFn({ method: "POST" })
           .or("origin.eq.cross_session,origin.eq.synthesis,origin.eq.history_profile,origin.eq.steer,content.like.Note on%")
           .order("created_at", { ascending: false })
           .limit(50)
-          .then((r: { data: { content: string; origin: string }[] | null }) => r.data ?? []);
+          .then((r: { data: { content: string; origin: string }[] | null }) => (r.data ?? []).filter((m) => !isForeverSkipMemory(m.content)));
 
     const recalled: { text: string }[] =
-      fresh?.walrusBy.get(recallKey) ?? (await recallMemories(userId, recallKey, 6).catch(() => []));
+      fresh?.walrusBy.get(recallKey) ?? (await recallMemories(userId, recallKey, 6).then((m) => m.filter((x: { text: string }) => !isForeverSkipMemory(x.text))).catch(() => []));
 
     const bundle: MemoryBundle = fresh ?? { learned, walrusBy: new Map() };
     bundle.walrusBy.set(recallKey, recalled);
