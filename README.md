@@ -38,13 +38,35 @@ Songweaver has been used by multiple independent accounts, each storing their ow
 
 ### Integration notes (friction points & workarounds)
 
-The Walrus Memory relayer itself has been very reliable — at the time of writing, 183 memories stored with real `blob_id`s and only 1 pending. But building Songweaver around it surfaced three real architectural gaps worth documenting:
+The Walrus Memory relayer itself has been very reliable — at the time of writing, 200 memories stored with real `blob_id`s and only 1 still pending. But building Songweaver around it surfaced three real architectural gaps and two concrete bugs worth documenting:
 
-1. **No `list()` or pagination API** — MemWal only offers semantic `recall({ query, limit })` and `rememberAsync()`. There is no way to enumerate or paginate all memories stored in a namespace, so a memory cannot be shown, audited or deleted by ID. To build the Memory Inspector, Songweaver keeps the local `memory_nodes` mirror table; without it, an app can only query its memories blind.
+1. **No `list()` for memories** — MemWal offers semantic `recall({ query, limit })`, `rememberAsync()`, and `listNamespaces()`. The last one paginates with a cursor and reports `memory_count` per namespace, but neither it nor `restore()` returns the memories themselves — counts and repair counters only — and `recall()` stops at 100 results with no cursor even when asked for more. There is no way to enumerate the memories in a namespace, so a memory cannot be shown, audited or deleted by ID. To build the Memory Inspector, Songweaver keeps the local `memory_nodes` mirror table; without it, an app can only query its memories blind.
 2. **Asynchronous `rememberAsync()` with no completion event** — saving a memory returns a `job_id` immediately, not the final `blob_id`. The relayer takes time to SEAL-encrypt, embed and store the memory. Songweaver stores the memory locally as `blob_id: "job:<id>"` with status `pending`, then polls `getRememberStatus(jobId)` until the job completes and the permanent blob ID is swapped in. A webhook callback, a synchronous `remember()`, or a `job.waitForCompletion()` helper would remove this plumbing.
 3. **Read-after-write latency** — because embedding and SEAL encryption happen in the background, a memory saved a moment ago does not yet appear in a subsequent `recall()`. When Crate plans the next song right after learning a preference, it reads both the live Walrus `recall()` and its local cache so there is no blind spot while the Walrus job processes.
 
 What worked smoothly: per-user namespace isolation (`namespace: "crate-${userId}"` under one shared delegate key) cleanly prevented taste leakage between testers, and semantic `recall()` quality for vibes and listening preferences was accurate and useful in the DJ prompts.
+
+### Bug found: a duplicated memory nobody can detect or delete
+
+While auditing the live account, one tester namespace held the same memory twice under two different blob IDs:
+
+```text
+[session] Era-based radio worked well — listened through several tracks from the same period.
+  Cv6aYSAplZhUPX2LC1PCkoINLwF5Fod9Z2viNDPyXws
+  PnuhXKm3If7sRQ2-q-8BAEmCMdDWqYTWeETtB2iUgcE
+```
+
+Songweaver's mirror holds only one row for that text, so the second copy came from a submit the app never saw as a separate memory. The duplicate is invisible from the outside, yet it doubles that memory's weight in every `recall()` — and for a taste memory, weight is the whole point.
+
+Nothing in the shipped SDK can find or remove it: `listNamespaces()` returns counts, `restore()` returns repair counters, `forget(blobId)` exists only in the SDK's mock client, and `recall()` cannot page past 100 results. A memory that is wrong, duplicated, or needs to disappear for privacy reasons is currently permanent.
+
+The root cause is on our side — `rememberAsync()` accepts an `idempotencyKey` and Songweaver never passed one, so a retried write landed as a second blob. The gap is that nothing in the product lets you notice or undo the result.
+
+### Bug found: a memory stuck on `job:<id>` forever
+
+A memory submitted on 2026-09-25 still showed `blob_id: "job:a0b6e630-…"` and status `pending` in the Inspector thirteen days later. Asked directly, `getRememberStatus("a0b6e630-…")` answers `done` with the real blob ID `V-E4Yy5FkBceyliBhYEQm9ev6Ld4U3D9dkhZmc3ETMk`, and `recall()` returns the text — so Walrus had finished that job long ago and only the local mirror was stale.
+
+The cause is Songweaver's own repair loop: `refreshMemories()` polls every 6 seconds, but only while the Memory Inspector is open, so a job still running when the tab closes is never picked up again. The underlying friction is that job state is only reachable by polling with the job ID — a client that loses or never stores that ID has no way to reconcile what it wrote with what is actually on Walrus.
 
 ---
 
