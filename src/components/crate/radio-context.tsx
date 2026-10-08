@@ -1932,6 +1932,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const s = radioRef.current;
       const cur = s.current;
       if (document.hidden) {
+        // Desktop keeps running hidden tabs, so the page hands over itself there.
+        if (!window.matchMedia("(pointer: coarse)").matches) return;
         const b = upNextRef.current;
         const lp = lastPlayback.current;
         if (!cur?.spotify_id || !b?.spotify_id || !s.sessionId || lp.spotifyId !== cur.spotify_id || !lp.durationMs) return;
