@@ -689,7 +689,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // sure B (finish), v (B's skip), C (skip) and w (C's skip) are all picked. Repairs only
   // prepare picks — nothing is sent to Spotify mid-song.
   const repairing = useRef(false);
-  const pendingSteer = useRef<{ note: string | undefined; picks: CardTrack[] | undefined; opts: undefined | { keepQueue?: boolean; keepW?: boolean; source?: "search" | "prompt"; prompt?: string } } | null>(null);
+  const pendingSteer = useRef<{ note: string | undefined; picks: CardTrack[] | undefined; opts: undefined | { keepQueue?: boolean; keepW?: boolean; source?: "search" | "prompt" | "road"; prompt?: string; label?: string } } | null>(null);
   const checkPlan = useCallback(
     async (reason: "recheck" | "interval") => {
       const s = radioRef.current;
