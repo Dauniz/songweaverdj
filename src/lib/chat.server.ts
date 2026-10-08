@@ -237,7 +237,7 @@ SESSION IS LIVE: music is already playing — never start a new session or a new
             for (const t of pool) {
               if (cards.length >= 6) break;
               const next = dedupePicks([...cards, { ...t, reason: "Fits the same mood.", period_label: fmtPeriod(t.source_period) }]);
-              if (next.length > cards.length) cards.push(next[next.length - 1]);
+              if (next.length > cards.length) cards.push(next[next.length - 1]!);
             }
           }
           const ids = cards.map((c) => c["id"] as string);
