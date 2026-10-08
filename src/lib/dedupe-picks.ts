@@ -20,3 +20,12 @@ export function dedupePicks<T extends PickLike>(list: T[], exclude: PickLike[] =
   }
   return out;
 }
+
+/** Index of the first pick after `idx` that is a different song from `current`, or -1. */
+export function nextDistinctIndex(list: PickLike[], idx: number, current: PickLike): number {
+  const cur = new Set(pickKeys(current));
+  for (let i = idx + 1; i < list.length; i++) {
+    if (!pickKeys(list[i]!).some((k) => cur.has(k))) return i;
+  }
+  return -1;
+}
