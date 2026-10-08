@@ -20,6 +20,7 @@ import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as AuthenticatedAdminBugsRouteImport } from './routes/_authenticated/admin.bugs'
 import { Route as AuthenticatedAdminMemoryRouteImport } from './routes/_authenticated/admin.memory'
 import { Route as AuthenticatedAdminNotepadRouteImport } from './routes/_authenticated/admin.notepad'
+import { Route as ApiPublicHandoverTickRouteImport } from './routes/api/public/handover-tick'
 import { Route as ApiPublicSpotifyCallbackRouteImport } from './routes/api/public/spotify/callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -78,6 +79,11 @@ const AuthenticatedAdminNotepadRoute =
     path: '/admin/notepad',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicHandoverTickRoute = ApiPublicHandoverTickRouteImport.update({
+  id: '/api/public/handover-tick',
+  path: '/api/public/handover-tick',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicSpotifyCallbackRoute =
   ApiPublicSpotifyCallbackRouteImport.update({
     id: '/api/public/spotify/callback',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/admin/bugs': typeof AuthenticatedAdminBugsRoute
   '/admin/memory': typeof AuthenticatedAdminMemoryRoute
   '/admin/notepad': typeof AuthenticatedAdminNotepadRoute
+  '/api/public/handover-tick': typeof ApiPublicHandoverTickRoute
   '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/admin/bugs': typeof AuthenticatedAdminBugsRoute
   '/admin/memory': typeof AuthenticatedAdminMemoryRoute
   '/admin/notepad': typeof AuthenticatedAdminNotepadRoute
+  '/api/public/handover-tick': typeof ApiPublicHandoverTickRoute
   '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
 export interface FileRoutesById {
@@ -124,6 +132,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/bugs': typeof AuthenticatedAdminBugsRoute
   '/_authenticated/admin/memory': typeof AuthenticatedAdminMemoryRoute
   '/_authenticated/admin/notepad': typeof AuthenticatedAdminNotepadRoute
+  '/api/public/handover-tick': typeof ApiPublicHandoverTickRoute
   '/api/public/spotify/callback': typeof ApiPublicSpotifyCallbackRoute
 }
 export interface FileRouteTypes {
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | '/admin/bugs'
     | '/admin/memory'
     | '/admin/notepad'
+    | '/api/public/handover-tick'
     | '/api/public/spotify/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -152,6 +162,7 @@ export interface FileRouteTypes {
     | '/admin/bugs'
     | '/admin/memory'
     | '/admin/notepad'
+    | '/api/public/handover-tick'
     | '/api/public/spotify/callback'
   id:
     | '__root__'
@@ -166,6 +177,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/bugs'
     | '/_authenticated/admin/memory'
     | '/_authenticated/admin/notepad'
+    | '/api/public/handover-tick'
     | '/api/public/spotify/callback'
   fileRoutesById: FileRoutesById
 }
@@ -176,6 +188,7 @@ export interface RootRouteChildren {
   CrateInfoRoute: typeof CrateInfoRoute
   ApiChatRoute: typeof ApiChatRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
+  ApiPublicHandoverTickRoute: typeof ApiPublicHandoverTickRoute
   ApiPublicSpotifyCallbackRoute: typeof ApiPublicSpotifyCallbackRoute
 }
 
@@ -258,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminNotepadRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/handover-tick': {
+      id: '/api/public/handover-tick'
+      path: '/api/public/handover-tick'
+      fullPath: '/api/public/handover-tick'
+      preLoaderRoute: typeof ApiPublicHandoverTickRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/spotify/callback': {
       id: '/api/public/spotify/callback'
       path: '/api/public/spotify/callback'
@@ -294,6 +314,7 @@ const rootRouteChildren: RootRouteChildren = {
   CrateInfoRoute: CrateInfoRoute,
   ApiChatRoute: ApiChatRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
+  ApiPublicHandoverTickRoute: ApiPublicHandoverTickRoute,
   ApiPublicSpotifyCallbackRoute: ApiPublicSpotifyCallbackRoute,
 }
 export const routeTree = rootRouteImport
