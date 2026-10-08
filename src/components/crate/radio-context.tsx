@@ -847,7 +847,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   /** Prompt results: start a session when none runs, otherwise replan the live one. */
   const startOrReplan = useCallback(
-    (tracks: CardTrack[], seedPrompt: string, startAt = 0, startRoad?: Road) => {
+    (allTracks: CardTrack[], seedPrompt: string, startAt = 0, startRoad?: Road) => {
+      // Never the same song twice; mid-session the playing song can't be a pick either.
+      const cur = radioRef.current.active ? radioRef.current.current : null;
+      const pickedAt = allTracks[startAt];
+      const tracks = dedupePicks(allTracks, cur ? [cur] : []);
+      if (pickedAt) startAt = Math.max(0, tracks.indexOf(pickedAt));
       // From the chosen pick onward, Crate's picks play in order while each is finished.
       const list = tracks.slice(startAt, 6).filter(isPlayable);
       promptQueue.current = list.length > 1 ? { list, idx: 0 } : null;
@@ -856,7 +861,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const first = ordered.find(isPlayable);
       if (first) {
         // Live session: the current song keeps playing; the first pick becomes B, the rest follow.
-        const cur = radioRef.current.current;
         promptQueue.current = cur ? { list: [cur, ...list], idx: 0, offset: 1 } : null; // A first, so finishing A plays pick 1; offset keeps labels at "song n of 6"
         void steerRef.current?.("", [first], { source: "prompt", keepW: true, keepQueue: true, prompt: seedPrompt });
       }
