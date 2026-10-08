@@ -414,7 +414,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             className="h-14 w-14 rounded-2xl sm:h-20 sm:w-20 [@media(max-height:800px)]:h-12 [@media(max-height:800px)]:w-12 sm:[@media(max-height:800px)]:h-14 sm:[@media(max-height:800px)]:w-14"
           />
           <h2 className="mt-4 max-w-full text-3xl font-bold leading-tight sm:mt-6 sm:text-4xl [@media(max-height:800px)]:mt-3 [@media(max-height:800px)]:text-[1.75rem] sm:[@media(max-height:800px)]:text-3xl">
-            What does today sound like?
+            {sessionLive ? "Want to steer your session?" : "What does today sound like?"}
           </h2>
           <p className="mt-3 max-w-lg text-base leading-6 text-muted-foreground sm:text-lg sm:leading-7 [@media(max-height:800px)]:text-base [@media(max-height:800px)]:leading-6">
             Describe your mood, where you are, what you're doing. I'll tune in a track-list meant
