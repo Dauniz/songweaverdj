@@ -134,6 +134,7 @@ function StudioLayout({
               : "w-full xl:w-[calc(100%-20rem)]",
           )}
         >
+          <h1 className="sr-only">Songweaver Studio</h1>
           <MoodChat onSearchSelection={() => onTab("memory")} />
         </main>
         <aside
