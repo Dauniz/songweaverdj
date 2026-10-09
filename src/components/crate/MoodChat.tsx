@@ -402,7 +402,11 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
           </PromptInputFooter>
         </PromptInput>
         </div>
-
+        {empty && !sessionLive && (
+          <div className="mt-6 sm:mt-8">
+            <StudioSuggestions {...(onSearchSelection ? { onPlay: onSearchSelection } : {})} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -422,7 +426,6 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             </motion.div>
           </div>
         )}
-        {!sessionLive && <StudioSuggestions {...(onSearchSelection ? { onPlay: onSearchSelection } : {})} />}
         <div className="flex w-full flex-col items-center text-center">
           <img
             src={logo}
