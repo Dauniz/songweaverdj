@@ -59,6 +59,7 @@ export function MemoryInspector() {
   const reduced = useReducedMotion();
   const qc = useQueryClient();
   const [showLog, setShowLog] = useState(false);
+  const [logFilter, setLogFilter] = useState<string>("All");
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [consoleAnimating, setConsoleAnimating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
