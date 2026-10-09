@@ -75,8 +75,8 @@
   --primary-foreground: oklch(0.16 0.03 135);
   --magenta: oklch(0.68 0.26 350);
   --magenta-foreground: oklch(0.98 0.01 350);
-  --highlight: oklch(0.84 0.17 88);
-  --highlight-foreground: oklch(0.16 0.03 88);
+  --highlight: oklch(0.9 0.17 95);
+  --highlight-foreground: oklch(0.16 0.03 95);
   --secondary: oklch(0.25 0.01 285);
   --secondary-foreground: oklch(0.97 0.005 285);
   --muted: oklch(0.24 0.008 285);

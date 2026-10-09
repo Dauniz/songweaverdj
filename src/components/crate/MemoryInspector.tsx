@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
-import { ChevronDown, ChevronRight, CircleHelp, Database, Info, Sparkle, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, CircleHelp, Database, Info, Star, Trash2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -139,7 +139,7 @@ export function MemoryInspector() {
             }}
             className="shrink-0 gap-1.5 px-2.5 text-[11px] font-semibold text-highlight shadow-[0_0_18px_-6px_var(--highlight)] hover:bg-highlight/10 hover:text-highlight"
           >
-            <Sparkle className={reflecting ? "animate-pulse" : undefined} />
+            <Star className={cn("fill-current", reflecting && "animate-pulse")} />
             {reflecting ? "Crate is reflecting…" : "Let Crate reflect"}
           </Button>
         </div>
