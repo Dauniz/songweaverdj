@@ -313,7 +313,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   const composer = (
     <div
       className={cn(
-        "composer-reveal w-full bg-background/80 backdrop-blur",
+        "composer-reveal w-full",
         empty
           ? "mt-3 shrink-0 px-0 pb-2 sm:mt-4 sm:px-5 sm:pb-4 lg:px-7"
           : "border-t px-5 pb-8 pt-3 lg:px-7 lg:pb-10",
