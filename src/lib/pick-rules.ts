@@ -102,3 +102,50 @@ export function newAngleShortlist<T extends ShortSong & Hist>(session: T[], pool
   if (out.length < 15) out.push(...take(away.length ? away : pool, 15 - out.length, seen));
   return out;
 }
+
+/** Studio suggestions — default mix when Crate has no pattern to go on. */
+export const ALL_TIME_FAV_MIN = 67; // more than 67 streams ever
+export const CURRENT_FAV_MIN = 5; // more than 5 streams...
+export const CURRENT_FAV_DAYS = 28; // ...in the last 4 weeks
+export const isAllTimeFavorite = (s: Hist) => (s.plays ?? 0) > ALL_TIME_FAV_MIN;
+export const isCurrentFavorite = (recentStreams: number) => recentStreams > CURRENT_FAV_MIN;
+
+export type MixSong = Hist & { spotify_id: string; name: string; artists: string };
+function shuffled<T>(list: T[], rand: () => number) {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a;
+}
+/**
+ * 2 all-time favorites, 2 current favorites, 2 forgotten favorites, 2 wildcards — each picked at random.
+ * A short group rolls into the next; wildcards fill whatever is left. `recent` = streams in the last 4 weeks by spotify_id.
+ */
+export function defaultSuggestionMix<T extends MixSong>(
+  pool: T[],
+  recent: Map<string, number>,
+  now = Date.now(),
+  rand: () => number = Math.random,
+): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  const add = (list: T[], n: number) => {
+    let got = 0;
+    for (const s of shuffled(list, rand)) {
+      if (got >= n) break;
+      const keys = [`id:${s.spotify_id}`, `na:${s.name.trim().toLowerCase()}|${s.artists.trim().toLowerCase()}`];
+      if (keys.some((k) => seen.has(k))) continue;
+      keys.forEach((k) => seen.add(k));
+      out.push(s);
+      got++;
+    }
+    return n - got;
+  };
+  let carry = add(pool.filter(isAllTimeFavorite), 2);
+  carry = add(pool.filter((s) => isCurrentFavorite(recent.get(s.spotify_id) ?? 0)), 2 + carry);
+  carry = add(pool.filter((s) => isForgotten(s, now)), 2 + carry);
+  add(pool, 2 + carry);
+  return out;
+}

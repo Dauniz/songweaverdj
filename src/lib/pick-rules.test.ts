@@ -54,3 +54,41 @@ describe("new angle shortlist", () => {
     expect(list.slice(0, 10).every((s) => s.genres === "metal")).toBe(true);
   });
 });
+
+import { defaultSuggestionMix, isAllTimeFavorite, isCurrentFavorite } from "./pick-rules";
+describe("studio suggestions default mix", () => {
+  const song = (id: string, plays: number, extra: Partial<{ last_played: string; plays_by_year: Record<string, number> }> = {}) => ({
+    spotify_id: id, name: `Song ${id}`, artists: `Artist ${id}`, plays, ...extra,
+  });
+  it("more than 67 streams is an all-time favorite", () => {
+    expect(isAllTimeFavorite({ plays: 68 })).toBe(true);
+    expect(isAllTimeFavorite({ plays: 67 })).toBe(false);
+  });
+  it("more than 5 streams in 4 weeks is a current favorite", () => {
+    expect(isCurrentFavorite(6)).toBe(true);
+    expect(isCurrentFavorite(5)).toBe(false);
+  });
+  const favs = Array.from({ length: 20 }, (_, i) => song(`f${i}`, 100 + i, { last_played: "2026-10-01", plays_by_year: { "2026": 50 } }));
+  const curr = Array.from({ length: 5 }, (_, i) => song(`c${i}`, 8));
+  const forgot = Array.from({ length: 5 }, (_, i) => song(`g${i}`, 30, { last_played: "2023-01-01", plays_by_year: { "2023": 30 } }));
+  const wild = Array.from({ length: 10 }, (_, i) => song(`w${i}`, 1));
+  const recent = new Map(curr.map((c) => [c.spotify_id, 6]));
+  const pool = [...favs, ...curr, ...forgot, ...wild];
+  it("picks 2/2/2/2 with no repeats", () => {
+    const mix = defaultSuggestionMix(pool, recent, NOW);
+    expect(mix).toHaveLength(8);
+    expect(new Set(mix.map((m) => m.spotify_id)).size).toBe(8);
+    expect(mix.slice(0, 2).every((m) => m.spotify_id.startsWith("f"))).toBe(true);
+    expect(mix.slice(2, 4).every((m) => m.spotify_id.startsWith("c"))).toBe(true);
+    expect(mix.slice(4, 6).every((m) => m.spotify_id.startsWith("g"))).toBe(true);
+  });
+  it("favorites are random, not just the top streamed", () => {
+    const firsts = new Set(Array.from({ length: 30 }, () => defaultSuggestionMix(pool, recent, NOW)[0]!.spotify_id));
+    expect(firsts.size).toBeGreaterThan(3);
+  });
+  it("a short group rolls into the next", () => {
+    const mix = defaultSuggestionMix([...favs, ...forgot, ...wild], new Map(), NOW, () => 0.5);
+    expect(mix).toHaveLength(8);
+    expect(mix.filter((m) => m.spotify_id.startsWith("g")).length).toBe(4);
+  });
+});
