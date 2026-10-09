@@ -1,6 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { SPOTIFY_SCOPES, signState, spotifyCreds } from "./spotify.server";
 import { buildDemoRows } from "./demo-library";
 
 const nonceSchema = z.string().regex(/^[A-Za-z0-9_-]{24,64}$/);
@@ -11,6 +10,7 @@ export const getSpotifyLoginUrl = createServerFn({ method: "POST" })
     z.object({ origin: z.string().url(), nonce: nonceSchema.optional() }).parse(d),
   )
   .handler(async ({ data }) => {
+    const { SPOTIFY_SCOPES, signState, spotifyCreds } = await import("./spotify.server");
     const creds = spotifyCreds();
     if (!creds) throw new Error("Spotify sign-in isn't set up yet. Try the demo library instead.");
     const origin = new URL(data.origin).origin;

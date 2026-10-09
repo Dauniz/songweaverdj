@@ -6,6 +6,7 @@ import { getStudioSuggestions, type StudioSuggestions as Result } from "@/lib/su
 import { useRadio } from "./radio-context";
 import { cn } from "@/lib/utils";
 import { geometricEnter, reducedFade, staggerChildren } from "@/lib/motion";
+import { Button } from "@/components/ui/button";
 
 const partOf = (h: number) => (h < 5 ? "night" : h < 12 ? "morning" : h < 17 ? "afternoon" : h < 22 ? "evening" : "night");
 
@@ -32,32 +33,35 @@ export function StudioSuggestions({ onPlay }: { onPlay?: () => void }) {
   });
   if (!data?.tracks.length) return null;
   return (
-    <div className="song-results-reveal mb-8 w-full max-w-3xl">
+    <div className="song-results-reveal mb-4 w-full max-w-3xl sm:mb-5">
       <div className="mb-1.5 font-display text-lg font-bold text-primary">{data.title}</div>
-      <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+      <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="grid grid-cols-2 gap-1.5 lg:grid-cols-4 xl:grid-cols-2">
         {data.tracks.map((t, i) => (
           <motion.div
             key={t.spotify_id}
             variants={reduced ? reducedFade : geometricEnter}
-            className={cn("flex items-center gap-3 rounded-lg border bg-surface p-2", i >= 4 && "hidden sm:flex")}
+            className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 rounded-lg border bg-surface p-1.5", i >= 4 && "hidden sm:grid")}
           >
-            {t.image_url ? (
-              <img src={t.image_url} alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
-            ) : (
-              <div className="h-11 w-11 shrink-0 rounded bg-surface-2" />
-            )}
-            <div className="min-w-0 flex-1 text-left">
-              <div className="truncate text-sm font-semibold">{t.name}</div>
-              <div className="truncate text-xs text-muted-foreground">{t.artists}</div>
+            <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+              {t.image_url ? (
+                <img src={t.image_url} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
+              ) : (
+                <div className="h-8 w-8 shrink-0 rounded bg-surface-2" />
+              )}
+              <div className="min-w-0 text-left">
+                <div className="truncate text-xs font-semibold sm:text-sm" title={t.name}>{t.name}</div>
+                <div className="truncate text-[11px] text-muted-foreground sm:text-xs" title={t.artists}>{t.artists}</div>
+              </div>
             </div>
-            <button
+            <Button
               type="button"
+              size="icon"
               aria-label={`Start a session with ${t.name}`}
               onClick={() => { rerootTo({ ...t }); onPlay?.(); }}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition hover:scale-105"
+              className="h-8 w-8 shrink-0 rounded-full transition hover:scale-105"
             >
               <Play className="h-4 w-4 fill-current" />
-            </button>
+            </Button>
           </motion.div>
         ))}
       </motion.div>
