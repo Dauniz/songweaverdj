@@ -29,27 +29,18 @@ import { PathMaze, CrateConsole } from "@/components/crate/PathMaze";
 import { DoorDebug } from "@/components/crate/DoorDebug";
 import { geometricEnter, reducedFade, staggerChildren } from "@/lib/motion";
 
-const KIND_LABEL: Record<string, string> = {
-  taste: "What you like",
-  genre: "Genres",
-  mood_trigger: "Feelings tied to songs",
-};
+const FILTER_ORDER = ["Anchors", "Insights", "Feedbacker", "Steer", "Listening", "Skipped", "Favorites", "User input"];
 
-const KIND_TOOLTIP: Record<string, string> = {
-  taste: "Things Crate has concluded about your taste from how you listen. These shape every song he picks.",
-  genre: "Genres Crate has noticed you lean toward or away from, used when he picks songs.",
-  mood_trigger: "A count of the feelings you've tied to songs — via Feedbacker notes or your prompts. Crate recalls them when picking songs, so a feeling you once linked to a song shapes future picks and your personalized suggestions.",
-};
-
-const KIND_STYLE: Record<string, string> = {
-  taste: "bg-primary/15 text-primary",
-  genre: "bg-chart-3/15 text-chart-3",
-  mood_trigger: "bg-magenta/15 text-magenta",
-  skipped: "bg-destructive/15 text-destructive",
-  session: "bg-chart-4/15 text-chart-4",
-  favorite: "bg-chart-5/15 text-chart-5",
-};
-
+function filterCategory(n: { kind: string; origin: string; content: string }): string {
+  if (n.origin === "cross_session") return "Anchors";
+  if (n.origin === "synthesis") return "Insights";
+  if (n.content.startsWith("Note on")) return "Feedbacker";
+  if (n.origin === "steer" || n.content.startsWith("Often steers")) return "Steer";
+  if (n.kind === "skipped") return "Skipped";
+  if (n.kind === "favorite") return "Favorites";
+  if (n.origin === "listening") return "Listening";
+  return "User input";
+}
 
 function skillForMemory(kind: string, origin: string, content: string) {
   if (origin === "cross_session") return "Anchor · strongest";
@@ -68,6 +59,7 @@ export function MemoryInspector() {
   const reduced = useReducedMotion();
   const qc = useQueryClient();
   const [showLog, setShowLog] = useState(false);
+  const [logFilter, setLogFilter] = useState<string>("All");
   const [consoleOpen, setConsoleOpen] = useState(false);
   const [consoleAnimating, setConsoleAnimating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -112,10 +104,12 @@ export function MemoryInspector() {
     return () => clearInterval(t);
   }, [hasPending, refresh, qc]);
 
-  const counts = nodes.reduce<Record<string, number>>(
-    (a, n) => ((a[n.kind] = (a[n.kind] ?? 0) + 1), a),
+  const filterCounts = nodes.reduce<Record<string, number>>(
+    (a, n) => ((a[filterCategory(n)] = (a[filterCategory(n)] ?? 0) + 1), a),
     {},
   );
+  const visibleFilters = FILTER_ORDER.filter((f) => (filterCounts[f] ?? 0) > 0);
+  const filteredNodes = logFilter === "All" ? nodes : nodes.filter((n) => filterCategory(n) === logFilter);
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
@@ -169,34 +163,14 @@ export function MemoryInspector() {
         {isAdmin && <DoorDebug />}
       </div>
       <div className="shrink-0 px-4 pt-3 pb-3 text-xs">
-        <div className="flex flex-wrap gap-1.5">
-          {Object.entries(counts).filter(([k]) => KIND_LABEL[k]).map(([k, v]) => (
-            <span key={k} className="inline-flex items-center gap-1">
-              <span className={cn("rounded-full px-2 py-0.5 font-medium", KIND_STYLE[k])}>
-                {KIND_LABEL[k] ?? k} · {v}
-              </span>
-              {KIND_TOOLTIP[k] && (
-                <TooltipProvider delayDuration={150}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" aria-label={`What is ${KIND_LABEL[k]}?`} className="rounded-full p-0.5 text-muted-foreground hover:text-foreground">
-                        <CircleHelp className="h-3 w-3" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-[240px] text-left">
-                      {KIND_TOOLTIP[k]}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </span>
-          ))}
-        </div>
         <button
           type="button"
           aria-expanded={showLog}
-          onClick={() => setShowLog((v) => !v)}
-          className="kinetic-control mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          onClick={() => {
+            setShowLog((v) => !v);
+            setLogFilter("All");
+          }}
+          className="kinetic-control inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           {showLog ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           {showLog ? "Hide Walrus log" : "Show Walrus log"}
@@ -212,12 +186,37 @@ export function MemoryInspector() {
         className="shrink-0 overflow-hidden border-t"
       >
       <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="space-y-2 px-4 py-3">
+        {nodes.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pb-1">
+            {["All", ...visibleFilters].map((f) => (
+              <button
+                key={f}
+                type="button"
+                aria-pressed={logFilter === f}
+                onClick={() => setLogFilter((cur) => (cur === f ? "All" : f))}
+                className={cn(
+                  "kinetic-control rounded-full border px-2.5 py-1 text-[10px] font-semibold",
+                  logFilter === f
+                    ? "border-primary/50 bg-primary/15 text-primary"
+                    : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                {f}{f !== "All" ? ` · ${filterCounts[f]}` : ""}
+              </button>
+            ))}
+          </div>
+        )}
         {nodes.length === 0 && (
           <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
             No memory nodes yet. Start a session and get Crate to work.
           </p>
         )}
-        {nodes.map((n) => {
+        {nodes.length > 0 && filteredNodes.length === 0 && (
+          <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+            Nothing in this category yet.
+          </p>
+        )}
+        {filteredNodes.map((n) => {
           const anchor = n.origin === "cross_session";
           const insight = anchor || n.origin === "synthesis";
           return (
