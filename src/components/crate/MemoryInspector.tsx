@@ -186,12 +186,37 @@ export function MemoryInspector() {
         className="shrink-0 overflow-hidden border-t"
       >
       <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="space-y-2 px-4 py-3">
+        {nodes.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pb-1">
+            {["All", ...visibleFilters].map((f) => (
+              <button
+                key={f}
+                type="button"
+                aria-pressed={logFilter === f}
+                onClick={() => setLogFilter((cur) => (cur === f ? "All" : f))}
+                className={cn(
+                  "kinetic-control rounded-full border px-2.5 py-1 text-[10px] font-semibold",
+                  logFilter === f
+                    ? "border-primary/50 bg-primary/15 text-primary"
+                    : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                {f}{f !== "All" ? ` · ${filterCounts[f]}` : ""}
+              </button>
+            ))}
+          </div>
+        )}
         {nodes.length === 0 && (
           <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
             No memory nodes yet. Start a session and get Crate to work.
           </p>
         )}
-        {nodes.map((n) => {
+        {nodes.length > 0 && filteredNodes.length === 0 && (
+          <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">
+            Nothing in this category yet.
+          </p>
+        )}
+        {filteredNodes.map((n) => {
           const anchor = n.origin === "cross_session";
           const insight = anchor || n.origin === "synthesis";
           return (
