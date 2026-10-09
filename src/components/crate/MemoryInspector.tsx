@@ -119,12 +119,49 @@ export function MemoryInspector() {
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center justify-between border-b px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Database className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-bold uppercase tracking-wider">Walrus Memory</h2>
+      <div className="shrink-0 border-b">
+        <div className="flex items-center justify-between gap-2 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <Database className="h-4 w-4 shrink-0 text-primary" />
+            <h2 className="truncate text-sm font-bold uppercase tracking-wider">Walrus Memory</h2>
+          </div>
+          <Button
+            type="button"
+            variant="default"
+            size="xs"
+            disabled={reflecting}
+            onClick={async () => {
+              setReflecting(true);
+              try {
+                const r = await reflect({ data: { sessionId: null, scope: "history", tzOffsetMin: new Date().getTimezoneOffset() } });
+                setReflectMsg(r?.saved ? `${r.saved} new insight${r.saved > 1 ? "s" : ""} written to Walrus` : "Nothing new to conclude yet — listen a little more");
+                if (r?.saved) qc.invalidateQueries({ queryKey: ["memories"] });
+              } catch {
+                setReflectMsg("Couldn't reflect right now");
+              } finally {
+                setReflecting(false);
+                setTimeout(() => setReflectMsg(null), 6000);
+              }
+            }}
+            className="shrink-0 gap-1.5 px-2.5 text-[11px] font-semibold shadow-[0_0_18px_-6px_var(--primary)]"
+          >
+            <Sparkle className={reflecting ? "animate-pulse" : undefined} />
+            {reflecting ? "Crate is reflecting…" : "Let Crate reflect"}
+          </Button>
         </div>
-        <Link to="/crate-knows" className="text-xs font-medium text-primary hover:underline">See everything Crate knows</Link>
+        <AnimatePresence>
+          {reflectMsg && (
+            <motion.p
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              variants={reduced ? reducedFade : geometricEnter}
+              className="px-4 pb-2 text-[11px] text-muted-foreground"
+            >
+              {reflectMsg}
+            </motion.p>
+          )}
+        </AnimatePresence>
       </div>
       <div className="scrollbar-thin flex min-h-0 flex-1 flex-col overflow-y-auto">
       <div className="shrink-0">
