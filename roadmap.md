@@ -1,5 +1,5 @@
 # Roadmap
-- [ ] Fit pre-session Studio suggestions, intro, search and prompt on desktop, tablet and iPhone; verify signed-in layouts.
+- [x] Fit pre-session Studio suggestions, intro, search and prompt on desktop, tablet and iPhone; verified signed-in layouts, with scrolling available for extra welcome content on short screens.
 - [x] Step 1: mood chat, library browser (Spotify + demo), rediscovery cards, Walrus Memory Inspector, presets/filters
 - [x] Sign-in: Continue with Spotify + Try Demo Library guest mode
 - [x] Walrus Memory keys saved (MEMWAL_ACCOUNT_ID / MEMWAL_PRIVATE_KEY / MEMWAL_SERVER_URL)
