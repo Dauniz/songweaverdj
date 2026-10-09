@@ -104,10 +104,12 @@ export function MemoryInspector() {
     return () => clearInterval(t);
   }, [hasPending, refresh, qc]);
 
-  const counts = nodes.reduce<Record<string, number>>(
-    (a, n) => ((a[n.kind] = (a[n.kind] ?? 0) + 1), a),
+  const filterCounts = nodes.reduce<Record<string, number>>(
+    (a, n) => ((a[filterCategory(n)] = (a[filterCategory(n)] ?? 0) + 1), a),
     {},
   );
+  const visibleFilters = FILTER_ORDER.filter((f) => (filterCounts[f] ?? 0) > 0);
+  const filteredNodes = logFilter === "All" ? nodes : nodes.filter((n) => filterCategory(n) === logFilter);
 
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
