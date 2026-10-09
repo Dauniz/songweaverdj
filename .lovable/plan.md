@@ -16,7 +16,7 @@
 1. **Pattern first:** Crate looks at your listening on the same weekday within ±2 hours over the last 8 weeks. He also uses strong memories (anchors and the long-term profile) and asks Walrus about "Monday night listening". If he finds 3 or more sessions in that window, the 8 songs follow that habit.
 2. **Default when there's no pattern or no memories:** no AI is used, so this is free and instant. Every group is picked at random, so the mix changes from visit to visit:
    - 2 all-time favorites: songs with more than 67 streams.
-   - 2 current favorites: songs with more than 10 streams in the last 30 days.
+   - 2 current favorites: songs with more than 5 streams in the last 4 weeks.
    - 2 forgotten favorites: more than 20 streams, but 3 or fewer in the last 6 months.
    - 2 wildcards: any songs from your library.
    - If a group runs short, the gap is filled from the next group in this list, and the wildcards fill whatever is still missing.
@@ -27,6 +27,6 @@
 - Pattern path: code builds a shortlist of about 40 songs from `library_tracks`, weighted by the window's top artists and genres. Then one gemini-3.6-flash call returns 8 spotify_ids plus a header line as strict JSON. Any id not in the shortlist is dropped and the gap is refilled from the shortlist.
 - Default path: plain code using `isForgotten` from `pick-rules.ts`, `dedupePicks` and the cooldowns in `cooldowns.ts`.
 - Client: a new `StudioSuggestions` component in MoodChat's empty state when `!sessionLive`. It uses React Query with key `["studio-suggestions", day, partOfDay]`, a long staleTime, and a sessionStorage copy. Play calls `rerootTo(track)` from radio-context, just like `LibrarySearch.play`.
-- Thresholds live in `pick-rules.ts` (`isAllTimeFavorite` >67 streams, `isCurrentFavorite` >10 streams in the last 30 days, existing `isForgotten`), computed from the imported history.
-- Unit tests for the default mix: 2/2/2/2 split, the >67 and >10-in-30-days thresholds, a random pick (not just the top songs), no repeats, and no songs on cooldown.
+- Thresholds live in `pick-rules.ts` (`isAllTimeFavorite` >67 streams, `isCurrentFavorite` >5 streams in the last 28 days, existing `isForgotten`), computed from the imported history.
+- Unit tests for the default mix: 2/2/2/2 split, the >67 and >5-in-4-weeks thresholds, a random pick (not just the top songs), no repeats, and no songs on cooldown.
 - Add an AGENTS.md rule for studio suggestions.
