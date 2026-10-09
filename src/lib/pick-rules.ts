@@ -75,13 +75,14 @@ export function vibeShortlist<T extends ShortSong>(current: T | undefined, pool:
   };
   const byArtist = pool.filter((s) => mainArtist(s) === artist).sort((a, b) => overlap(tagsOf(b), g) - overlap(tagsOf(a), g));
   group(byArtist, 5);
-  const sameGenre = g.size ? pool.filter((s) => overlap(tagsOf(s), g) >= Math.min(2, g.size)) : [];
+  const others = pool.filter((s) => mainArtist(s) !== artist);
+  const sameGenre = g.size ? others.filter((s) => overlap(tagsOf(s), g) >= Math.min(2, g.size)) : [];
   group(sameGenre, 10);
-  const wild = g.size ? pool.filter((s) => shares(tagsOf(s), g) && mainArtist(s) !== artist) : [];
+  const wild = g.size ? others.filter((s) => shares(tagsOf(s), g)) : [];
   group(wild, 5);
-  const sameMood = mood.size ? pool.filter((s) => shares(moodTags(s), mood)) : [];
+  const sameMood = mood.size ? others.filter((s) => shares(moodTags(s), mood)) : [];
   group(sameMood, 5);
-  if (carry) out.push(...take(pool, carry, seen));
+  if (carry) out.push(...take(others.length ? others : pool, carry, seen));
   return out;
 }
 
