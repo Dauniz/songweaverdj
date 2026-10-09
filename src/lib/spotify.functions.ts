@@ -2,20 +2,12 @@ import { libraryPoolCache } from "@/lib/keyset";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import {
-  SPOTIFY_SCOPES,
-  exchangeToken,
-  guessPeriod,
-  signState,
-  spotifyCreds,
-  spotifyGet,
-  toRow,
-  type IngestRow,
-} from "./spotify.server";
+import type { IngestRow } from "./spotify.server";
 
 export const getSpotifyStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const { spotifyCreds } = await import("./spotify.server");
     const configured = Boolean(spotifyCreds());
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
@@ -56,6 +48,7 @@ const deviceCache = new Map<string, { id: string; name: string; at: number }>();
 const deviceInit = new Map<string, number>();
 
 export async function spotifyAccess(userId: string, marginMs = 60_000) {
+  const { exchangeToken } = await import("./spotify.server");
   const cached = tokenCache.get(userId);
   if (cached && cached.expiresAt >= Date.now() + marginMs) return cached.token;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -382,6 +375,7 @@ export const getSpotifyAuthUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ origin: z.string().url(), framed: z.boolean().optional() }).parse(d))
   .handler(async ({ data, context }) => {
+    const { spotifyCreds, SPOTIFY_SCOPES, signState } = await import("./spotify.server");
     const creds = spotifyCreds();
     if (!creds) throw new Error("Spotify credentials are not set up yet.");
     const origin = new URL(data.origin).origin;
@@ -423,6 +417,7 @@ export const getSyncProgress = createServerFn({ method: "GET" })
 export const syncSpotifyLibrary = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const { exchangeToken, spotifyGet, guessPeriod, toRow } = await import("./spotify.server");
     const setP = (p: Partial<SyncProgress>) =>
       syncProgress.set(context.userId, {
         stage: "Starting…",
@@ -643,6 +638,7 @@ export const syncSpotifyLibrary = createServerFn({ method: "POST" })
 export const syncRecentSpotify = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const { exchangeToken, spotifyGet, guessPeriod, toRow } = await import("./spotify.server");
     const uid = context.userId;
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: conn } = await supabaseAdmin
