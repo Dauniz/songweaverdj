@@ -77,6 +77,8 @@ type RadioContextValue = {
   steerSession: (note: string, picks?: CardTrack[]) => Promise<void>;
   startRadio: (tracks: CardTrack[], seedPrompt: string, startAt?: number, startRoad?: Road) => void;
   rerootTo: (track: CardTrack, prompt?: string) => void;
+  /** Search "Queue": the song plays next whether you finish or skip; nothing goes into Spotify's queue. */
+  queueTrack: (track: CardTrack) => void;
   stopRadio: () => void;
   next: (outcome: Outcome) => void;
   /** Media "next" button: always lands on Crate's skip door, never your own Spotify queue. */
@@ -709,7 +711,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // sure B (finish), v (B's skip), C (skip) and w (C's skip) are all picked. Repairs only
   // prepare picks — nothing is sent to Spotify mid-song.
   const repairing = useRef(false);
-  const pendingSteer = useRef<{ note: string | undefined; picks: CardTrack[] | undefined; opts: undefined | { keepQueue?: boolean; keepW?: boolean; source?: "search" | "prompt" | "road"; prompt?: string; label?: string } } | null>(null);
+  const pendingSteer = useRef<{ note: string | undefined; picks: CardTrack[] | undefined; opts: undefined | { keepQueue?: boolean; keepW?: boolean; source?: "search" | "prompt" | "road"; prompt?: string; label?: string; queue?: boolean } } | null>(null);
+  /** A queued search song: next on finish (as B) and on skip (Crate redirects the skip to it). */
+  const queued = useRef<{ forId: string; track: RadioTrack } | null>(null);
   const checkPlan = useCallback(
     async (reason: "recheck" | "interval") => {
       const s = radioRef.current;
@@ -876,7 +880,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const first = ordered.find(isPlayable);
       if (first) {
         // Live session: the current song keeps playing; the first pick becomes B, the rest follow.
-        setPQ(cur ? { list: [cur, ...list], idx: 0, offset: 1 } : null); // A first, so finishing A plays pick 1; offset keeps labels at "song n of 6"
+        setPQ(list.length > 1 ? { list, idx: 0 } : null); // pick 1 plays now (skip), pick 2 follows on finish
         void steerRef.current?.("", [first], { source: "prompt", keepW: true, keepQueue: true, prompt: seedPrompt });
       }
     },
@@ -1353,6 +1357,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
    *  a plain Spotify "next" is enough. Otherwise (e.g. a song you started in Spotify, still on
    *  your own queue) wait briefly for the door and play it directly, counted as a skip. */
   const skipNow = useCallback(async () => {
+    const qd = queued.current;
+    if (qd && qd.forId === radioRef.current.current?.spotify_id) {
+      queued.current = null;
+      acceptObserved(qd.track, "skipped", false);
+      await startSpotifyPlayback(qd.track, true, null, undefined, "queued next");
+      return;
+    }
     const inLine = () => {
       const d = upSkipRef.current?.track.spotify_id;
       const cur = lastPlayback.current.spotifyId;
@@ -1847,6 +1858,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             (awaitingSkipPair.current || Date.now() < quickSkipUntil.current || (curAt >= 0 && landed > curAt + 1))
           ) {
             await calmDown();
+            return;
+          }
+          const qd = queued.current;
+          if (qd && qd.forId === current.spotify_id && outcome === "skipped" && state.spotifyId !== qd.track.spotify_id) {
+            // Skipped while a song was queued: play the queued song instead of Spotify's next-up.
+            queued.current = null;
+            pushSpotifyLog({ kind: "event", at: Date.now(), text: `QUEUED — skip redirected to "${qd.track.name}"` });
+            acceptObserved(qd.track, "skipped", false);
+            void startSpotifyPlayback(qd.track, true, null, undefined, "queued skip");
             return;
           }
           const q = door.current;
@@ -2377,7 +2397,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
    *  B (and its v, and C's own w) are re-scouted under the steer note; C stays exactly as queued —
    *  replacing a queued door would glitch Spotify's audio. Never touches the six-pick prompt queue. */
   const steerSession = useCallback(
-    async (note_?: string, picks?: CardTrack[], opts?: { keepQueue?: boolean; keepW?: boolean; source?: "search" | "prompt" | "road"; prompt?: string; label?: string }) => {
+    async (note_?: string, picks?: CardTrack[], opts?: { keepQueue?: boolean; keepW?: boolean; source?: "search" | "prompt" | "road"; prompt?: string; label?: string; queue?: boolean }) => {
       const s = radioRef.current;
       const trimmed = (note_ ?? "").trim().slice(0, 300);
       const road = opts?.source === "road";
@@ -2392,6 +2412,22 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       // Steering owns the maze from here: a running prompt playlist yields to the new direction.
       if (!opts?.keepQueue) setPQ(null);
+      queued.current = null;
+      // Steering with a song = you want out of this one: skip to the pick now.
+      if (steerPick && !road && !opts?.queue) {
+        const why = opts?.source === "search" ? "You picked it" : opts?.source === "prompt" ? "From your prompt" : trimmed ? `Steering: ${trimmed}` : "You asked Crate to steer";
+        const pick: RadioTrack = { ...steerPick, why };
+        radioRef.current = { ...s, steerNote: opts?.source ? s.steerNote : trimmed || s.steerNote, ...(opts?.prompt ? { seedPrompt: opts.prompt } : {}) };
+        log(steerPick, "steer", s);
+        note("reroot", `Steer → skipping to "${pick.name}" now`);
+        acceptObserved(pick, "skipped", false);
+        if (trimmed && !opts?.source)
+          void saveSteerFn({ data: { note: trimmed, sessionId: s.sessionId ?? "", tzOffsetMin: new Date().getTimezoneOffset() } })
+            .then(() => qc.invalidateQueries({ queryKey: ["memories"] }))
+            .catch(() => {});
+        await startSpotifyPlayback(pick, true, null, undefined, "steer skip");
+        return;
+      }
       scoutAbort.current?.abort();
       const ctrl = new AbortController();
       scoutAbort.current = ctrl;
@@ -2407,7 +2443,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const next: RadioState = { ...s, steerNote: opts?.source ? s.steerNote : trimmed, ...(opts?.prompt ? { seedPrompt: opts.prompt } : {}) };
       const playedB: Promise<Branch> = steerPick
         ? Promise.resolve({
-            track: { ...steerPick, why: opts?.source === "search" ? "You picked it" : opts?.source === "prompt" ? "From your prompt" : trimmed ? `Steering: ${trimmed}` : "You asked Crate to steer" },
+            track: { ...steerPick, why: opts?.queue ? "You queued it" : opts?.source === "search" ? "You picked it" : opts?.source === "prompt" ? "From your prompt" : trimmed ? `Steering: ${trimmed}` : "You asked Crate to steer" },
             road: advance(next, "played").road,
           })
         : fetchBranch(next, ctrl.signal);
@@ -2429,7 +2465,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (road) note("steer", opts?.label ?? "Alternative road changed → steering the doors ahead");
       else if (steerPick && opts?.source) {
         log(steerPick, "steer", s); // a deliberate choice — Walrus learns from it
-        note("reroot", `Your pick is next: "${steerPick.name}" plays when this song ends`);
+        if (!opts?.queue) note("reroot", `Your pick is next: "${steerPick.name}" plays when this song ends`);
       } else note("steer", trimmed ? `Steering: "${trimmed}" → re-scouting the doors ahead` : "Steer pick applied → re-scouting the doors ahead");
       if (trimmed && !opts?.source)
         void saveSteerFn({ data: { note: trimmed, sessionId: s.sessionId ?? "", tzOffsetMin: new Date().getTimezoneOffset() } })
@@ -2458,9 +2494,19 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         note("door", b ? `Finish door ready: "${b.track.name}" by ${b.track.artists}${b.track.why ? ` — ${b.track.why}` : ""}` : "Finish door: nothing fits, will fall back");
       });
     },
-    [fetchBranch, note, saveSteerFn, qc, log],
+    [fetchBranch, note, saveSteerFn, qc, log, acceptObserved, startSpotifyPlayback],
   );
   steerRef.current = steerSession;
+
+  const queueTrack = useCallback((track: CardTrack) => {
+    const s = radioRef.current;
+    if (!s.active || !s.current?.spotify_id || !track.spotify_id) return;
+    const t: RadioTrack = { ...track, altRoad: "Queued", why: "You queued it" };
+    void steerSession("", [t], { source: "search", keepW: true, queue: true }).then(() => {
+      if (radioRef.current.current?.spotify_id === s.current?.spotify_id) queued.current = { forId: s.current!.spotify_id!, track: t };
+      note("reroot", `Queued: "${t.name}" plays next, finish or skip`);
+    });
+  }, [steerSession, note]);
 
   /** One entry point for side roads (lenses + deep cuts). Toggling back within 10s restores the old doors. */
   const applySideRoad = useCallback(
@@ -2571,6 +2617,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         steerSession,
         startRadio: startOrReplan,
         rerootTo,
+        queueTrack,
         stopRadio,
         next,
         skipNow,
