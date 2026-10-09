@@ -234,10 +234,13 @@ function JunctionTree({
   const oX = (w - oW) / 2;
   const lX = w / 4 - doorW / 2;
   const rX = (3 * w) / 4 - doorW / 2;
+  const cX = (w - doorW) / 2;
   const doorsTop = oH + LEVEL_GAP;
   const ready = geo !== null && w > 0 && oH > 0;
 
   const skipRoad = shown.upSkip?.road ?? (shown.consecutiveSkips >= 3 ? "mixed" : shown.consecutiveSkips >= 1 ? (shown.road === "vibe" ? "era" : "vibe") : shown.road);
+  // While a song is queued, both doors hold the same track — the tree collapses to one centered branch.
+  const queued = shown.upNext?.altRoad === "Queued";
   const promoting = anim?.type === "promote" ? anim.side : null;
   const resetting = anim?.type === "reset-out";
 
