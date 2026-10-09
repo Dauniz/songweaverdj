@@ -288,21 +288,30 @@ function JunctionTree({
     >
       {ready && (
         <svg className="pointer-events-none absolute inset-0" width={w} height={doorsTop + dH} aria-hidden>
-          {branch(w / 4, "var(--primary)", `L-${shown.upNext?.spotify_id ?? "none"}`, 0, !shown.upNext)}
-          {branch((3 * w) / 4, "var(--accent)", `R-${shown.upSkip?.track.spotify_id ?? "none"}`, 0.07, !shown.upSkip)}
-          {/* light pulse along the chosen branch */}
-          {promoting && (
-            <motion.path
-              d={`M ${w / 2} ${oH} C ${w / 2} ${oH + LEVEL_GAP / 2}, ${promoting === "left" ? w / 4 : (3 * w) / 4} ${doorsTop - LEVEL_GAP / 2}, ${promoting === "left" ? w / 4 : (3 * w) / 4} ${doorsTop}`}
-              fill="none"
-              stroke={promoting === "left" ? "var(--primary)" : "var(--accent)"}
-              strokeWidth={4}
-              strokeLinecap="round"
-              initial={{ opacity: 0.9 }}
-              animate={{ opacity: 0 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-            />
+          {queued ? (
+            branch(w / 2, "var(--primary)", `C-${shown.upNext?.spotify_id ?? "none"}`, 0, !shown.upNext)
+          ) : (
+            <>
+              {branch(w / 4, "var(--primary)", `L-${shown.upNext?.spotify_id ?? "none"}`, 0, !shown.upNext)}
+              {branch((3 * w) / 4, "var(--accent)", `R-${shown.upSkip?.track.spotify_id ?? "none"}`, 0.07, !shown.upSkip)}
+            </>
           )}
+          {/* light pulse along the chosen branch */}
+          {promoting && (() => {
+            const tx = promoting === "left" ? w / 4 : promoting === "center" ? w / 2 : (3 * w) / 4;
+            return (
+              <motion.path
+                d={`M ${w / 2} ${oH} C ${w / 2} ${oH + LEVEL_GAP / 2}, ${tx} ${doorsTop - LEVEL_GAP / 2}, ${tx} ${doorsTop}`}
+                fill="none"
+                stroke={promoting === "right" ? "var(--accent)" : "var(--primary)"}
+                strokeWidth={4}
+                strokeLinecap="round"
+                initial={{ opacity: 0.9 }}
+                animate={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              />
+            );
+          })()}
         </svg>
       )}
 
