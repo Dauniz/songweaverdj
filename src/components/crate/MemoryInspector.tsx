@@ -29,27 +29,18 @@ import { PathMaze, CrateConsole } from "@/components/crate/PathMaze";
 import { DoorDebug } from "@/components/crate/DoorDebug";
 import { geometricEnter, reducedFade, staggerChildren } from "@/lib/motion";
 
-const KIND_LABEL: Record<string, string> = {
-  taste: "What you like",
-  genre: "Genres",
-  mood_trigger: "Feelings tied to songs",
-};
+const FILTER_ORDER = ["Anchors", "Insights", "Feedbacker", "Steer", "Listening", "Skipped", "Favorites", "User input"];
 
-const KIND_TOOLTIP: Record<string, string> = {
-  taste: "Things Crate has concluded about your taste from how you listen. These shape every song he picks.",
-  genre: "Genres Crate has noticed you lean toward or away from, used when he picks songs.",
-  mood_trigger: "A count of the feelings you've tied to songs — via Feedbacker notes or your prompts. Crate recalls them when picking songs, so a feeling you once linked to a song shapes future picks and your personalized suggestions.",
-};
-
-const KIND_STYLE: Record<string, string> = {
-  taste: "bg-primary/15 text-primary",
-  genre: "bg-chart-3/15 text-chart-3",
-  mood_trigger: "bg-magenta/15 text-magenta",
-  skipped: "bg-destructive/15 text-destructive",
-  session: "bg-chart-4/15 text-chart-4",
-  favorite: "bg-chart-5/15 text-chart-5",
-};
-
+function filterCategory(n: { kind: string; origin: string; content: string }): string {
+  if (n.origin === "cross_session") return "Anchors";
+  if (n.origin === "synthesis") return "Insights";
+  if (n.content.startsWith("Note on")) return "Feedbacker";
+  if (n.origin === "steer" || n.content.startsWith("Often steers")) return "Steer";
+  if (n.kind === "skipped") return "Skipped";
+  if (n.kind === "favorite") return "Favorites";
+  if (n.origin === "listening") return "Listening";
+  return "User input";
+}
 
 function skillForMemory(kind: string, origin: string, content: string) {
   if (origin === "cross_session") return "Anchor · strongest";
