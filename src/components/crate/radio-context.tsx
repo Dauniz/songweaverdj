@@ -725,7 +725,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const n = advanceUserQueue(userQueue.current, id);
     if (n === userQueue.current) return;
     setUQ(n);
-    note("think", n.length ? `Your queue: "${n[0].name}" is next (${n.length} left)` : "Last queued song — after this Crate is back in the maze");
+    note("think", n.length ? `Your queue: "${n[0]?.name}" is next (${n.length} left)` : "Last queued song — after this Crate is back in the maze");
   }, [radio.active, radio.current?.spotify_id, note]);
 
   useEffect(() => {

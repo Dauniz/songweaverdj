@@ -4,7 +4,7 @@ export type QueueItem = { spotify_id?: string | null };
 /** When `currentId` starts playing and it is the head of the queue, drop it. Returns the new list
  *  (same array if nothing changed). */
 export function advanceUserQueue<T extends QueueItem>(list: T[], currentId: string | null | undefined): T[] {
-  if (!currentId || !list.length || list[0].spotify_id !== currentId) return list;
+  if (!currentId || !list.length || list[0]?.spotify_id !== currentId) return list;
   return list.slice(1);
 }
 
