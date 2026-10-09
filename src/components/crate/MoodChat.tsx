@@ -413,7 +413,12 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
 
   if (empty) {
     return (
-      <div className="chat-enter scrollbar-thin flex h-full min-h-0 flex-col items-center justify-start overflow-y-auto px-4 pb-2 pt-3 sm:px-6 sm:pt-4 xl:pt-6 [&>*]:shrink-0">
+      <div
+        className={cn(
+          "chat-enter scrollbar-thin flex h-full min-h-0 flex-col items-center overflow-y-auto px-4 pb-2 pt-3 sm:px-6 sm:pt-4 xl:pt-6 [&>*]:shrink-0",
+          sessionLive && !(promptPlaylist && promptPlaylist.length > 0) ? "justify-center" : "justify-start",
+        )}
+      >
         {sessionLive && promptPlaylist && promptPlaylist.length > 0 && (
           <div className="song-results-reveal mb-8 w-full max-w-3xl">
             <div className="mb-1.5 font-display text-lg font-bold text-primary">
