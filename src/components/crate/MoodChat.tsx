@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import logo from "@/assets/crate-logo.jpg";
 import { recordWav, type VoiceRecording } from "@/lib/record-wav";
 import { LibrarySearch } from "./LibrarySearch";
+import { StudioSuggestions } from "./StudioSuggestions";
 import { geometricEnter, reducedFade, staggerChildren } from "@/lib/motion";
 
 type PromptMemory = { id: string; kind: string; content: string };
@@ -421,6 +422,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             </motion.div>
           </div>
         )}
+        {!sessionLive && <StudioSuggestions {...(onSearchSelection ? { onPlay: onSearchSelection } : {})} />}
         <div className="flex flex-col items-center text-center">
           <img
             src={logo}
