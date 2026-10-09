@@ -328,6 +328,30 @@ export type Database = {
         }
         Relationships: []
       }
+      playlist_meanings: {
+        Row: {
+          created_at: string
+          meaning: string
+          playlist_name: string
+          tags: string[]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          meaning: string
+          playlist_name: string
+          tags?: string[]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          meaning?: string
+          playlist_name?: string
+          tags?: string[]
+          user_id?: string
+        }
+        Relationships: []
+      }
       spotify_connections: {
         Row: {
           access_token: string
