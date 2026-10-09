@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
-import { Play, Search, X } from "lucide-react";
+import { ListPlus, Play, Search, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRadio } from "./radio-context";
 import type { CardTrack } from "./TrackCard";
@@ -38,7 +38,7 @@ function score(row: Row, q: string) {
 
 export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
   const reduced = useReducedMotion();
-  const { rerootTo, sessionLive } = useRadio();
+  const { rerootTo, queueTrack, sessionLive } = useRadio();
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   const [dismissed, setDismissed] = useState(false);
@@ -84,6 +84,12 @@ export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
     onSelect?.();
   }
 
+  function queue(row: Row) {
+    queueTrack({ ...row });
+    setQ("");
+    onSelect?.();
+  }
+
   const open = debounced.length >= 2 && !dismissed;
 
   return (
@@ -122,12 +128,11 @@ export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
           ) : (
             <motion.div variants={staggerChildren} initial="hidden" animate="visible">
             {results.map((r) => (
-              <motion.button
-                key={r.id}
+              <motion.div key={r.id} variants={reduced ? reducedFade : geometricEnter} className="flex items-center gap-1">
+              <button
                 type="button"
                 onClick={() => play(r)}
-                variants={reduced ? reducedFade : geometricEnter}
-                className="kinetic-control group flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left hover:bg-accent"
+                className="kinetic-control group flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1.5 text-left hover:bg-accent"
               >
                 <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted">
                   {r.image_url && <img src={r.image_url} alt="" className="h-full w-full object-cover" />}
@@ -139,7 +144,19 @@ export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
                   <p className="truncate text-sm text-foreground">{r.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{r.artists}</p>
                 </div>
-              </motion.button>
+              </button>
+              {sessionLive && (
+                <button
+                  type="button"
+                  onClick={() => queue(r)}
+                  aria-label={`Queue ${r.name}`}
+                  title="Queue: plays next, finish or skip"
+                  className="kinetic-control flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <ListPlus className="h-4 w-4" /> Queue
+                </button>
+              )}
+              </motion.div>
             ))}
             </motion.div>
           )}
