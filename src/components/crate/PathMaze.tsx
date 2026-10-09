@@ -419,7 +419,6 @@ function JunctionTree({
       {chain.map((t, i) => (
         <motion.div
           key={`chain-door-${t.spotify_id}`}
-          layout={!reduced}
           className="absolute"
           style={{ left: cX, top: doorsTop + (i + 1) * step, width: doorW }}
           initial={reduced ? false : { opacity: 0, y: 8, scale: 0.96 }}
