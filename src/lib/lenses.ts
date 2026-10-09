@@ -7,7 +7,7 @@ export const LENSES = [
 ] as const;
 
 export const DEEP_CUTS_INFO =
-  "Old favorites you haven't played in over a year (15+ streams, a favorite years ago). 1 skip: same era. 2 skips: a new era. Needs your imported streaming history; without it, it plays songs saved over a year ago that sit in only one playlist, so songs in several playlists are left out.";
+  "Forgotten favorites: songs with more than 20 streams that you've played 3 times or fewer in the last 6 months. 1 skip: same era. 2 skips: a new era. Needs your imported streaming history; without it, it plays songs saved over a year ago that sit in only one playlist, so songs in several playlists are left out.";
 
 export type LensId = (typeof LENSES)[number]["id"];
 export const LENS_IDS = LENSES.map((l) => l.id) as [LensId, ...LensId[]];

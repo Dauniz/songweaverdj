@@ -4,6 +4,8 @@
  * The skip ladder is read from the trailing skips in the history.
  */
 
+import { isForgotten } from "./pick-rules";
+
 export type AltSong = {
   spotify_id: string;
   artists: string;
@@ -47,7 +49,6 @@ export function wormholeScore(s: AltSong) {
 }
 
 const distinctPlaylists = (s: AltSong) => new Set(s.sources.filter((x) => x.type === "playlist").map((x) => x.name)).size;
-const thisYear = () => new Date().getUTCFullYear();
 
 /** Era of a song: its peak streaming year, else first play, else the year it was saved. */
 export function eraOf(s: AltSong): number | null {
@@ -59,16 +60,8 @@ export function eraOf(s: AltSong): number | null {
   return d ? Number(d.slice(0, 4)) : null;
 }
 
-/** Deep cut from history: 15+ streams, a favorite before this year, ≤3 plays in the last year. */
-function isDeepFromHistory(s: AltSong) {
-  if (!s.plays || s.plays < 15) return false;
-  const yearAgo = Date.now() - 365 * 86_400_000;
-  if (s.last_played && new Date(s.last_played).getTime() < yearAgo) return true;
-  if (!hasYears(s)) return false;
-  const recent = s.plays_by_year![String(thisYear())] ?? 0;
-  const era = eraOf(s);
-  return recent <= 3 && era !== null && era < thisYear();
-}
+/** Deep cut from history = a forgotten favorite (20+ streams, ≤3 in the last 6 months). */
+const isDeepFromHistory = (s: AltSong) => isForgotten(s);
 
 /** Fallback without history: saved over a year ago and in only one place. */
 function isDeepFromSaves(s: AltSong) {
@@ -172,7 +165,7 @@ export function planAltRoad<T extends AltSong>(
     return {
       list: shuffle(list).slice(0, N),
       label,
-      rule: `ALTERNATIVE ROAD Deep cuts: every candidate is an old favorite they haven't streamed in over a year. ${shift ? "The last era didn't land — this is a new era. " : "Stay in the same era. "}Pick the one most likely to bring a forgotten favorite back.`,
+      rule: `ALTERNATIVE ROAD Deep cuts: every candidate is a forgotten favorite: 20+ streams but barely played in the last 6 months. ${shift ? "The last era didn't land — this is a new era. " : "Stay in the same era. "}Pick the one most likely to bring a forgotten favorite back.`,
     };
   }
 

@@ -9,11 +9,7 @@ import { isForeverSkipMemory, loadCooldowns, songKey, type Cooldowns } from "./c
 import { LENS_IDS, type LensId } from "./lenses";
 import { altPool, planAltRoad, type AltKind } from "./alt-roads";
 
-/** Forgotten favorite: streamed a lot (history import) but not in over a year. */
-function isForgotten(s: { plays?: number; last_played?: string | null }) {
-  if (!s.plays || s.plays < 8 || !s.last_played) return false;
-  return Date.now() - new Date(s.last_played).getTime() > 365 * 86_400_000;
-}
+import { isForgotten, playlistWeight as eraPlaylistWeight, savedCloseWeight, ERA_CUTOFF, vibeShortlist, newAngleShortlist } from "./pick-rules";
 
 /** Which alternative road is on (they replace the default roads). */
 const altKind = (lens: LensId | null, deepCuts: boolean): AltKind | null =>
@@ -43,6 +39,8 @@ type Song = Row & {
   last_played?: string | null;
   first_played?: string | null;
   plays_by_year?: Record<string, number> | null;
+  /** Mood/scene tags Crate read from the names of the playlists this song lives in. */
+  mood?: string[];
 };
 
 // Short-lived per-worker cache of the merged library (plain cache, not state).
@@ -88,6 +86,15 @@ async function loadPool(supabase: any, userId: string): Promise<Song[]> {
       s.plays_by_year = (h.plays_by_year as Record<string, number> | null) ?? null;
     }
   }
+  // Playlist meanings (what each playlist name / emoji says about its songs).
+  const { data: meanings } = await supabase.from("playlist_meanings").select("playlist_name, tags").eq("user_id", userId);
+  const tagsBy = new Map<string, string[]>(((meanings ?? []) as { playlist_name: string; tags: string[] }[]).map((m) => [m.playlist_name, m.tags]));
+  if (tagsBy.size)
+    for (const s of bySpotify.values()) {
+      const t = new Set<string>();
+      for (const src of s.sources) for (const x of tagsBy.get(src.name) ?? []) t.add(x);
+      if (t.size) s.mood = [...t];
+    }
   const songs = [...bySpotify.values()];
   poolCache.set(userId, { at: Date.now(), songs });
   return songs;
@@ -149,10 +156,7 @@ function eraCandidates(anchor: Song, pool: Song[]) {
   for (const s of pool)
     for (const x of s.sources)
       if (x.type === "playlist") size.set(x.name, (size.get(x.name) ?? 0) + 1);
-  const playlistWeight = (name: string) => {
-    const n = size.get(name) ?? 0;
-    return n <= 120 ? 3 : n <= 400 ? 1.5 : 0.5;
-  };
+  const playlistWeight = (name: string) => eraPlaylistWeight(size.get(name) ?? 0);
   const anchorDays = anchor.sources.map((s) => dayIndex(s.period)).filter((d): d is number => d !== null);
   const scored = pool.map((s) => {
     let score = 0;
@@ -167,14 +171,13 @@ function eraCandidates(anchor: Song, pool: Song[]) {
         if (d === null) continue;
         for (const ad of anchorDays) best = Math.min(best, Math.abs(d - ad));
       }
-      if (best <= 14) score += 2;
-      else if (best <= 31) score += 0.5;
+      score += savedCloseWeight(best);
     }
-    if (s.artists === anchor.artists) score += 0.5;
-    return { s, score: score + Math.random() * 0.4 };
+    return { s, score, jitter: Math.random() * 0.4 };
   });
   return scored
-    .filter((x) => x.score > 1.2)
+    .filter((x) => x.score >= ERA_CUTOFF)
+    .map((x) => ({ s: x.s, score: x.score + x.jitter }))
     .sort((a, b) => b.score - a.score)
     .map((x) => x.s);
 }
@@ -186,8 +189,9 @@ function describe(s: Song) {
   const period = src?.period ? ` ${src.period.slice(0, 7)}` : "";
   const tag = src ? ` [${src.name.slice(0, 28)}${period}]` : "";
   const g = s.genres ? ` {${s.genres}}` : "";
-  const h = s.plays ? ` (${s.plays}x, last ${s.last_played?.slice(0, 7) ?? "?"})` : "";
-  return `${s.name}—${s.artists}${g}${tag}${h}`;
+  const h = s.plays ? ` (${s.plays}x, last ${s.last_played?.slice(0, 7) ?? "?"}${isForgotten(s) ? ", forgotten favorite" : ""})` : "";
+  const m = s.mood?.length ? ` <${s.mood.slice(0, 5).join(", ")}>` : "";
+  return `${s.name}—${s.artists}${g}${tag}${m}${h}`;
 }
 
 /** Pick up to n items from a list, skipping ones already chosen. */
@@ -236,9 +240,8 @@ function libraryWideSample(from: Song[], n: number, seen: Set<string>, preferFor
 }
 
 /**
- * Road-specific candidate pool (~75 songs). Each road gets candidates for its own mission:
- * - Vibe: artists working this session + a library-wide spread (forgotten songs first).
- *   No era or playlist-neighbour filtering — Crate judges sound, instruments and genre itself.
+ * Road-specific candidate pool. Each road gets candidates for its own mission:
+ * - Vibe (25): see vibeShortlist in pick-rules.ts.
  * - Era: playlist neighbours and nearby months (time and chapter continuity).
  * - New angle: deliberate contrast — wide wildcards, avoiding the session's artists.
  */
@@ -247,16 +250,15 @@ function buildShortlist(
   anchor: Song | undefined,
   available: Song[],
   likedArtists: Set<string>,
+  current?: Song,
+  session: Song[] = [],
 ): Song[] {
   const seen = new Set<string>();
   const out: Song[] = [];
   const shuffled = shuffle(available);
 
   if (road === "vibe") {
-    out.push(...take(shuffled.filter((s) => likedArtists.has(s.artists)), 20, seen));
-    out.push(...take(shuffled.filter(isForgotten), 10, seen));
-    out.push(...libraryWideSample(shuffled, 75 - out.length, seen, true));
-    return out;
+    return vibeShortlist(current ?? anchor, shuffled, (x) => new Set(x.mood ?? []));
   }
 
   if (road === "era") {
@@ -278,12 +280,8 @@ function buildShortlist(
     return out;
   }
 
-  // New angle: step away from what's been playing.
-  const fresh = shuffled.filter((s) => !likedArtists.has(s.artists));
-  out.push(...take(fresh.filter(isForgotten), 8, seen));
-  out.push(...libraryWideSample(fresh, 45, seen));
-  out.push(...take(fresh, 30, seen));
-  return out;
+  // New angle: step away from everything this session played.
+  return newAngleShortlist(session, shuffled);
 }
 
 // Short-lived per-user cache of Crate's learned memory (same for both branch prefetches).
@@ -453,7 +451,10 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     if (!alt && data.road === "era" && anchor && !data.chips.length && !data.steerNote) {
       const warm = available.filter((x) => !cool.has(x.artists));
       const shifted = data.eraShift ? eraShiftCandidates(anchor, warm.length >= 10 ? warm : available) : [];
-      const cands = shifted.length ? shifted : eraCandidates(anchor, warm.length >= 10 ? warm : available);
+      const base = warm.length >= 10 ? warm : available;
+      let cands = shifted.length ? shifted : eraCandidates(anchor, base);
+      // Nothing reached the cutoff: try a nearby era before handing over to the AI.
+      if (!cands.length && !data.eraShift) cands = eraShiftCandidates(anchor, base);
       if (cands.length) {
         const pick = cands[Math.floor(Math.random() * Math.min(6, cands.length))]!;
         const shared = pick.sources.find((x) =>
@@ -474,7 +475,9 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const skipped = data.history.filter((h) => h.outcome === "skipped").slice(-6);
     const likedArtists = new Set([data.seed.artists, ...liked.map((h) => h.artists)]);
 
-    const shortlist = alt ? alt.list : buildShortlist(data.road, anchor, available, likedArtists);
+    const sessionSongs = data.history.map((h) => bySpotify.get(h.spotifyId)).filter((x): x is Song => !!x);
+    if (current) sessionSongs.push(current);
+    const shortlist = alt ? alt.list : buildShortlist(data.road, anchor, available, likedArtists, current, sessionSongs);
     const index = new Map<string, Song>();
     const lines = shortlist.map((s, i) => {
       index.set(`T${i}`, s);
@@ -525,7 +528,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const roadRule = alt
       ? alt.rule
       : data.road === "vibe"
-        ? "Follow the VIBE: use your own music knowledge of each artist's sound — instrumentation, production, genre, tempo, vocal style, mood — and pick the candidate that sounds closest to the songs they played through, regardless of era or which playlist it sits in. Prefer finding the same sound from a different artist or a forgotten corner of their library over the obvious neighbour. As a light extra hint, a candidate's playlist name can reveal how the listener feels about it (e.g. a song living in 'sad songs' is probably one they consider sad) — treat it as a weak signal that can tip a close call, never as the main reason."
+        ? "Follow the VIBE: use your own music knowledge of each artist's sound — instrumentation, production, genre, tempo, vocal style, mood — and pick the candidate that sounds closest to the songs they played through, regardless of era or which playlist it sits in. Prefer finding the same sound from a different artist or a forgotten corner of their library over the obvious neighbour. Playlist meaning matters: <tags> are what the listener's own playlist names (words and emojis) say about a song, e.g. <rainy, melancholic>. Treat them as a real signal of how the listener feels about the song — but what they actually played through this session still wins."
         : data.road === "era"
           ? "Follow the ERA: songs from the same playlists / time period as the last song they played through, filtered by their steering chips."
           : "Their last two picks were skipped. Try a fresh angle: blend era and vibe, or change direction noticeably, to figure out what they're after.";
@@ -559,7 +562,7 @@ Played through${alt ? "" : " (the road that works)"}: ${liked.map((h) => `${h.na
 Skipped (wrong turns, avoid similar): ${skipped.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(none)"}
 ${data.steerNote ? `Steering instruction from the listener (must respect): ${data.steerNote}\n` : ""}${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
 ${roadRule}
-${!alt && data.eraShift ? "ERA HOP: the last era didn't land — pick from a nearby era, roughly 1–3 years earlier or later than the anchor's period.\n" : ""}${data.coolArtists.length ? `COOLING (skipped recently, prefer other artists unless one is clearly the best fit): ${data.coolArtists.join("; ")}\n` : ""}HISTORY: "(Nx, last yyyy-mm)" = how often they streamed it and when last. Many plays but not for a long time = a forgotten favorite, great to resurface.
+${!alt && data.eraShift ? "ERA HOP: the last era didn't land — pick from a nearby era, roughly 1–3 years earlier or later than the anchor's period.\n" : ""}${data.coolArtists.length ? `COOLING (skipped recently, prefer other artists unless one is clearly the best fit): ${data.coolArtists.join("; ")}\n` : ""}HISTORY: "(Nx, last yyyy-mm)" = how often they streamed it and when last. "forgotten favorite" = 20+ streams but 3 or fewer in the last 6 months, great to resurface.
 Other Walrus Memory relevant right now:
 ${walrus.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
 

@@ -1,4 +1,6 @@
 import { useRef, useState } from "react";
+import { readPlaylistMeanings } from "@/lib/playlist-meanings.functions";
+import { isForgotten } from "@/lib/pick-rules";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, History, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -17,6 +19,7 @@ export function HistoryImport({ libraryIds }: { libraryIds: Set<string> }) {
   const [status, setStatus] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const study = useServerFn(studyHistory);
+  const readMeanings = useServerFn(readPlaylistMeanings);
 
   const { data: imported } = useQuery({
     queryKey: ["listening-history"],
@@ -40,10 +43,13 @@ export function HistoryImport({ libraryIds }: { libraryIds: Set<string> }) {
       await saveHistory(stats, (d) => setStatus(`Saving ${d} / ${stats.length} songs…`));
       const now = Date.now();
       const forgotten = stats.filter(
-        (s) => libraryIds.has(s.spotify_id) && s.plays >= 10 && now - Date.parse(s.last_played) > 365 * 86_400_000,
+        (s) => libraryIds.has(s.spotify_id) && isForgotten({ plays: s.plays, last_played: s.last_played, plays_by_year: (s as { plays_by_year?: Record<string, number> }).plays_by_year ?? null }, now),
       ).length;
       setStatus("Crate is studying your listening habits…");
-      const { saved } = await study({ data: digest }).catch(() => ({ saved: 0 }));
+      const [{ saved }] = await Promise.all([
+        study({ data: digest }).catch(() => ({ saved: 0 })),
+        readMeanings().catch(() => ({ read: 0 })),
+      ]);
       setResult(
         `${streams.toLocaleString()} plays from ${minYear}–${maxYear}. ${forgotten} forgotten favorites unlocked for Crate.` +
           (saved ? ` Crate learned ${saved} long-term patterns and saved them to Walrus Memory.` : ""),

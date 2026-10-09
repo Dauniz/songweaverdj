@@ -35,3 +35,5 @@
 - [x] Background finish helper for frozen phone/tablet pages (cost check after a few days of use)
 - [x] Prompt playlist shown above the live steering screen; disappears when the playlist ends or is left
 - [x] Prompt playlist cards are display-only (no play buttons)
+
+- [x] Tune Crate picking rules: real-finish rule, new Era scores, 25-song Vibe / 15-song New Angle shortlists, playlist-name meanings, one forgotten-favorite definition
