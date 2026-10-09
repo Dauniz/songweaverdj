@@ -164,30 +164,6 @@ export function MemoryInspector() {
           {showLog ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           {showLog ? "Hide Walrus log" : "Show Walrus log"}
         </button>
-        <button
-          type="button"
-          disabled={reflecting}
-          onClick={async () => {
-            setReflecting(true);
-            try {
-              const r = await reflect({ data: { sessionId: null, scope: "history", tzOffsetMin: new Date().getTimezoneOffset() } });
-              setReflectMsg(r?.saved ? `${r.saved} new insight${r.saved > 1 ? "s" : ""} written to Walrus` : "Nothing new to conclude yet — listen a little more");
-              if (r?.saved) qc.invalidateQueries({ queryKey: ["memories"] });
-            } catch {
-              setReflectMsg("Couldn't reflect right now");
-            } finally {
-              setReflecting(false);
-              setTimeout(() => setReflectMsg(null), 6000);
-            }
-          }}
-          className="kinetic-control ml-3 mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-chart-4 hover:bg-accent disabled:opacity-60"
-        >
-          <Sparkle className="h-3.5 w-3.5" />
-          {reflecting ? "Crate is reflecting…" : "Let Crate reflect"}
-        </button>
-        <AnimatePresence>
-          {reflectMsg && <motion.p initial="hidden" animate="visible" exit="exit" variants={reduced ? reducedFade : geometricEnter} className="mt-1.5 text-[11px] text-muted-foreground">{reflectMsg}</motion.p>}
-        </AnimatePresence>
       </div>
       <AnimatePresence initial={false}>
       {showLog && (
