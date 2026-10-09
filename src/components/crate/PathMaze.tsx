@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { motion, useReducedMotion } from "motion/react";
 import type { RadioTrack } from "@/components/crate/radio-context";
-import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Pause, Play, Route, SkipForward, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, ListPlus, MessagesSquare, NotebookPen, Pause, Play, Route, SkipForward, Sparkles } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
 import { pauseSpotifyPlayback, resumeSpotifyPlayback } from "@/lib/spotify.functions";
@@ -118,7 +118,7 @@ type TreeSnapshot = {
 };
 
 type TreeAnim =
-  | { type: "promote"; side: "left" | "right" }
+  | { type: "promote"; side: "left" | "right" | "center" }
   | { type: "reset-out" }
   | { type: "reset-in" }
   | null;
@@ -177,8 +177,14 @@ function JunctionTree({
       setShown((s) => ({ ...s, upNext, upSkip, road, consecutiveSkips }));
       return;
     }
-    const side: "left" | "right" | null =
-      id === shown.upNext?.spotify_id ? "left" : id === shown.upSkip?.track.spotify_id ? "right" : null;
+    const side: "left" | "right" | "center" | null =
+      id === shown.upNext?.spotify_id
+        ? shown.upNext?.altRoad === "Queued"
+          ? "center"
+          : "left"
+        : id === shown.upSkip?.track.spotify_id
+          ? "right"
+          : null;
     timers.current.forEach(clearTimeout);
     timers.current = [];
     const commit = () => setShown({ ...latest.current });
@@ -228,10 +234,13 @@ function JunctionTree({
   const oX = (w - oW) / 2;
   const lX = w / 4 - doorW / 2;
   const rX = (3 * w) / 4 - doorW / 2;
+  const cX = (w - doorW) / 2;
   const doorsTop = oH + LEVEL_GAP;
   const ready = geo !== null && w > 0 && oH > 0;
 
   const skipRoad = shown.upSkip?.road ?? (shown.consecutiveSkips >= 3 ? "mixed" : shown.consecutiveSkips >= 1 ? (shown.road === "vibe" ? "era" : "vibe") : shown.road);
+  // While a song is queued, both doors hold the same track — the tree collapses to one centered branch.
+  const queued = shown.upNext?.altRoad === "Queued";
   const promoting = anim?.type === "promote" ? anim.side : null;
   const resetting = anim?.type === "reset-out";
 
@@ -279,21 +288,30 @@ function JunctionTree({
     >
       {ready && (
         <svg className="pointer-events-none absolute inset-0" width={w} height={doorsTop + dH} aria-hidden>
-          {branch(w / 4, "var(--primary)", `L-${shown.upNext?.spotify_id ?? "none"}`, 0, !shown.upNext)}
-          {branch((3 * w) / 4, "var(--accent)", `R-${shown.upSkip?.track.spotify_id ?? "none"}`, 0.07, !shown.upSkip)}
-          {/* light pulse along the chosen branch */}
-          {promoting && (
-            <motion.path
-              d={`M ${w / 2} ${oH} C ${w / 2} ${oH + LEVEL_GAP / 2}, ${promoting === "left" ? w / 4 : (3 * w) / 4} ${doorsTop - LEVEL_GAP / 2}, ${promoting === "left" ? w / 4 : (3 * w) / 4} ${doorsTop}`}
-              fill="none"
-              stroke={promoting === "left" ? "var(--primary)" : "var(--accent)"}
-              strokeWidth={4}
-              strokeLinecap="round"
-              initial={{ opacity: 0.9 }}
-              animate={{ opacity: 0 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-            />
+          {queued ? (
+            branch(w / 2, "var(--primary)", `C-${shown.upNext?.spotify_id ?? "none"}`, 0, !shown.upNext)
+          ) : (
+            <>
+              {branch(w / 4, "var(--primary)", `L-${shown.upNext?.spotify_id ?? "none"}`, 0, !shown.upNext)}
+              {branch((3 * w) / 4, "var(--accent)", `R-${shown.upSkip?.track.spotify_id ?? "none"}`, 0.07, !shown.upSkip)}
+            </>
           )}
+          {/* light pulse along the chosen branch */}
+          {promoting && (() => {
+            const tx = promoting === "left" ? w / 4 : promoting === "center" ? w / 2 : (3 * w) / 4;
+            return (
+              <motion.path
+                d={`M ${w / 2} ${oH} C ${w / 2} ${oH + LEVEL_GAP / 2}, ${tx} ${doorsTop - LEVEL_GAP / 2}, ${tx} ${doorsTop}`}
+                fill="none"
+                stroke={promoting === "right" ? "var(--accent)" : "var(--primary)"}
+                strokeWidth={4}
+                strokeLinecap="round"
+                initial={{ opacity: 0.9 }}
+                animate={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+              />
+            );
+          })()}
         </svg>
       )}
 
@@ -341,56 +359,72 @@ function JunctionTree({
         </div>
       </motion.div>
 
-      {/* Doors */}
+      {/* Doors — one centered "Queued" door while a song is queued, else the usual pair */}
       <motion.div
         ref={lRef}
         className="absolute"
-        style={{ left: lX, top: doorsTop, width: doorW }}
-        key={`doorL-${shown.upNext?.spotify_id ?? "none"}`}
+        style={{ left: queued ? cX : lX, top: doorsTop, width: doorW }}
+        key={`door-${queued ? "C" : "L"}-${shown.upNext?.spotify_id ?? "none"}`}
         initial={reduced ? false : { opacity: 0, y: 8, scale: 0.96 }}
-        animate={{ opacity: promoting === "left" ? 0 : 1, y: 0, scale: 1 }}
+        animate={{ opacity: promoting === "left" || promoting === "center" ? 0 : 1, y: 0, scale: 1 }}
         transition={{ duration: 0.3, delay: promoting ? 0 : 0.37, ease: TREE_EASE }}
       >
-        <Door
-          tone="keep"
-          label="Keep walking"
-          sublabel="if you finish"
-          road={shown.road}
-          track={shown.upNext}
-          title={shown.upNext?.name}
-          artists={shown.upNext?.artists}
-          image={shown.upNext?.image_url}
-          icon={<Check className="h-3 w-3" />}
-        />
+        {queued ? (
+          <Door
+            tone="keep"
+            label="Queued"
+            sublabel="if you finish or skip"
+            road={shown.road}
+            track={shown.upNext}
+            title={shown.upNext?.name}
+            artists={shown.upNext?.artists}
+            image={shown.upNext?.image_url}
+            icon={<ListPlus className="h-3 w-3" />}
+          />
+        ) : (
+          <Door
+            tone="keep"
+            label="Keep walking"
+            sublabel="if you finish"
+            road={shown.road}
+            track={shown.upNext}
+            title={shown.upNext?.name}
+            artists={shown.upNext?.artists}
+            image={shown.upNext?.image_url}
+            icon={<Check className="h-3 w-3" />}
+          />
+        )}
       </motion.div>
-      <motion.div
-        ref={rRef}
-        className="absolute"
-        style={{ left: rX, top: doorsTop, width: doorW }}
-        key={`doorR-${shown.upSkip?.track.spotify_id ?? "none"}`}
-        initial={reduced ? false : { opacity: 0, y: 8, scale: 0.96 }}
-        animate={{ opacity: promoting ? 0 : 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.3, delay: promoting ? 0 : 0.37, ease: TREE_EASE }}
-      >
-        <Door
-          tone="turn"
-          label="Take a turn"
-          sublabel="if you skip"
-          road={skipRoad}
-          track={shown.upSkip?.track}
-          title={shown.upSkip?.track.name}
-          artists={shown.upSkip?.track.artists}
-          image={shown.upSkip?.track.image_url}
-          icon={<SkipForward className="h-3 w-3" />}
-        />
-      </motion.div>
+      {!queued && (
+        <motion.div
+          ref={rRef}
+          className="absolute"
+          style={{ left: rX, top: doorsTop, width: doorW }}
+          key={`doorR-${shown.upSkip?.track.spotify_id ?? "none"}`}
+          initial={reduced ? false : { opacity: 0, y: 8, scale: 0.96 }}
+          animate={{ opacity: promoting ? 0 : 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.3, delay: promoting ? 0 : 0.37, ease: TREE_EASE }}
+        >
+          <Door
+            tone="turn"
+            label="Take a turn"
+            sublabel="if you skip"
+            road={skipRoad}
+            track={shown.upSkip?.track}
+            title={shown.upSkip?.track.name}
+            artists={shown.upSkip?.track.artists}
+            image={shown.upSkip?.track.image_url}
+            icon={<SkipForward className="h-3 w-3" />}
+          />
+        </motion.div>
+      )}
 
       {/* Travelling clone: the chosen door gliding up to O's position */}
       {promoting && ready && (
         <motion.div
           className="pointer-events-none absolute z-10"
           initial={{
-            x: promoting === "left" ? lX : rX,
+            x: promoting === "left" ? lX : promoting === "center" ? cX : rX,
             y: doorsTop,
             width: doorW,
             opacity: 1,
@@ -401,16 +435,16 @@ function JunctionTree({
           <div className="rounded-xl border border-primary/40 bg-surface p-3 shadow-lg">
             <div className="flex items-center gap-2.5">
               <Art
-                src={promoting === "left" ? shown.upNext?.image_url : shown.upSkip?.track.image_url}
+                src={promoting === "right" ? shown.upSkip?.track.image_url : shown.upNext?.image_url}
                 alt=""
                 className="h-10 w-10"
               />
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold">
-                  {promoting === "left" ? shown.upNext?.name : shown.upSkip?.track.name}
+                  {promoting === "right" ? shown.upSkip?.track.name : shown.upNext?.name}
                 </div>
                 <div className="truncate text-[11px] text-muted-foreground">
-                  {promoting === "left" ? shown.upNext?.artists : shown.upSkip?.track.artists}
+                  {promoting === "right" ? shown.upSkip?.track.artists : shown.upNext?.artists}
                 </div>
               </div>
             </div>
