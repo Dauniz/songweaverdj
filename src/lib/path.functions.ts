@@ -9,11 +9,7 @@ import { isForeverSkipMemory, loadCooldowns, songKey, type Cooldowns } from "./c
 import { LENS_IDS, type LensId } from "./lenses";
 import { altPool, planAltRoad, type AltKind } from "./alt-roads";
 
-/** Forgotten favorite: streamed a lot (history import) but not in over a year. */
-function isForgotten(s: { plays?: number; last_played?: string | null }) {
-  if (!s.plays || s.plays < 8 || !s.last_played) return false;
-  return Date.now() - new Date(s.last_played).getTime() > 365 * 86_400_000;
-}
+import { isForgotten, playlistWeight as eraPlaylistWeight, savedCloseWeight, ERA_CUTOFF, vibeShortlist, newAngleShortlist } from "./pick-rules";
 
 /** Which alternative road is on (they replace the default roads). */
 const altKind = (lens: LensId | null, deepCuts: boolean): AltKind | null =>
@@ -149,10 +145,7 @@ function eraCandidates(anchor: Song, pool: Song[]) {
   for (const s of pool)
     for (const x of s.sources)
       if (x.type === "playlist") size.set(x.name, (size.get(x.name) ?? 0) + 1);
-  const playlistWeight = (name: string) => {
-    const n = size.get(name) ?? 0;
-    return n <= 120 ? 3 : n <= 400 ? 1.5 : 0.5;
-  };
+  const playlistWeight = (name: string) => eraPlaylistWeight(size.get(name) ?? 0);
   const anchorDays = anchor.sources.map((s) => dayIndex(s.period)).filter((d): d is number => d !== null);
   const scored = pool.map((s) => {
     let score = 0;
@@ -167,14 +160,13 @@ function eraCandidates(anchor: Song, pool: Song[]) {
         if (d === null) continue;
         for (const ad of anchorDays) best = Math.min(best, Math.abs(d - ad));
       }
-      if (best <= 14) score += 2;
-      else if (best <= 31) score += 0.5;
+      score += savedCloseWeight(best);
     }
-    if (s.artists === anchor.artists) score += 0.5;
-    return { s, score: score + Math.random() * 0.4 };
+    return { s, score, jitter: Math.random() * 0.4 };
   });
   return scored
-    .filter((x) => x.score > 1.2)
+    .filter((x) => x.score >= ERA_CUTOFF)
+    .map((x) => ({ s: x.s, score: x.score + x.jitter }))
     .sort((a, b) => b.score - a.score)
     .map((x) => x.s);
 }
