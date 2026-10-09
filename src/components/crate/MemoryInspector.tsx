@@ -163,34 +163,14 @@ export function MemoryInspector() {
         {isAdmin && <DoorDebug />}
       </div>
       <div className="shrink-0 px-4 pt-3 pb-3 text-xs">
-        <div className="flex flex-wrap gap-1.5">
-          {Object.entries(counts).filter(([k]) => KIND_LABEL[k]).map(([k, v]) => (
-            <span key={k} className="inline-flex items-center gap-1">
-              <span className={cn("rounded-full px-2 py-0.5 font-medium", KIND_STYLE[k])}>
-                {KIND_LABEL[k] ?? k} · {v}
-              </span>
-              {KIND_TOOLTIP[k] && (
-                <TooltipProvider delayDuration={150}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <button type="button" aria-label={`What is ${KIND_LABEL[k]}?`} className="rounded-full p-0.5 text-muted-foreground hover:text-foreground">
-                        <CircleHelp className="h-3 w-3" />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-[240px] text-left">
-                      {KIND_TOOLTIP[k]}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </span>
-          ))}
-        </div>
         <button
           type="button"
           aria-expanded={showLog}
-          onClick={() => setShowLog((v) => !v)}
-          className="kinetic-control mt-3 inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          onClick={() => {
+            setShowLog((v) => !v);
+            setLogFilter("All");
+          }}
+          className="kinetic-control inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           {showLog ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           {showLog ? "Hide Walrus log" : "Show Walrus log"}
