@@ -34,6 +34,7 @@
   --color-surface-2: var(--surface-2);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-highlight: var(--highlight);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -73,6 +74,8 @@
   --primary-foreground: oklch(0.16 0.03 135);
   --magenta: oklch(0.68 0.26 350);
   --magenta-foreground: oklch(0.98 0.01 350);
+  /* Strong yellow used for Crate's own actions */
+  --highlight: oklch(0.84 0.18 92);
   --secondary: oklch(0.25 0.01 285);
   --secondary-foreground: oklch(0.97 0.005 285);
   --muted: oklch(0.24 0.008 285);
