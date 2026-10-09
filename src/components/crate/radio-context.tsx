@@ -1824,7 +1824,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         // The song ended but the hand-over didn't land in time, so Spotify rolled onto the skip
         // door. That was a finish, not a skip: send [finish, its skip] now.
         if (
-          isFinished(previous.progressMs + (Date.now() - previous.at), previous.durationMs) && state.status === "ready" && state.spotifyId &&
+          isFinished(previous.progressMs + Math.min(6_000, Date.now() - previous.at), previous.durationMs) && state.status === "ready" && state.spotifyId &&
           state.spotifyId !== current.spotify_id && lineup.current.includes(state.spotifyId)
         ) {
           pushSpotifyLog({ kind: "event", at: Date.now(), text: "LATE FINISH — song ended onto the skip door, sending the finish pair" });
@@ -1836,7 +1836,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         // Not seen playing yet: only a rapid skip (after Spotify had time to start it) counts.
         if (!previous.observed && !(rapid && sinceMove > 2_500)) return;
         // Finished only if the song really reached its end (last poll + time since, with a few seconds of slack).
-        const outcome = isFinished(previous.progressMs + (Date.now() - previous.at), previous.durationMs) ? "played" : "skipped";
+        const outcome = isFinished(previous.progressMs + Math.min(6_000, Date.now() - previous.at), previous.durationMs) ? "played" : "skipped";
         if (state.status === "ready" && state.spotifyId) {
           const landed = lineup.current.indexOf(state.spotifyId);
           // Once the first skip has landed, any further change before its replacement pair is
