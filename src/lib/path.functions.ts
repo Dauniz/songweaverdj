@@ -39,6 +39,8 @@ type Song = Row & {
   last_played?: string | null;
   first_played?: string | null;
   plays_by_year?: Record<string, number> | null;
+  /** Mood/scene tags Crate read from the names of the playlists this song lives in. */
+  mood?: string[];
 };
 
 // Short-lived per-worker cache of the merged library (plain cache, not state).
@@ -84,6 +86,15 @@ async function loadPool(supabase: any, userId: string): Promise<Song[]> {
       s.plays_by_year = (h.plays_by_year as Record<string, number> | null) ?? null;
     }
   }
+  // Playlist meanings (what each playlist name / emoji says about its songs).
+  const { data: meanings } = await supabase.from("playlist_meanings").select("playlist_name, tags").eq("user_id", userId);
+  const tagsBy = new Map<string, string[]>(((meanings ?? []) as { playlist_name: string; tags: string[] }[]).map((m) => [m.playlist_name, m.tags]));
+  if (tagsBy.size)
+    for (const s of bySpotify.values()) {
+      const t = new Set<string>();
+      for (const src of s.sources) for (const x of tagsBy.get(src.name) ?? []) t.add(x);
+      if (t.size) s.mood = [...t];
+    }
   const songs = [...bySpotify.values()];
   poolCache.set(userId, { at: Date.now(), songs });
   return songs;
@@ -178,8 +189,9 @@ function describe(s: Song) {
   const period = src?.period ? ` ${src.period.slice(0, 7)}` : "";
   const tag = src ? ` [${src.name.slice(0, 28)}${period}]` : "";
   const g = s.genres ? ` {${s.genres}}` : "";
-  const h = s.plays ? ` (${s.plays}x, last ${s.last_played?.slice(0, 7) ?? "?"})` : "";
-  return `${s.name}—${s.artists}${g}${tag}${h}`;
+  const h = s.plays ? ` (${s.plays}x, last ${s.last_played?.slice(0, 7) ?? "?"}${isForgotten(s) ? ", forgotten favorite" : ""})` : "";
+  const m = s.mood?.length ? ` <${s.mood.slice(0, 5).join(", ")}>` : "";
+  return `${s.name}—${s.artists}${g}${tag}${m}${h}`;
 }
 
 /** Pick up to n items from a list, skipping ones already chosen. */
@@ -239,16 +251,15 @@ function buildShortlist(
   anchor: Song | undefined,
   available: Song[],
   likedArtists: Set<string>,
+  current?: Song,
+  session: Song[] = [],
 ): Song[] {
   const seen = new Set<string>();
   const out: Song[] = [];
   const shuffled = shuffle(available);
 
   if (road === "vibe") {
-    out.push(...take(shuffled.filter((s) => likedArtists.has(s.artists)), 20, seen));
-    out.push(...take(shuffled.filter(isForgotten), 10, seen));
-    out.push(...libraryWideSample(shuffled, 75 - out.length, seen, true));
-    return out;
+    return vibeShortlist(current ?? anchor, shuffled, (x) => new Set(x.mood ?? []));
   }
 
   if (road === "era") {
@@ -270,12 +281,8 @@ function buildShortlist(
     return out;
   }
 
-  // New angle: step away from what's been playing.
-  const fresh = shuffled.filter((s) => !likedArtists.has(s.artists));
-  out.push(...take(fresh.filter(isForgotten), 8, seen));
-  out.push(...libraryWideSample(fresh, 45, seen));
-  out.push(...take(fresh, 30, seen));
-  return out;
+  // New angle: step away from everything this session played.
+  return newAngleShortlist(session, shuffled);
 }
 
 // Short-lived per-user cache of Crate's learned memory (same for both branch prefetches).
@@ -445,7 +452,10 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     if (!alt && data.road === "era" && anchor && !data.chips.length && !data.steerNote) {
       const warm = available.filter((x) => !cool.has(x.artists));
       const shifted = data.eraShift ? eraShiftCandidates(anchor, warm.length >= 10 ? warm : available) : [];
-      const cands = shifted.length ? shifted : eraCandidates(anchor, warm.length >= 10 ? warm : available);
+      const base = warm.length >= 10 ? warm : available;
+      let cands = shifted.length ? shifted : eraCandidates(anchor, base);
+      // Nothing reached the cutoff: try a nearby era before handing over to the AI.
+      if (!cands.length && !data.eraShift) cands = eraShiftCandidates(anchor, base);
       if (cands.length) {
         const pick = cands[Math.floor(Math.random() * Math.min(6, cands.length))]!;
         const shared = pick.sources.find((x) =>
@@ -466,7 +476,9 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const skipped = data.history.filter((h) => h.outcome === "skipped").slice(-6);
     const likedArtists = new Set([data.seed.artists, ...liked.map((h) => h.artists)]);
 
-    const shortlist = alt ? alt.list : buildShortlist(data.road, anchor, available, likedArtists);
+    const sessionSongs = data.history.map((h) => bySpotify.get(h.spotifyId)).filter((x): x is Song => !!x);
+    if (current) sessionSongs.push(current);
+    const shortlist = alt ? alt.list : buildShortlist(data.road, anchor, available, likedArtists, current, sessionSongs);
     const index = new Map<string, Song>();
     const lines = shortlist.map((s, i) => {
       index.set(`T${i}`, s);
@@ -517,7 +529,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     const roadRule = alt
       ? alt.rule
       : data.road === "vibe"
-        ? "Follow the VIBE: use your own music knowledge of each artist's sound — instrumentation, production, genre, tempo, vocal style, mood — and pick the candidate that sounds closest to the songs they played through, regardless of era or which playlist it sits in. Prefer finding the same sound from a different artist or a forgotten corner of their library over the obvious neighbour. As a light extra hint, a candidate's playlist name can reveal how the listener feels about it (e.g. a song living in 'sad songs' is probably one they consider sad) — treat it as a weak signal that can tip a close call, never as the main reason."
+        ? "Follow the VIBE: use your own music knowledge of each artist's sound — instrumentation, production, genre, tempo, vocal style, mood — and pick the candidate that sounds closest to the songs they played through, regardless of era or which playlist it sits in. Prefer finding the same sound from a different artist or a forgotten corner of their library over the obvious neighbour. Playlist meaning matters: <tags> are what the listener's own playlist names (words and emojis) say about a song, e.g. <rainy, melancholic>. Treat them as a real signal of how the listener feels about the song — but what they actually played through this session still wins."
         : data.road === "era"
           ? "Follow the ERA: songs from the same playlists / time period as the last song they played through, filtered by their steering chips."
           : "Their last two picks were skipped. Try a fresh angle: blend era and vibe, or change direction noticeably, to figure out what they're after.";
