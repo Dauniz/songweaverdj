@@ -359,49 +359,65 @@ function JunctionTree({
         </div>
       </motion.div>
 
-      {/* Doors */}
+      {/* Doors — one centered "Queued" door while a song is queued, else the usual pair */}
       <motion.div
         ref={lRef}
         className="absolute"
-        style={{ left: lX, top: doorsTop, width: doorW }}
-        key={`doorL-${shown.upNext?.spotify_id ?? "none"}`}
+        style={{ left: queued ? cX : lX, top: doorsTop, width: doorW }}
+        key={`door-${queued ? "C" : "L"}-${shown.upNext?.spotify_id ?? "none"}`}
         initial={reduced ? false : { opacity: 0, y: 8, scale: 0.96 }}
-        animate={{ opacity: promoting === "left" ? 0 : 1, y: 0, scale: 1 }}
+        animate={{ opacity: promoting === "left" || promoting === "center" ? 0 : 1, y: 0, scale: 1 }}
         transition={{ duration: 0.3, delay: promoting ? 0 : 0.37, ease: TREE_EASE }}
       >
-        <Door
-          tone="keep"
-          label="Keep walking"
-          sublabel="if you finish"
-          road={shown.road}
-          track={shown.upNext}
-          title={shown.upNext?.name}
-          artists={shown.upNext?.artists}
-          image={shown.upNext?.image_url}
-          icon={<Check className="h-3 w-3" />}
-        />
+        {queued ? (
+          <Door
+            tone="keep"
+            label="Queued"
+            sublabel="if you finish or skip"
+            road={shown.road}
+            track={shown.upNext}
+            title={shown.upNext?.name}
+            artists={shown.upNext?.artists}
+            image={shown.upNext?.image_url}
+            icon={<ListPlus className="h-3 w-3" />}
+          />
+        ) : (
+          <Door
+            tone="keep"
+            label="Keep walking"
+            sublabel="if you finish"
+            road={shown.road}
+            track={shown.upNext}
+            title={shown.upNext?.name}
+            artists={shown.upNext?.artists}
+            image={shown.upNext?.image_url}
+            icon={<Check className="h-3 w-3" />}
+          />
+        )}
       </motion.div>
-      <motion.div
-        ref={rRef}
-        className="absolute"
-        style={{ left: rX, top: doorsTop, width: doorW }}
-        key={`doorR-${shown.upSkip?.track.spotify_id ?? "none"}`}
-        initial={reduced ? false : { opacity: 0, y: 8, scale: 0.96 }}
-        animate={{ opacity: promoting ? 0 : 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.3, delay: promoting ? 0 : 0.37, ease: TREE_EASE }}
-      >
-        <Door
-          tone="turn"
-          label="Take a turn"
-          sublabel="if you skip"
-          road={skipRoad}
-          track={shown.upSkip?.track}
-          title={shown.upSkip?.track.name}
-          artists={shown.upSkip?.track.artists}
-          image={shown.upSkip?.track.image_url}
-          icon={<SkipForward className="h-3 w-3" />}
-        />
-      </motion.div>
+      {!queued && (
+        <motion.div
+          ref={rRef}
+          className="absolute"
+          style={{ left: rX, top: doorsTop, width: doorW }}
+          key={`doorR-${shown.upSkip?.track.spotify_id ?? "none"}`}
+          initial={reduced ? false : { opacity: 0, y: 8, scale: 0.96 }}
+          animate={{ opacity: promoting ? 0 : 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.3, delay: promoting ? 0 : 0.37, ease: TREE_EASE }}
+        >
+          <Door
+            tone="turn"
+            label="Take a turn"
+            sublabel="if you skip"
+            road={skipRoad}
+            track={shown.upSkip?.track}
+            title={shown.upSkip?.track.name}
+            artists={shown.upSkip?.track.artists}
+            image={shown.upSkip?.track.image_url}
+            icon={<SkipForward className="h-3 w-3" />}
+          />
+        </motion.div>
+      )}
 
       {/* Travelling clone: the chosen door gliding up to O's position */}
       {promoting && ready && (
