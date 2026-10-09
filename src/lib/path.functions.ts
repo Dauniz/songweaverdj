@@ -240,9 +240,8 @@ function libraryWideSample(from: Song[], n: number, seen: Set<string>, preferFor
 }
 
 /**
- * Road-specific candidate pool (~75 songs). Each road gets candidates for its own mission:
- * - Vibe: artists working this session + a library-wide spread (forgotten songs first).
- *   No era or playlist-neighbour filtering — Crate judges sound, instruments and genre itself.
+ * Road-specific candidate pool. Each road gets candidates for its own mission:
+ * - Vibe (25): see vibeShortlist in pick-rules.ts.
  * - Era: playlist neighbours and nearby months (time and chapter continuity).
  * - New angle: deliberate contrast — wide wildcards, avoiding the session's artists.
  */
@@ -563,7 +562,7 @@ Played through${alt ? "" : " (the road that works)"}: ${liked.map((h) => `${h.na
 Skipped (wrong turns, avoid similar): ${skipped.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(none)"}
 ${data.steerNote ? `Steering instruction from the listener (must respect): ${data.steerNote}\n` : ""}${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
 ${roadRule}
-${!alt && data.eraShift ? "ERA HOP: the last era didn't land — pick from a nearby era, roughly 1–3 years earlier or later than the anchor's period.\n" : ""}${data.coolArtists.length ? `COOLING (skipped recently, prefer other artists unless one is clearly the best fit): ${data.coolArtists.join("; ")}\n` : ""}HISTORY: "(Nx, last yyyy-mm)" = how often they streamed it and when last. Many plays but not for a long time = a forgotten favorite, great to resurface.
+${!alt && data.eraShift ? "ERA HOP: the last era didn't land — pick from a nearby era, roughly 1–3 years earlier or later than the anchor's period.\n" : ""}${data.coolArtists.length ? `COOLING (skipped recently, prefer other artists unless one is clearly the best fit): ${data.coolArtists.join("; ")}\n` : ""}HISTORY: "(Nx, last yyyy-mm)" = how often they streamed it and when last. "forgotten favorite" = 20+ streams but 3 or fewer in the last 6 months, great to resurface.
 Other Walrus Memory relevant right now:
 ${walrus.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
 
