@@ -326,11 +326,11 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: reduced ? 0.12 : 0.35 }}
-            className="mb-4 flex flex-col gap-3 rounded-2xl border bg-surface/90 p-4 shadow-sm sm:flex-row sm:items-center"
+            className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg border bg-surface/90 p-3 shadow-sm sm:flex"
           >
             <img src={logo} alt="" className="h-9 w-9 shrink-0 rounded-lg" />
-            <p className="flex-1 text-sm leading-relaxed">{welcome.greeting}</p>
-            <div className="flex shrink-0 gap-2">
+            <p className="min-w-0 flex-1 text-xs leading-5 sm:text-sm">{welcome.greeting}</p>
+            <div className="col-start-2 flex shrink-0 gap-2">
               <Button size="sm" className="rounded-full" onClick={() => answerWelcomeGuess(true)}>Yes, play it</Button>
               <Button size="sm" variant="secondary" className="rounded-full" onClick={() => answerWelcomeGuess(false)}>Not now</Button>
             </div>
