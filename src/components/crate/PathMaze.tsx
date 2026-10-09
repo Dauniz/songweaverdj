@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { motion, useReducedMotion } from "motion/react";
 import type { RadioTrack } from "@/components/crate/radio-context";
-import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, MessagesSquare, NotebookPen, Pause, Play, Route, SkipForward, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, ListPlus, MessagesSquare, NotebookPen, Pause, Play, Route, SkipForward, Sparkles } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
 import { addMemory } from "@/lib/memory.functions";
 import { pauseSpotifyPlayback, resumeSpotifyPlayback } from "@/lib/spotify.functions";
@@ -424,7 +424,7 @@ function JunctionTree({
         <motion.div
           className="pointer-events-none absolute z-10"
           initial={{
-            x: promoting === "left" ? lX : rX,
+            x: promoting === "left" ? lX : promoting === "center" ? cX : rX,
             y: doorsTop,
             width: doorW,
             opacity: 1,
@@ -435,16 +435,16 @@ function JunctionTree({
           <div className="rounded-xl border border-primary/40 bg-surface p-3 shadow-lg">
             <div className="flex items-center gap-2.5">
               <Art
-                src={promoting === "left" ? shown.upNext?.image_url : shown.upSkip?.track.image_url}
+                src={promoting === "right" ? shown.upSkip?.track.image_url : shown.upNext?.image_url}
                 alt=""
                 className="h-10 w-10"
               />
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold">
-                  {promoting === "left" ? shown.upNext?.name : shown.upSkip?.track.name}
+                  {promoting === "right" ? shown.upSkip?.track.name : shown.upNext?.name}
                 </div>
                 <div className="truncate text-[11px] text-muted-foreground">
-                  {promoting === "left" ? shown.upNext?.artists : shown.upSkip?.track.artists}
+                  {promoting === "right" ? shown.upSkip?.track.artists : shown.upNext?.artists}
                 </div>
               </div>
             </div>
