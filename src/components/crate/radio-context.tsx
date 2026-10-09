@@ -6,6 +6,7 @@ const LAST_KEY = "songweaver-last-session";
 /** End the session when Spotify shows no open device for this long. */
 const NO_DEVICE_GRACE = 90_000;
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { addToUserQueue, advanceUserQueue } from "@/lib/user-queue";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
 import { logListeningEvent } from "@/lib/radio.functions";
@@ -90,6 +91,8 @@ type RadioContextValue = {
   sessionLive: boolean;
   /** Crate's prompt playlist while it is still running (display only). */
   promptPlaylist: CardTrack[] | null;
+  /** Songs queued from search, in order (head = next song). */
+  userQueue: RadioTrack[];
   startSession: () => Promise<void>;
   endSession: () => void;
   hasLastSession: boolean;
@@ -277,6 +280,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const setPQ = (q: { list: CardTrack[]; idx: number; offset?: number } | null) => {
     promptQueue.current = q;
     setPromptPlaylist(q ? q.list.slice(q.offset ?? 0) : null);
+  };
+  /** Search queue: songs you queued, in order. The head is the next song (finish or skip). */
+  const userQueue = useRef<RadioTrack[]>([]);
+  const [userQueueList, setUserQueueList] = useState<RadioTrack[]>([]);
+  const setUQ = (q: RadioTrack[]) => {
+    userQueue.current = q;
+    setUserQueueList(q);
   };
   /** The queued pick that is the fixed finish door for song `cid`, if the playlist is still running. */
   const queuedNext = (cid: string | null | undefined) => {
@@ -565,9 +575,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // being chosen one step ahead (the landing plan). Reuse it — scouting again would put a
       // different song on screen than the one Spotify will really play.
       const ps = preSkip.current;
-      const pre = ps && ps.forId === cid ? ps.branch : null;
+      const uqHead = userQueue.current[0] ?? null;
+      const uqAfter = userQueue.current[1] ?? null;
+      if (uqHead && cid) queued.current = { forId: cid, track: uqHead };
+      const pre = !uqHead && ps && ps.forId === cid ? ps.branch : null;
       const lp = landingPlan.current;
-      const plan = !pre && lp && lp.forId === cid && lp.sessionId === s.sessionId ? lp : null;
+      const plan = !uqHead && !pre && lp && lp.forId === cid && lp.sessionId === s.sessionId ? lp : null;
       const knownSkipId = pre?.track.spotify_id ?? plan?.doorVal?.track.spotify_id;
       const qNext = queuedNext(cid);
       const qPos = promptQueue.current;
@@ -576,9 +589,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // The skip door must not be a later playlist song.
       const queueRest = qNext && qPos ? qPos.list.slice(qPos.idx + 1).map((t) => t.spotify_id).filter(Boolean) as string[] : [];
       // Fresh start: C first (so [A, C] goes out asap), then B avoiding C.
-      const freshStart = !pre && !plan && s.history.length === 0;
+      const freshStart = !uqHead && !pre && !plan && s.history.length === 0;
       const earlyC: Promise<Branch> | null = freshStart ? fetchBranch(skippedState, ctrl.signal, queueRest) : null;
-      const playedB: Promise<Branch> = qNext
+      const playedB: Promise<Branch> = uqHead
+        ? Promise.resolve({ track: uqHead, road: advance(s, "played").road })
+        : qNext
         ? Promise.resolve({ track: { ...qNext, why: `Your playlist, song ${(qPos?.idx ?? 0) + 2 - qOff} of ${(qPos?.list.length ?? 0) - qOff}` }, road: advance(s, "played").road })
         : earlyC
           ? earlyC.catch(() => null).then((c) => fetchBranch(advance(s, "played"), ctrl.signal, [c?.track.spotify_id].filter(Boolean) as string[]))
@@ -590,7 +605,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (first && finishId && first.track.spotify_id === finishId) return fetchBranch(skippedState, ctrl.signal, [finishId, ...queueRest]);
           return first;
         });
-      const skippedB: Promise<Branch> = earlyC
+      const skippedB: Promise<Branch> = uqHead
+        ? Promise.resolve({ track: uqHead, road: advance(s, "skipped").road })
+        : earlyC
         ? earlyC.then((c) => (c && qNext && c.track.spotify_id === qNext.spotify_id ? fetchBranch(skippedState, ctrl.signal, [qNext.spotify_id!, ...queueRest]) : c))
         : pre
         ? Promise.resolve(pre)
@@ -598,7 +615,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           ? plan.door.then((b) => (b?.track && isPlayable(b.track) ? b : freshSkip()))
           : freshSkip();
       // v: the finish door's own "if you skip" song, ready before the hand-over needs it.
-      const finishSkip: Promise<Branch> = Promise.all([playedB, skippedB]).then(([f, k]) => {
+      const finishSkip: Promise<Branch> = uqAfter
+        ? Promise.resolve({ track: uqAfter, road: advance(s, "played").road })
+        : Promise.all([playedB, skippedB]).then(([f, k]) => {
         if (!f?.track.spotify_id) return null;
         const onFinish: RadioState = { ...advance(s, "played"), current: f.track, road: f.road };
         return fetchBranch(advance(onFinish, "skipped"), ctrl.signal, [cid, k?.track.spotify_id].filter(Boolean) as string[])
@@ -645,7 +664,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         // w: start choosing C's own skip song now, unless a plan for C already exists.
         const lpNow = landingPlan.current;
         const cId = b?.track.spotify_id;
-        if (b && cId && !(lpNow && lpNow.forId === cId && lpNow.sessionId === s.sessionId && lpNow.doorVal !== null)) {
+        if (b && cId && !uqHead && !(lpNow && lpNow.forId === cId && lpNow.sessionId === s.sessionId && lpNow.doorVal !== null)) {
           void playedB.then((f) => {
             if (branches.current?.key !== key) return;
             const again = landingPlan.current;
@@ -696,6 +715,19 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     note("think", "Left your playlist — Crate is back in the maze");
   }, [radio.active, radio.current?.spotify_id, note]);
 
+  // Search queue: when the head starts playing, drop it — the next queued song becomes the door.
+  useEffect(() => {
+    const id = radio.current?.spotify_id;
+    if (!radio.active) {
+      if (userQueue.current.length) setUQ([]);
+      return;
+    }
+    const n = advanceUserQueue(userQueue.current, id);
+    if (n === userQueue.current) return;
+    setUQ(n);
+    note("think", n.length ? `Your queue: "${n[0]?.name}" is next (${n.length} left)` : "Last queued song — after this Crate is back in the maze");
+  }, [radio.active, radio.current?.spotify_id, note]);
+
   useEffect(() => {
     // One quiet second after a song change: if you skip again, no search is wasted.
     const wait = settleUntil.current - Date.now();
@@ -736,7 +768,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         };
         const sState = advance(s, "skipped");
         const fState = advance(s, "played");
-        const qB = queuedNext(cid);
+        const qB = queuedNext(cid) ?? userQueue.current[0] ?? null;
         // A playlist pick is the user's own choice: never swapped for "already heard" etc.
         let finish = qB && b?.track.spotify_id === qB.spotify_id ? b : why("B", doorProblem(b?.track, fState, [cid])) ? null : b;
         if (!finish?.track.spotify_id) {
@@ -749,7 +781,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           repaired.push("B");
         }
         // C is already queued in Spotify; replacing it early rides the normal skip-door push.
-        let skip = why("C", doorProblem(c?.track, sState, [cid, finish.track.spotify_id])) ? null : c;
+        let skip = qB && userQueue.current[0] && c?.track.spotify_id === userQueue.current[0].spotify_id ? c : why("C", doorProblem(c?.track, sState, [cid, finish.track.spotify_id])) ? null : c;
         if (!skip?.track.spotify_id) {
           const nc = await fetchBranch(advance(s, "skipped"), undefined, [finish.track.spotify_id].filter(Boolean) as string[]);
           if (branches.current?.key !== key || !nc) return;
@@ -1361,7 +1393,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     if (qd && qd.forId === radioRef.current.current?.spotify_id) {
       queued.current = null;
       acceptObserved(qd.track, "skipped", false);
-      await startSpotifyPlayback(qd.track, true, null, undefined, "queued next");
+      await startSpotifyPlayback(qd.track, true, userQueue.current[1] ?? null, undefined, "queued next");
       return;
     }
     const inLine = () => {
@@ -1866,7 +1898,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             queued.current = null;
             pushSpotifyLog({ kind: "event", at: Date.now(), text: `QUEUED — skip redirected to "${qd.track.name}"` });
             acceptObserved(qd.track, "skipped", false);
-            void startSpotifyPlayback(qd.track, true, null, undefined, "queued skip");
+            void startSpotifyPlayback(qd.track, true, userQueue.current[1] ?? null, undefined, "queued skip");
             return;
           }
           const q = door.current;
@@ -1894,6 +1926,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             const plan = landingPlan.current;
             if (plan && cId && plan.forId === cId && plan.sessionId === radioRef.current.sessionId) plan.forId = state.spotifyId;
             setPQ(null);
+            setUQ([]);
             pushSpotifyLog({ kind: "event", at: Date.now(), text: `FOREIGN SKIP — "${foreignTrack.name}" picked in Spotify, counted as a skip; pushing w behind it` });
             const before = radioRef.current;
             acceptObserved(foreignTrack, "skipped", false, state.progressMs, state.durationMs);
@@ -2413,6 +2446,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       // Steering owns the maze from here: a running prompt playlist yields to the new direction.
       if (!opts?.keepQueue) setPQ(null);
       queued.current = null;
+      if (!opts?.queue) setUQ([]);
       // Steering with a song = you want out of this one: skip to the pick now.
       if (steerPick && !road && !opts?.queue) {
         const why = opts?.source === "search" ? "You picked it" : opts?.source === "prompt" ? "From your prompt" : trimmed ? `Steering: ${trimmed}` : "You asked Crate to steer";
@@ -2502,6 +2536,22 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     const s = radioRef.current;
     if (!s.active || !s.current?.spotify_id || !track.spotify_id) return;
     const t: RadioTrack = { ...track, altRoad: "Queued", why: "You queued it" };
+    const next = addToUserQueue(userQueue.current, t, s.current.spotify_id);
+    if (next === userQueue.current) {
+      note("reroot", `"${t.name}" is already queued`);
+      return;
+    }
+    const first = userQueue.current.length === 0;
+    setUQ(next);
+    if (!first) {
+      // The first queued song's own next song is this one: make it v so the hand-over sends it.
+      const e = branches.current;
+      if (next.length === 2 && e && e.key.startsWith(`${s.current.id}|`)) {
+        branches.current = { ...e, finishSkip: Promise.resolve({ track: t, road: advance(s, "played").road }) };
+      }
+      note("reroot", `Queued: "${t.name}" — #${next.length} in your queue`);
+      return;
+    }
     void steerSession("", [t], { source: "search", keepW: true, queue: true }).then(() => {
       if (radioRef.current.current?.spotify_id === s.current?.spotify_id) queued.current = { forId: s.current!.spotify_id!, track: t };
       note("reroot", `Queued: "${t.name}" plays next, finish or skip`);
@@ -2627,6 +2677,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         setDeepCuts,
         sessionLive,
         promptPlaylist,
+        userQueue: userQueueList,
         startSession,
         endSession: () => {
           watchOff.current = true; // don't re-adopt the song you just ended on

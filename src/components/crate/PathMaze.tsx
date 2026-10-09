@@ -139,6 +139,7 @@ function JunctionTree({
 }: TreeSnapshot & { musicPlaying: boolean; controlsEnabled: boolean }) {
   const roadName = useRoadName();
   const reduced = useReducedMotion();
+  const { userQueue } = useRadio();
   const [shown, setShown] = useState<TreeSnapshot>({ current, road, consecutiveSkips, upNext, upSkip });
   const [anim, setAnim] = useState<TreeAnim>(null);
   const latest = useRef<TreeSnapshot>({ current, road, consecutiveSkips, upNext, upSkip });
@@ -241,6 +242,13 @@ function JunctionTree({
   const skipRoad = shown.upSkip?.road ?? (shown.consecutiveSkips >= 3 ? "mixed" : shown.consecutiveSkips >= 1 ? (shown.road === "vibe" ? "era" : "vibe") : shown.road);
   // While a song is queued, both doors hold the same track — the tree collapses to one centered branch.
   const queued = shown.upNext?.altRoad === "Queued";
+  // Songs queued after the next one: a straight chain below the "Queued" door.
+  const chainAll = queued ? userQueue.filter((t) => t.spotify_id !== shown.upNext?.spotify_id) : [];
+  const chain = chainAll.slice(0, 4);
+  const chainMore = chainAll.length - chain.length;
+  const step = dH + 40;
+  const chainH = chain.length ? chain.length * step + (chainMore > 0 ? 28 : 0) : 0;
+  const totalH = doorsTop + dH + chainH;
   const promoting = anim?.type === "promote" ? anim.side : null;
   const resetting = anim?.type === "reset-out";
 
@@ -281,13 +289,26 @@ function JunctionTree({
     <motion.div
       ref={box}
       className="relative mt-1"
-      style={{ height: ready ? doorsTop + dH : undefined }}
+      style={{ height: ready ? totalH : undefined }}
       initial={false}
       animate={resetting ? { scale: 0.88, opacity: 0 } : { scale: 1, opacity: 1 }}
       transition={{ duration: resetting ? 0.28 : 0.32, ease: TREE_EASE }}
     >
       {ready && (
-        <svg className="pointer-events-none absolute inset-0" width={w} height={doorsTop + dH} aria-hidden>
+        <svg className="pointer-events-none absolute inset-0" width={w} height={totalH} aria-hidden>
+          {chain.map((t, i) => (
+            <motion.path
+              key={`chain-${t.spotify_id}`}
+              d={`M ${w / 2} ${doorsTop + dH + i * step} L ${w / 2} ${doorsTop + dH + i * step + 40}`}
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth={2}
+              strokeLinecap="round"
+              initial={reduced ? false : { pathLength: 0 }}
+              animate={{ pathLength: 1 }}
+              transition={{ duration: reduced ? 0.12 : 0.4, ease: TREE_EASE }}
+            />
+          ))}
           {queued ? (
             branch(w / 2, "var(--primary)", `C-${shown.upNext?.spotify_id ?? "none"}`, 0, !shown.upNext)
           ) : (
@@ -395,6 +416,34 @@ function JunctionTree({
           />
         )}
       </motion.div>
+      {chain.map((t, i) => (
+        <motion.div
+          key={`chain-door-${t.spotify_id}`}
+          layout={!reduced}
+          className="absolute"
+          style={{ left: cX, top: doorsTop + (i + 1) * step, width: doorW }}
+          initial={reduced ? false : { opacity: 0, y: 8, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.3, delay: reduced ? 0 : 0.3, ease: TREE_EASE }}
+        >
+          <Door
+            tone="keep"
+            label={`Queued · #${i + 2}`}
+            sublabel="after the one above"
+            road={shown.road}
+            track={t}
+            title={t.name}
+            artists={t.artists}
+            image={t.image_url}
+            icon={<ListPlus className="h-3 w-3" />}
+          />
+        </motion.div>
+      ))}
+      {chainMore > 0 && (
+        <p className="absolute text-center text-xs text-muted-foreground" style={{ left: 0, right: 0, top: doorsTop + dH + chain.length * step + 8 }}>
+          +{chainMore} more queued
+        </p>
+      )}
       {!queued && (
         <motion.div
           ref={rRef}
