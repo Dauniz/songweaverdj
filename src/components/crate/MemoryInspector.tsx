@@ -121,7 +121,7 @@ export function MemoryInspector() {
           </div>
           <Button
             type="button"
-            variant="default"
+            variant="ghost"
             size="xs"
             disabled={reflecting}
             onClick={async () => {
@@ -137,7 +137,7 @@ export function MemoryInspector() {
                 setTimeout(() => setReflectMsg(null), 6000);
               }
             }}
-            className="shrink-0 gap-1.5 px-2.5 text-[11px] font-semibold shadow-[0_0_18px_-6px_var(--primary)]"
+            className="shrink-0 gap-1.5 px-2.5 text-[11px] font-semibold text-highlight shadow-[0_0_18px_-6px_var(--highlight)] hover:bg-highlight/10 hover:text-highlight"
           >
             <Sparkle className={reflecting ? "animate-pulse" : undefined} />
             {reflecting ? "Crate is reflecting…" : "Let Crate reflect"}
