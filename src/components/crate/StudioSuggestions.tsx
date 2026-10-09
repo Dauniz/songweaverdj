@@ -35,7 +35,7 @@ export function StudioSuggestions({ onPlay }: { onPlay?: () => void }) {
   return (
     <div className="song-results-reveal mb-4 w-full max-w-3xl sm:mb-5">
       <div className="mb-1.5 font-display text-lg font-bold text-primary">{data.title}</div>
-      <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="grid grid-cols-2 gap-1.5">
+      <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="grid grid-cols-2 gap-1.5 lg:grid-cols-4 xl:grid-cols-2">
         {data.tracks.map((t, i) => (
           <motion.div
             key={t.spotify_id}

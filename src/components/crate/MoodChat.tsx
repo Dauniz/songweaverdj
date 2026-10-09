@@ -315,7 +315,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
       className={cn(
         "composer-reveal w-full bg-background/80 backdrop-blur",
         empty
-          ? "mt-4 shrink-0 px-0 pb-2 sm:mt-5 sm:px-5 sm:pb-4 lg:px-7"
+          ? "mt-3 shrink-0 px-0 pb-2 sm:mt-4 sm:px-5 sm:pb-4 lg:px-7"
           : "border-t px-5 pb-8 pt-3 lg:px-7 lg:pb-10",
       )}
     >
@@ -336,7 +336,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             </div>
           </motion.div>
         )}
-        <div className={cn("mb-4", !empty && "pt-3")}>
+        <div className={cn(empty ? "mb-3" : "mb-4 pt-3")}>
           <LibrarySearch {...(onSearchSelection ? { onSelect: onSearchSelection } : {})} />
         </div>
         <PromptInput onSubmit={(msg) => send(msg.text)} className="bg-surface/90 shadow-sm">
@@ -409,7 +409,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
 
   if (empty) {
     return (
-      <div className="chat-enter scrollbar-thin flex h-full min-h-0 flex-col items-center justify-start overflow-y-auto px-4 pb-4 pt-4 sm:px-6 sm:pt-6 xl:pt-8 [&>*]:shrink-0">
+      <div className="chat-enter scrollbar-thin flex h-full min-h-0 flex-col items-center justify-start overflow-y-auto px-4 pb-2 pt-3 sm:px-6 sm:pt-4 xl:pt-6 [&>*]:shrink-0">
         {sessionLive && promptPlaylist && promptPlaylist.length > 0 && (
           <div className="song-results-reveal mb-8 w-full max-w-3xl">
             <div className="mb-1.5 font-display text-lg font-bold text-primary">
@@ -429,7 +429,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             alt="Crate"
             width={80}
             height={80}
-            className="h-10 w-10 rounded-lg sm:h-12 sm:w-12"
+            className="h-10 w-10 rounded-lg sm:h-12 sm:w-12 [@media(max-height:750px)]:hidden"
           />
           <h2 className="mt-3 max-w-full text-2xl font-bold leading-tight sm:text-3xl">
             {sessionLive ? "Want to steer your session?" : "What does today sound like?"}
