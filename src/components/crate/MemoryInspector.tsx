@@ -138,16 +138,16 @@ export function MemoryInspector() {
               <span className={cn("rounded-full px-2 py-0.5 font-medium", KIND_STYLE[k])}>
                 {KIND_LABEL[k] ?? k} · {v}
               </span>
-              {k === "mood_trigger" && (
+              {KIND_TOOLTIP[k] && (
                 <TooltipProvider delayDuration={150}>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button type="button" aria-label="What is a mood trigger?" className="rounded-full p-0.5 text-muted-foreground hover:text-foreground">
+                      <button type="button" aria-label={`What is ${KIND_LABEL[k]}?`} className="rounded-full p-0.5 text-muted-foreground hover:text-foreground">
                         <CircleHelp className="h-3 w-3" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-[240px] text-left">
-                      A count of the feelings you've tied to songs — via Feedbacker notes or your prompts. Crate recalls them when picking songs, so a feeling you once linked to a song shapes future picks and your personalized suggestions.
+                      {KIND_TOOLTIP[k]}
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
