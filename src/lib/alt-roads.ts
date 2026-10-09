@@ -49,7 +49,6 @@ export function wormholeScore(s: AltSong) {
 }
 
 const distinctPlaylists = (s: AltSong) => new Set(s.sources.filter((x) => x.type === "playlist").map((x) => x.name)).size;
-const thisYear = () => new Date().getUTCFullYear();
 
 /** Era of a song: its peak streaming year, else first play, else the year it was saved. */
 export function eraOf(s: AltSong): number | null {
