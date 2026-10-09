@@ -118,7 +118,7 @@ type TreeSnapshot = {
 };
 
 type TreeAnim =
-  | { type: "promote"; side: "left" | "right" }
+  | { type: "promote"; side: "left" | "right" | "center" }
   | { type: "reset-out" }
   | { type: "reset-in" }
   | null;
@@ -177,8 +177,14 @@ function JunctionTree({
       setShown((s) => ({ ...s, upNext, upSkip, road, consecutiveSkips }));
       return;
     }
-    const side: "left" | "right" | null =
-      id === shown.upNext?.spotify_id ? "left" : id === shown.upSkip?.track.spotify_id ? "right" : null;
+    const side: "left" | "right" | "center" | null =
+      id === shown.upNext?.spotify_id
+        ? shown.upNext?.altRoad === "Queued"
+          ? "center"
+          : "left"
+        : id === shown.upSkip?.track.spotify_id
+          ? "right"
+          : null;
     timers.current.forEach(clearTimeout);
     timers.current = [];
     const commit = () => setShown({ ...latest.current });
