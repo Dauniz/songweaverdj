@@ -1,4 +1,5 @@
 import { readAllRows } from "@/lib/keyset";
+import { readPlaylistMeanings } from "@/lib/playlist-meanings.functions";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,6 +35,7 @@ export function LibraryPanel() {
   const statusFn = useServerFn(getSpotifyStatus);
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const syncFn = useServerFn(syncSpotifyLibrary);
+  const readMeanings = useServerFn(readPlaylistMeanings);
   const disconnectFn = useServerFn(disconnectSpotify);
   const progressFn = useServerFn(getSyncProgress);
   const [busy, setBusy] = useState<string | null>(null);
@@ -128,6 +130,7 @@ export function LibraryPanel() {
         toast.warning(`Spotify slowed us down — ${r.imported} tracks saved. Sync again in a few minutes for the rest.`);
       else toast.success(`Sync complete — ${r.imported} tracks loaded`);
       qc.invalidateQueries({ queryKey: ["library"] });
+      void readMeanings().catch(() => {});
       qc.invalidateQueries({ queryKey: ["spotify-status"] });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Sync failed");
