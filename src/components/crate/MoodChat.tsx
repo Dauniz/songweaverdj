@@ -309,6 +309,8 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   );
 
   const empty = messages.length === 0;
+  // Bars stay vertically centered whenever the prompt playlist isn't shown above them.
+  const centered = !(sessionLive && promptPlaylist && promptPlaylist.length > 0);
 
   const composer = (
     <div
@@ -317,6 +319,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
         empty
           ? "mt-3 shrink-0 px-0 pb-2 sm:mt-4 sm:px-5 sm:pb-4 lg:px-7"
           : "border-t px-5 pb-8 pt-3 lg:px-7 lg:pb-10",
+        centered && "mb-auto",
       )}
     >
       <div className="mx-auto w-full max-w-3xl">
@@ -402,14 +405,19 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
           </PromptInputFooter>
         </PromptInput>
         </div>
-        {empty && !sessionLive && (
-          <div className="mt-6 sm:mt-8">
-            <StudioSuggestions {...(onSearchSelection ? { onPlay: onSearchSelection } : {})} />
-          </div>
-        )}
       </div>
     </div>
   );
+
+  const suggestions = empty && !sessionLive ? (
+    <div className="composer-reveal w-full shrink-0 px-0 pb-6 sm:px-5 lg:px-7">
+      <div className="mx-auto w-full max-w-3xl">
+        <div className="mt-6 sm:mt-8">
+          <StudioSuggestions {...(onSearchSelection ? { onPlay: onSearchSelection } : {})} />
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   if (empty) {
     return (
