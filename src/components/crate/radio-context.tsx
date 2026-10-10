@@ -1544,12 +1544,11 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       } catch {
         /* keep the estimate */
       }
-      // Fire a beat before the last millisecond: the round-trip to Spotify takes time, and
-      // sending while the track is in its final moments makes Spotify skip straight past the
-      // first song in the list. The final ~1 s of a track is almost always silence/fade.
-      // ~3 s early: if Spotify's own "track ended → next" overlaps the new list, it skips
-      // straight past the finish song. Losing ~3 s of fade-out is the lesser evil.
-      await new Promise((res) => setTimeout(res, Math.max(0, end - Date.now() - 3_000)));
+      // Fire ~0.5 s before the end: enough to cover the round-trip to Spotify so the
+      // hand-over lands at the literal end of the song. If Spotify's own "track ended →
+      // next" still overlaps the new list and skips past the finish song, the hand-over
+      // guard below recovers it once (never counted as your skip).
+      await new Promise((res) => setTimeout(res, Math.max(0, end - Date.now() - 500)));
       const now = radioRef.current;
       if (swapAborted.current === cur.spotify_id) return; // the poll saw your own pick
       if (now.sessionId !== s.sessionId || now.current?.spotify_id !== cur.spotify_id) {

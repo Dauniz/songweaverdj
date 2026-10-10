@@ -53,8 +53,8 @@ export const Route = createFileRoute("/api/public/handover-tick")({
               status = "pending";
               return;
             }
-            // Same timing as the page: fire ~3 s before the end.
-            await sleep(remaining - 3_000);
+            // Same timing as the page: fire ~0.5 s before the end.
+            await sleep(remaining - 500);
             const uris = [n.b_id, ...(n.v_id && n.v_id !== n.b_id ? [n.v_id] : [])].map((i) => `spotify:track:${i}`);
             const s = await fetch("https://api.spotify.com/v1/me/player/play", {
               method: "PUT",
