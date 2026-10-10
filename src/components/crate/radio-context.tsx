@@ -2410,11 +2410,14 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const autoOpenAt = useRef(0);
   useEffect(() => {
     if (playbackIssue?.status !== "no_device") return;
-    if (typeof window === "undefined" || isAppleTouchDevice()) return;
-    if (/Android|Mobi/i.test(navigator.userAgent)) return;
+    if (typeof window === "undefined") return;
+    const touch = isAppleTouchDevice() || /Android|Mobi/i.test(navigator.userAgent);
+    // Phones/tablets (test): only on the published site — inside the editor's
+    // frame iOS drops app links, so the popup stays there.
+    if (touch && window.top !== window.self) return;
     if (Date.now() - autoOpenAt.current < 60_000) return;
     autoOpenAt.current = Date.now();
-    pushSpotifyLog({ kind: "event", at: Date.now(), text: "AUTO-OPEN — opening Spotify on desktop" });
+    pushSpotifyLog({ kind: "event", at: Date.now(), text: `AUTO-OPEN — opening Spotify on ${touch ? "phone/tablet" : "desktop"}` });
     openSpotify();
   }, [playbackIssue, openSpotify]);
 
