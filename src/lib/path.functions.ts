@@ -9,7 +9,7 @@ import { isForeverSkipMemory, loadCooldowns, songKey, type Cooldowns } from "./c
 import { LENS_IDS, type LensId } from "./lenses";
 import { altPool, planAltRoad, type AltKind } from "./alt-roads";
 
-import { isForgotten, playlistWeight as eraPlaylistWeight, savedCloseWeight, ERA_CUTOFF, vibeShortlist, newAngleShortlist } from "./pick-rules";
+import { isForgotten, playlistWeight as eraPlaylistWeight, savedCloseWeight, ERA_CUTOFF, vibeShortlist, newAngleShortlist, violatesVariety } from "./pick-rules";
 
 /** Which alternative road is on (they replace the default roads). */
 const altKind = (lens: LensId | null, deepCuts: boolean): AltKind | null =>
@@ -252,13 +252,17 @@ function buildShortlist(
   likedArtists: Set<string>,
   current?: Song,
   session: Song[] = [],
+  liked: Song[] = [],
 ): Song[] {
   const seen = new Set<string>();
   const out: Song[] = [];
   const shuffled = shuffle(available);
 
   if (road === "vibe") {
-    return vibeShortlist(current ?? anchor, shuffled, (x) => new Set(x.mood ?? []));
+    return vibeShortlist(current ?? anchor, shuffled, (x) => new Set(x.mood ?? []), {
+      recentArtists: session.map((s) => s.artists.split(", ")[0]!.trim()),
+      liked: liked,
+    });
   }
 
   if (road === "era") {
@@ -477,7 +481,10 @@ export const nextPathTrack = createServerFn({ method: "POST" })
 
     const sessionSongs = data.history.map((h) => bySpotify.get(h.spotifyId)).filter((x): x is Song => !!x);
     if (current) sessionSongs.push(current);
-    const shortlist = alt ? alt.list : buildShortlist(data.road, anchor, available, likedArtists, current, sessionSongs);
+    const likedSongs = liked.map((h) => bySpotify.get(h.spotifyId)).filter((x): x is Song => !!x);
+    const shortlist = alt ? alt.list : buildShortlist(data.road, anchor, available, likedArtists, current, sessionSongs, likedSongs);
+    const isVibe = !alt && data.road === "vibe";
+    const recentLabel = sessionSongs.slice(-4).map((s) => `${s.artists}${s.album ? ` (${s.album})` : ""}`).join("; ");
     const index = new Map<string, Song>();
     const lines = shortlist.map((s, i) => {
       index.set(`T${i}`, s);
@@ -562,6 +569,7 @@ Played through${alt ? "" : " (the road that works)"}: ${liked.map((h) => `${h.na
 Skipped (wrong turns, avoid similar): ${skipped.map((h) => `${h.name} — ${h.artists}`).join("; ") || "(none)"}
 ${data.steerNote ? `Steering instruction from the listener (must respect): ${data.steerNote}\n` : ""}${data.chips.length ? `Steering chips the user tapped (must respect): ${data.chips.join(", ")}.` : ""}
 ${roadRule}
+${isVibe ? `VARIETY: same vibe, different artist and album. Recently played: ${recentLabel || "(none)"}. Do not pick these artists or albums again unless nothing else fits — use the {genre tags}, <playlist mood tags> and your knowledge of each artist's sound to find the same feel elsewhere.\n` : ""}
 ${!alt && data.eraShift ? "ERA HOP: the last era didn't land — pick from a nearby era, roughly 1–3 years earlier or later than the anchor's period.\n" : ""}${data.coolArtists.length ? `COOLING (skipped recently, prefer other artists unless one is clearly the best fit): ${data.coolArtists.join("; ")}\n` : ""}HISTORY: "(Nx, last yyyy-mm)" = how often they streamed it and when last. "forgotten favorite" = 20+ streams but 3 or fewer in the last 6 months, great to resurface.
 Other Walrus Memory relevant right now:
 ${walrus.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
@@ -595,8 +603,13 @@ Pick the next song.`;
       for (const tc of st.toolCalls)
         if (tc.toolName === "pick_next") picked = tc.input as { code: string; why: string };
 
-    const song = (picked && index.get(picked.code.trim())) || shortlist[0]!;
-    return toTrack(song, withLens(picked?.why || "Continuing the path"), data.road);
+    let song = (picked && index.get(picked.code.trim())) || shortlist[0]!;
+    let why = picked?.why || "Continuing the path";
+    if (isVibe && violatesVariety(song, sessionSongs)) {
+      const alt2 = shortlist.find((s) => !violatesVariety(s, sessionSongs));
+      if (alt2) { song = alt2; why = "Same vibe, new artist"; }
+    }
+    return toTrack(song, withLens(why), data.road);
   });
 
 /** A song the listener started in Spotify mid-session: is it far from where the maze is heading? */
