@@ -252,13 +252,17 @@ function buildShortlist(
   likedArtists: Set<string>,
   current?: Song,
   session: Song[] = [],
+  liked: Song[] = [],
 ): Song[] {
   const seen = new Set<string>();
   const out: Song[] = [];
   const shuffled = shuffle(available);
 
   if (road === "vibe") {
-    return vibeShortlist(current ?? anchor, shuffled, (x) => new Set(x.mood ?? []));
+    return vibeShortlist(current ?? anchor, shuffled, (x) => new Set(x.mood ?? []), {
+      recentArtists: session.map((s) => s.artists.split(", ")[0]!.trim()),
+      liked: liked,
+    });
   }
 
   if (road === "era") {
