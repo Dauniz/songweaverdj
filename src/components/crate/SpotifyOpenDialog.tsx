@@ -44,7 +44,9 @@ export function SpotifyOpenDialog({
             {connect ? "Connect Spotify" : premium ? "Spotify Premium required" : "Open Spotify"}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {issue?.message}
+            {connect || premium
+              ? issue?.message
+              : "Crate's knocking, but Spotify isn't answering. Open it and let your DJ in."}
             {showTrack && track ? ` Then Crate will start “${track.name}” there.` : ""}
           </AlertDialogDescription>
         </AlertDialogHeader>
