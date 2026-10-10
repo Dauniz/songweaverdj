@@ -309,7 +309,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   );
 
   const empty = messages.length === 0;
-  // Bars stay vertically centered whenever the prompt playlist isn't shown above them.
+  // The complete start experience stays centered unless a prompt playlist occupies the top.
   const centered = !(sessionLive && promptPlaylist && promptPlaylist.length > 0);
 
   const composer = (
@@ -317,12 +317,11 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
       className={cn(
         "composer-reveal w-full",
         empty
-          ? "mt-3 shrink-0 px-0 pb-2 sm:mt-4 sm:px-5 sm:pb-4 lg:px-7"
+          ? "w-full shrink-0 px-0 sm:px-5 lg:px-7"
           : "border-t px-5 pb-8 pt-3 lg:px-7 lg:pb-10",
-        centered && "mb-auto",
       )}
     >
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-4xl">
         <div data-onboarding="prompt">
         {empty && welcome && !sessionLive && (
           <motion.div
@@ -352,7 +351,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                 ? 'Not feeling it? Tell Crate to steer the session in any direction. For example "More rap", "Less energy", "More nostalgia"'
                 : "Describe the vibe, setting, or a song to start from…"
             }
-            className={cn("min-h-24 px-4 py-3 text-base leading-6 placeholder:text-base sm:min-h-28 sm:text-lg sm:leading-7", empty && "min-h-16 sm:min-h-20")}
+            className={cn("min-h-24 px-4 py-3 text-base leading-6 placeholder:text-base sm:min-h-28 sm:text-lg sm:leading-7", empty && "min-h-20 text-base sm:min-h-24 sm:px-5 sm:py-4 sm:text-lg [@media(max-height:720px)]:min-h-16 [@media(max-height:720px)]:py-3")}
           />
           <PromptInputFooter className="flex items-center justify-between px-3 pb-3">
             <div className="flex items-center gap-2">
@@ -410,9 +409,9 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   );
 
   const suggestions = empty && !sessionLive ? (
-    <div className="composer-reveal w-full shrink-0 px-0 pb-6 sm:px-5 lg:px-7">
-      <div className="mx-auto w-full max-w-3xl">
-        <div className="mt-6 sm:mt-8">
+    <div className="composer-reveal w-full shrink-0 px-0 sm:px-5 lg:px-7">
+      <div className="mx-auto w-full max-w-4xl">
+        <div className="mt-5 sm:mt-6 [@media(max-height:720px)]:mt-3">
           <StudioSuggestions {...(onSearchSelection ? { onPlay: onSearchSelection } : {})} />
         </div>
       </div>
@@ -423,8 +422,8 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
     return (
       <div
         className={cn(
-          "chat-enter scrollbar-thin flex h-full min-h-0 flex-col items-center overflow-y-auto px-4 pb-2 pt-3 sm:px-6 sm:pt-4 xl:pt-6 [&>*]:shrink-0",
-          sessionLive && !(promptPlaylist && promptPlaylist.length > 0) ? "justify-center" : "justify-start",
+          "chat-enter scrollbar-thin flex h-full min-h-0 flex-col items-center overflow-y-auto px-4 py-3 sm:px-6 sm:py-4 xl:py-6 [&>*]:shrink-0",
+          centered ? "justify-center" : "justify-start",
         )}
       >
         {sessionLive && promptPlaylist && promptPlaylist.length > 0 && (
@@ -439,30 +438,34 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             </motion.div>
           </div>
         )}
-        <div className={cn("flex w-full flex-col items-center text-center", centered && "mt-auto")}>
-          <img
-            src={logo}
-            alt="Crate"
-            width={80}
-            height={80}
-            className="h-10 w-10 rounded-lg sm:h-12 sm:w-12 [@media(max-height:750px)]:hidden"
-          />
-          <h2 className="mt-3 max-w-full text-2xl font-bold leading-tight sm:text-3xl">
-            {sessionLive ? "Want to steer your session?" : "What does today sound like?"}
-          </h2>
-          <p className="mt-2 max-w-lg text-sm leading-5 text-muted-foreground sm:text-base sm:leading-6">
-            {sessionLive
-              ? "Are you missing something? Tweak the session with your own input."
-              : "Describe your mood, where you are, what you're doing. I'll tune in a track-list meant for the moment."}
-          </p>
-          <p className="mt-2 max-w-lg text-xs leading-5 text-muted-foreground/70 sm:text-sm">
-            {sessionLive
-              ? "Steering the session will make Crate skip to the desired track."
-              : "Either search for a song or send a prompt to Crate to initialize a Songweaver session."}
-          </p>
+        <div className={cn("flex w-full shrink-0 flex-col items-center", centered && "my-auto")}>
+          <div className="flex w-full flex-col items-center text-center">
+            <img
+              src={logo}
+              alt="Crate"
+              width={80}
+              height={80}
+              className="h-12 w-12 rounded-lg sm:h-14 sm:w-14 [@media(max-height:720px)]:h-9 [@media(max-height:720px)]:w-9"
+            />
+            <h2 className="mt-3 max-w-full text-3xl font-bold leading-tight sm:text-4xl [@media(max-height:720px)]:mt-2 [@media(max-height:720px)]:text-2xl">
+              {sessionLive ? "Want to steer your session?" : "What does today sound like?"}
+            </h2>
+            <p className="mt-2 max-w-2xl text-base leading-6 text-muted-foreground sm:text-lg sm:leading-7 [@media(max-height:720px)]:text-sm [@media(max-height:720px)]:leading-5">
+              {sessionLive
+                ? "Are you missing something? Tweak the session with your own input."
+                : "Describe your mood, where you are, what you're doing. I'll tune in a track-list meant for the moment."}
+            </p>
+            <p className="mt-2 max-w-2xl text-sm leading-5 text-muted-foreground/70 sm:text-base sm:leading-6 [@media(max-height:720px)]:mt-1 [@media(max-height:720px)]:text-xs [@media(max-height:720px)]:leading-4">
+              {sessionLive
+                ? "Steering the session will make Crate skip to the desired track."
+                : "Either search for a song or send a prompt to Crate to initialize a Songweaver session."}
+            </p>
+          </div>
+          <div className="mt-4 w-full sm:mt-5 [@media(max-height:720px)]:mt-3">
+            {composer}
+          </div>
+          {suggestions}
         </div>
-        {composer}
-        {suggestions}
       </div>
     );
   }

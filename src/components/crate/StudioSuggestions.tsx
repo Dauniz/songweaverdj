@@ -33,20 +33,20 @@ export function StudioSuggestions({ onPlay }: { onPlay?: () => void }) {
   });
   if (!data?.tracks.length) return null;
   return (
-    <div className="song-results-reveal mb-4 w-full max-w-3xl sm:mb-5">
-      <div className="mb-1.5 font-display text-lg font-bold text-primary">{data.title}</div>
-      <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="grid grid-cols-2 gap-1.5 lg:grid-cols-4 xl:grid-cols-2">
+    <div className="song-results-reveal mx-auto w-full max-w-4xl">
+      <div className="mb-2 text-center font-display text-lg font-bold text-primary sm:text-xl">{data.title}</div>
+      <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="grid grid-cols-2 gap-2 lg:grid-cols-4 xl:grid-cols-2">
         {data.tracks.map((t, i) => (
           <motion.div
             key={t.spotify_id}
             variants={reduced ? reducedFade : geometricEnter}
-            className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5 rounded-lg border bg-surface p-1.5", i >= 4 && "hidden sm:grid")}
+            className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border bg-surface p-2 [@media(max-height:720px)]:p-1.5", i >= 4 && "hidden sm:grid")}
           >
             <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
               {t.image_url ? (
-                <img src={t.image_url} alt="" className="h-8 w-8 shrink-0 rounded object-cover" />
+                <img src={t.image_url} alt="" className="h-9 w-9 shrink-0 rounded object-cover [@media(max-height:720px)]:h-8 [@media(max-height:720px)]:w-8" />
               ) : (
-                <div className="h-8 w-8 shrink-0 rounded bg-surface-2" />
+                <div className="h-9 w-9 shrink-0 rounded bg-surface-2 [@media(max-height:720px)]:h-8 [@media(max-height:720px)]:w-8" />
               )}
               <div className="min-w-0 text-left">
                 <div className="truncate text-xs font-semibold sm:text-sm" title={t.name}>{t.name}</div>
@@ -58,7 +58,7 @@ export function StudioSuggestions({ onPlay }: { onPlay?: () => void }) {
               size="icon"
               aria-label={`Start a session with ${t.name}`}
               onClick={() => { rerootTo({ ...t }); onPlay?.(); }}
-              className="h-8 w-8 shrink-0 rounded-full transition hover:scale-105"
+              className="h-9 w-9 shrink-0 rounded-full transition hover:scale-105 [@media(max-height:720px)]:h-8 [@media(max-height:720px)]:w-8"
             >
               <Play className="h-4 w-4 fill-current" />
             </Button>
