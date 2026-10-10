@@ -462,6 +462,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
           </p>
         </div>
         {composer}
+        {suggestions}
       </div>
     );
   }
