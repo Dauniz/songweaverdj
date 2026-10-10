@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { motion, useReducedMotion } from "motion/react";
 import { MOTION_EASE } from "@/lib/motion";
 import { readLiveSession } from "@/lib/live-session";
@@ -31,6 +32,11 @@ function Index() {
   const navigate = useNavigate();
   const reduced = useReducedMotion();
   useEffect(() => {
+    // Returning users go straight to the studio; the homepage is for
+    // newcomers and devices without a saved sign-in.
+    supabase.auth.getSession().then(({ data }) => {
+      if (data.session) void navigate({ to: "/studio" });
+    });
     if (readLiveSession()) void navigate({ to: "/studio" });
   }, [navigate]);
   return (
