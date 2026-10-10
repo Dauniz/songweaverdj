@@ -32,17 +32,33 @@ describe("forgotten favorite", () => {
 const mk = (i: number, artists: string, genres: string) => ({ spotify_id: `s${i}`, artists, genres, sources: [{ name: "p" }] });
 
 describe("vibe shortlist", () => {
-  it("is 25 songs with at most 5 by the current artist", () => {
-    const cur = mk(0, "A", "jazz, soul");
-    const pool = [
-      ...Array.from({ length: 10 }, (_, i) => mk(i + 1, "A", i < 3 ? "jazz, soul" : "country")),
-      ...Array.from({ length: 60 }, (_, i) => mk(i + 100, `B${i}`, i % 2 ? "jazz, soul" : "rock")),
-    ];
+  const cur = mk(0, "A", "jazz, soul");
+  const pool = [
+    ...Array.from({ length: 10 }, (_, i) => mk(i + 1, "A", i < 3 ? "jazz, soul" : "country")),
+    ...Array.from({ length: 60 }, (_, i) => mk(i + 100, `B${i % 15}`, i % 2 ? "jazz, soul" : "rock")),
+  ];
+  it("is 25 songs with at most 2 by the current artist", () => {
     const list = vibeShortlist(cur, pool, () => new Set());
     expect(list.length).toBe(25);
-    expect(list.filter((s) => s.artists === "A").length).toBe(5);
-    expect(list.slice(0, 3).every((s) => s.genres === "jazz, soul")).toBe(true);
+    expect(list.filter((s) => s.artists === "A").length).toBe(2);
   });
+  it("has none by the current artist if heard in the last 3 songs", () => {
+    const list = vibeShortlist(cur, pool, () => new Set(), { recentArtists: ["A"] });
+    expect(list.filter((s) => s.artists === "A").length).toBe(0);
+  });
+  it("keeps at most 1 song per album", () => {
+    const albumPool = Array.from({ length: 40 }, (_, i) => ({ ...mk(i + 1, `C${i % 20}`, "jazz, soul"), album: "Same" }));
+    const list = vibeShortlist(cur, albumPool, () => new Set());
+    const keys = list.map((s) => `${s.artists}|${s.album}`);
+    expect(new Set(keys.slice(0, 20)).size).toBe(Math.min(20, keys.slice(0, 20).length));
+  });
+});
+
+describe("vibe variety", () => {
+  it("rejects an artist from the last 3 songs", () =>
+    expect(violatesVariety({ artists: "A" }, [{ artists: "A" }, { artists: "B" }, { artists: "C" }])).toBe(true));
+  it("allows an artist heard 4 songs ago", () =>
+    expect(violatesVariety({ artists: "A" }, [{ artists: "A" }, { artists: "B" }, { artists: "C" }, { artists: "D" }])).toBe(false));
 });
 
 describe("new angle shortlist", () => {
