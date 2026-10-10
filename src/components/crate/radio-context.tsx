@@ -2404,6 +2404,20 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     retryTimer.current = setTimeout(() => void retry(), 1_500);
   }, [startSpotifyPlayback, playbackIssue, playbackFn, adoptPlaying]);
 
+  // Desktop: open Spotify automatically instead of asking the user to click
+  // "Open Spotify". At most once per minute; if Spotify still isn't found the
+  // dialog returns after openSpotify's 10 s cooldown as before.
+  const autoOpenAt = useRef(0);
+  useEffect(() => {
+    if (playbackIssue?.status !== "no_device") return;
+    if (typeof window === "undefined" || isAppleTouchDevice()) return;
+    if (/Android|Mobi/i.test(navigator.userAgent)) return;
+    if (Date.now() - autoOpenAt.current < 60_000) return;
+    autoOpenAt.current = Date.now();
+    pushSpotifyLog({ kind: "event", at: Date.now(), text: "AUTO-OPEN — opening Spotify on desktop" });
+    openSpotify();
+  }, [playbackIssue, openSpotify]);
+
   const preparedAuth = usePreparedSpotifyUrl(() =>
     authUrlFn({ data: { origin: window.location.origin, framed: window.top !== window.self } }),
   );
