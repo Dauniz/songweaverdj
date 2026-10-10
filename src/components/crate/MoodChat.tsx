@@ -439,7 +439,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             </motion.div>
           </div>
         )}
-        <div className="flex w-full flex-col items-center text-center">
+        <div className={cn("flex w-full flex-col items-center text-center", centered && "mt-auto")}>
           <img
             src={logo}
             alt="Crate"
