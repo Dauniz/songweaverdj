@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isFinished, isForgotten, playlistWeight, savedCloseWeight, ERA_CUTOFF, vibeShortlist, newAngleShortlist } from "./pick-rules";
+import { isFinished, isForgotten, playlistWeight, savedCloseWeight, ERA_CUTOFF, vibeShortlist, violatesVariety, newAngleShortlist } from "./pick-rules";
 
 const NOW = Date.UTC(2026, 9, 9);
 
