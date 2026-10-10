@@ -38,11 +38,12 @@ export function savedCloseWeight(days: number) {
   return days <= 7 ? 2 : days <= 15 ? 1 : 0;
 }
 
-export type ShortSong = { spotify_id: string; artists: string; genres: string | null; sources: { name: string }[] };
+export type ShortSong = { spotify_id: string; artists: string; genres: string | null; sources: { name: string }[]; album?: string | null };
 const tagsOf = (s: { genres: string | null }) => new Set((s.genres ?? "").toLowerCase().split(/,\s*/).filter(Boolean));
 const shares = (a: Set<string>, b: Set<string>) => [...a].some((t) => b.has(t));
 const overlap = (a: Set<string>, b: Set<string>) => [...a].filter((t) => b.has(t)).length;
 const mainArtist = (s: { artists: string }) => s.artists.split(", ")[0]!.trim();
+const albumKey = (s: { album?: string | null; artists: string }) => (s.album ? `${mainArtist(s)}|${s.album.toLowerCase()}` : "");
 
 function take<T extends { spotify_id: string }>(from: T[], n: number, seen: Set<string>) {
   const out: T[] = [];
@@ -55,35 +56,98 @@ function take<T extends { spotify_id: string }>(from: T[], n: number, seen: Set<
   return out;
 }
 
+/** Vibe variety caps. */
+export const VIBE_SAME_ARTIST_MAX = 2;
+export const VIBE_PER_ARTIST_MAX = 2;
+export const VIBE_PER_ALBUM_MAX = 1;
+export const VIBE_RECENT_WINDOW = 3;
+
+export type VibeContext<T> = {
+  /** Main artists of the last songs (newest last). */
+  recentArtists?: string[];
+  /** Songs played through this session — tags are scored against all of them. */
+  liked?: T[];
+};
+
 /**
- * Vibe shortlist (25): 5 same artist + same vibe, 10 same genre, 5 wildcards sharing a tag,
- * 5 from playlists of the same mood. Empty slots roll into the next group.
- * `pool` should already be shuffled.
+ * Vibe shortlist (25): ≤2 by the current artist (0 if heard in the last 3 songs),
+ * 10 same genre (≤2 per artist, 1 per album), 7 same playlist mood, 6 wildcards (new artists first).
+ * Everything is ranked by shared genre + mood tags with the current and played-through songs.
+ * Empty slots roll into the next group. `pool` should already be shuffled.
  */
-export function vibeShortlist<T extends ShortSong>(current: T | undefined, pool: T[], moodTags: (s: T) => Set<string>): T[] {
+export function vibeShortlist<T extends ShortSong>(
+  current: T | undefined,
+  pool: T[],
+  moodTags: (s: T) => Set<string>,
+  ctx: VibeContext<T> = {},
+): T[] {
   const seen = new Set<string>(current ? [current.spotify_id] : []);
   if (!current) return take(pool, 25, seen);
-  const g = tagsOf(current);
   const artist = mainArtist(current);
-  const mood = moodTags(current);
+  const recent = new Set((ctx.recentArtists ?? []).slice(-VIBE_RECENT_WINDOW));
+  const refs = [current, ...(ctx.liked ?? [])];
+  const g = new Set(refs.flatMap((r) => [...tagsOf(r)]));
+  const mood = new Set(refs.flatMap((r) => [...moodTags(r)]));
+  const curG = tagsOf(current);
+  const score = (s: T) => overlap(tagsOf(s), g) + overlap(moodTags(s), mood);
+  const ranked = [...pool].sort((a, b) => score(b) - score(a));
+
+  const perArtist = new Map<string, number>();
+  const perAlbum = new Map<string, number>();
   const out: T[] = [];
   let carry = 0;
-  const group = (list: T[], n: number) => {
-    const got = take(list, n + carry, seen);
-    carry = n + carry - got.length;
-    out.push(...got);
+  const fits = (s: T) => {
+    const a = mainArtist(s);
+    if ((perArtist.get(a) ?? 0) >= VIBE_PER_ARTIST_MAX) return false;
+    const k = albumKey(s);
+    return !k || (perAlbum.get(k) ?? 0) < VIBE_PER_ALBUM_MAX;
   };
-  const byArtist = pool.filter((s) => mainArtist(s) === artist).sort((a, b) => overlap(tagsOf(b), g) - overlap(tagsOf(a), g));
-  group(byArtist, 5);
-  const others = pool.filter((s) => mainArtist(s) !== artist);
+  const group = (list: T[], n: number) => {
+    const want = n + carry;
+    let got = 0;
+    for (const s of list) {
+      if (got >= want) break;
+      if (seen.has(s.spotify_id) || !fits(s)) continue;
+      seen.add(s.spotify_id);
+      const a = mainArtist(s);
+      perArtist.set(a, (perArtist.get(a) ?? 0) + 1);
+      const k = albumKey(s);
+      if (k) perAlbum.set(k, (perAlbum.get(k) ?? 0) + 1);
+      out.push(s);
+      got++;
+    }
+    carry = want - got;
+  };
+
+  const artistCap = recent.has(artist) ? 0 : VIBE_SAME_ARTIST_MAX;
+  if (artistCap) {
+    const byArtist = pool.filter((s) => mainArtist(s) === artist).sort((a, b) => overlap(tagsOf(b), curG) - overlap(tagsOf(a), curG));
+    const before = out.length;
+    group(byArtist, artistCap);
+    carry = artistCap - (out.length - before);
+  }
+  const others = ranked.filter((s) => mainArtist(s) !== artist && !recent.has(mainArtist(s)));
   const sameGenre = g.size ? others.filter((s) => overlap(tagsOf(s), g) >= Math.min(2, g.size)) : [];
-  group(sameGenre, 10);
-  const wild = g.size ? others.filter((s) => shares(tagsOf(s), g)) : [];
-  group(wild, 5);
+  group(sameGenre, 10 + (artistCap ? 0 : VIBE_SAME_ARTIST_MAX));
   const sameMood = mood.size ? others.filter((s) => shares(moodTags(s), mood)) : [];
-  group(sameMood, 5);
-  if (carry) out.push(...take(others.length ? others : pool, carry, seen));
-  return out;
+  group(sameMood, 7);
+  const wild = others.filter((s) => shares(tagsOf(s), g) || shares(moodTags(s), mood));
+  const fresh = wild.filter((s) => !(ctx.recentArtists ?? []).includes(mainArtist(s)));
+  group([...fresh, ...wild], 6);
+  if (carry) group(others.length ? others : ranked.filter((s) => mainArtist(s) !== artist), 0);
+  if (out.length < 25) out.push(...take(ranked, 25 - out.length, seen));
+  return out.slice(0, 25);
+}
+
+/** True when a Vibe pick repeats an artist from the last 3 songs, or the album of the last song. */
+export function violatesVariety(
+  pick: { artists: string; album?: string | null },
+  recent: { artists: string; album?: string | null }[],
+): boolean {
+  const last = recent.slice(-VIBE_RECENT_WINDOW);
+  if (last.some((r) => mainArtist(r) === mainArtist(pick))) return true;
+  const prev = recent[recent.length - 1];
+  return !!prev && !!albumKey(pick) && albumKey(prev) === albumKey(pick);
 }
 
 /** New angle (15): 10 random songs sharing no genre, tag or artist with the session, 5 forgotten favorites. */
