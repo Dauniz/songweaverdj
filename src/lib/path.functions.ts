@@ -9,7 +9,7 @@ import { isForeverSkipMemory, loadCooldowns, songKey, type Cooldowns } from "./c
 import { LENS_IDS, type LensId } from "./lenses";
 import { altPool, planAltRoad, type AltKind } from "./alt-roads";
 
-import { isForgotten, playlistWeight as eraPlaylistWeight, savedCloseWeight, ERA_CUTOFF, vibeShortlist, newAngleShortlist } from "./pick-rules";
+import { isForgotten, playlistWeight as eraPlaylistWeight, savedCloseWeight, ERA_CUTOFF, vibeShortlist, newAngleShortlist, violatesVariety } from "./pick-rules";
 
 /** Which alternative road is on (they replace the default roads). */
 const altKind = (lens: LensId | null, deepCuts: boolean): AltKind | null =>

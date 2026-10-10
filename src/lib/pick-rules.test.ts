@@ -49,7 +49,7 @@ describe("vibe shortlist", () => {
   it("keeps at most 1 song per album", () => {
     const albumPool = Array.from({ length: 40 }, (_, i) => ({ ...mk(i + 1, `C${i % 20}`, "jazz, soul"), album: "Same" }));
     const list = vibeShortlist(cur, albumPool, () => new Set());
-    const keys = list.map((s) => `${s.artists}|${s.album}`);
+    const keys = list.map((s) => `${s.artists}|${(s as { album?: string }).album}`);
     expect(new Set(keys.slice(0, 20)).size).toBe(Math.min(20, keys.slice(0, 20).length));
   });
 });
