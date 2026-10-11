@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Bug, ChevronDown, ChevronRight } from "lucide-react";
 import { useRadio, type DoorPeek, type DoorSlot } from "@/components/crate/radio-context";
 import { lensName } from "@/lib/lenses";
+import { Button } from "@/components/ui/button";
 
 /** Admin-only, read-only view of the songs Crate has prepared behind each door. */
 export function DoorDebug() {
@@ -35,10 +36,10 @@ export function DoorDebug() {
 
   return (
     <div className="mx-4 mt-3 mb-2 rounded-lg border border-dashed border-border bg-card/60 px-3 py-2 font-mono text-[11px]">
-      <button type="button" onClick={() => setOpen((o) => !o)} className="flex w-full items-center gap-1.5 text-muted-foreground">
+      <Button type="button" variant="ghost" size="xs" onClick={() => setOpen((o) => !o)} className="h-auto w-full justify-start p-0 font-mono text-[11px] text-muted-foreground hover:bg-transparent">
         {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         <Bug className="h-3 w-3" /> Door debug (admin)
-      </button>
+      </Button>
       {open && (
         <div className="mt-1.5 space-y-0.5">
           {!sessionLive || !snap?.current ? (
