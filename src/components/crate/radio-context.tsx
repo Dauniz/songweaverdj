@@ -2307,51 +2307,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     // its album, filling "Next up" with album songs. Crate sends its own list instead.
     const webUrl = "https://open.spotify.com/";
     if (isAppleTouchDevice()) {
-      // iPhone/iPad: in-app browsers (e.g. the Lovable app) swallow window.open
-      // and universal links, showing Spotify Web inside themselves. Instead:
-      // 1) fire the spotify: scheme inside the tap — iOS leaves for the app;
-      // 2) if we're still visible, hand the web URL to Safari (x-safari-https),
-      //    which opens the user's browser rather than an embedded window.
-      let left = false;
-      const onHide = () => { if (document.hidden) left = true; };
-      const onBlur = () => { left = true; };
-      document.addEventListener("visibilitychange", onHide);
-      window.addEventListener("pagehide", onBlur);
-      const fire = (href: string) => {
-        const a = document.createElement("a");
-        a.href = href;
-        a.rel = "noopener";
-        a.target = "_top";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-      };
-      // Fire the app link synchronously inside the tap so iOS shows its
-      // "Open in Spotify?" prompt (or switches straight to the app).
-      // Published site (top-level): navigate the page itself to the scheme.
-      // Inside the Lovable editor (iframe): an iframe can't navigate to a custom
-      // scheme, so ask the hosting browser to open it as a new window.
+      // iPhone/iPad: app only. Navigating to spotify: inside the tap makes iOS show
+      // "Open in Spotify?" (or switch straight over). No automatic web fallback —
+      // it raced the iOS prompt and won. Spotify Web is a separate link in the popup.
+      // Inside the editor's frame iOS drops custom schemes, so open the web player there.
       const framed = window.top !== window.self;
       try {
-        if (!framed) {
-          window.location.href = "spotify:";
-        } else {
-          // Inside the Lovable editor the preview is framed: iOS silently drops
-          // custom-scheme opens from frames. Open Spotify's link in a real browser
-          // tab inside the tap; Spotify's page offers "Open in app" from there.
-          const w = window.open(webUrl, "_blank");
-          if (!w) fire(webUrl);
-        }
-      } catch { try { fire("spotify:"); } catch { /* ignore */ } }
-      setTimeout(() => {
-        document.removeEventListener("visibilitychange", onHide);
-        window.removeEventListener("pagehide", onBlur);
-        if (left || document.hidden || framed) return;
-        try { fire("x-safari-https://open.spotify.com/"); } catch { /* ignore */ }
-        setTimeout(() => {
-          if (!document.hidden && window.top === window.self) window.open(webUrl, "_blank", "noopener,noreferrer");
-        }, 1200);
-      }, 1500);
+        if (!framed) window.location.href = "spotify:";
+        else window.open(webUrl, "_blank");
+      } catch { /* ignore */ }
     } else {
       // Desktop: try the installed app first; fall back to Spotify Web.
       let appOpened = false;
