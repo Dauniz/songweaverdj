@@ -68,7 +68,7 @@ function CrateInfoPage() {
       >
         <Link
           to="/studio"
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          className="kinetic-link inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Back to the Studio
         </Link>
@@ -346,7 +346,7 @@ function CrateInfoPage() {
 
           <Link
             to="/studio"
-            className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+            className="kinetic-link inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
           >
             <ArrowLeft className="h-4 w-4" /> Back to the Studio
           </Link>

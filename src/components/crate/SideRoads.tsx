@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { useQuery } from "@tanstack/react-query";
 import { CircleHelp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +25,7 @@ import {
 
 /** Deep cuts + alternative road toggles, shown in the Walrus Memory tab above the current song. */
 export function SideRoads() {
+  const reduced = useReducedMotion();
   const { lens, setLens, deepCuts, setDeepCuts } = useRadio();
   const [wormholeBlocked, setWormholeBlocked] = useState(false);
   const { data: hasYearHistory } = useQuery({
@@ -53,7 +54,7 @@ export function SideRoads() {
           aria-label="Enable Deep cuts"
           className="relative isolate h-8 overflow-hidden rounded-full px-3.5"
         >
-          {deepCuts && <motion.span layoutId="active-side-road" className="absolute inset-0 -z-10 rounded-full bg-primary" />}
+          {deepCuts && <motion.span layoutId="active-side-road" transition={{ duration: reduced ? 0.12 : 0.24, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 -z-10 rounded-full bg-primary" />}
           <span>Deep cuts</span>
         </Button>
         {LENSES.map((l) => {
@@ -76,7 +77,7 @@ export function SideRoads() {
               aria-label={`Enable ${l.name}`}
               className={cn("relative isolate h-8 overflow-hidden rounded-full px-3.5", locked && "opacity-60")}
             >
-              {on && <motion.span layoutId="active-side-road" className="absolute inset-0 -z-10 rounded-full bg-primary" />}
+              {on && <motion.span layoutId="active-side-road" transition={{ duration: reduced ? 0.12 : 0.24, ease: [0.22, 1, 0.36, 1] }} className="absolute inset-0 -z-10 rounded-full bg-primary" />}
               <span>{l.name}</span>
             </Button>
           );

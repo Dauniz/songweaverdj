@@ -55,7 +55,7 @@ function CrateKnowsPage() {
   return (
     <div className="min-h-dvh bg-background bg-glow">
       <div className="mx-auto max-w-3xl px-5 py-8 sm:py-12">
-        <Button asChild variant="ghost" size="sm" className="mb-6 -ml-2 text-muted-foreground">
+        <Button asChild variant="ghost" size="sm" className="kinetic-link mb-6 -ml-2 text-muted-foreground">
           <Link to="/studio"><ArrowLeft className="h-4 w-4" /> Back to Studio</Link>
         </Button>
         <div className="flex items-center gap-3">
@@ -98,10 +98,10 @@ function CrateKnowsPage() {
 
             {avoided.length > 0 && (
               <motion.section variants={item}>
-                <button type="button" onClick={() => setAvoidOpen((o) => !o)} className="flex items-center gap-2 text-sm font-semibold text-muted-foreground" aria-expanded={avoidOpen}>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setAvoidOpen((o) => !o)} className="-ml-3 text-muted-foreground" aria-expanded={avoidOpen}>
                   <ChevronDown className={cn("h-4 w-4 transition-transform", avoidOpen && "rotate-180")} />
                   Resting for now ({avoided.length})
-                </button>
+                </Button>
                 {avoidOpen && (
                   <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
                     {avoided.map((m) => <li key={m.id}>• {m.content}</li>)}
@@ -139,10 +139,10 @@ function CrateKnowsPage() {
 
             {data.hints.length > 0 && (
               <motion.section variants={item}>
-                <button type="button" onClick={() => setHintsOpen((o) => !o)} className="flex items-center gap-2 text-sm font-semibold text-muted-foreground" aria-expanded={hintsOpen}>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setHintsOpen((o) => !o)} className="-ml-3 text-muted-foreground" aria-expanded={hintsOpen}>
                   <ChevronDown className={cn("h-4 w-4 transition-transform", hintsOpen && "rotate-180")} />
                   Still testing ({data.hints.length})
-                </button>
+                </Button>
                 {hintsOpen && (
                   <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
                     {data.hints.map((m) => <li key={m.id}>• {m.content}</li>)}

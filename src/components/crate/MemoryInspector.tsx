@@ -220,7 +220,7 @@ export function MemoryInspector() {
           const anchor = n.origin === "cross_session";
           const insight = anchor || n.origin === "synthesis";
           return (
-            <motion.div key={n.id} layout="position" variants={reduced ? reducedFade : geometricEnter} className={cn("rounded-lg border bg-surface p-3", insight && "border-chart-4/50 bg-chart-4/5", anchor && "border-chart-5/50 bg-chart-5/5")}>
+            <motion.div key={n.id} layout="position" variants={reduced ? reducedFade : geometricEnter} className={cn("kinetic-card rounded-lg border bg-surface p-3", insight && "border-chart-4/50 bg-chart-4/5", anchor && "border-chart-5/50 bg-chart-5/5")}>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-medium text-muted-foreground">
                   {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
