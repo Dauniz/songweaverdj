@@ -1,18 +1,78 @@
-# Push the finish song at the very end of the playing song
+# Songweaver interaction and motion overhaul
 
-## Today
-Crate sends the finish song (plus its skip door) about 3 seconds before the playing song ends. That was chosen to avoid an old bug where Spotify skipped straight past the finish song — but it cuts off the last seconds of the song, which you hear.
+Make navigation and every interactive state feel deliberate, responsive and musical without changing Songweaver's layout, copy, colors, Spotify behavior, Crate logic, Walrus behavior, queue rules or maze rules. The direction builds on the existing Kinetic Geometry system rather than adding a second visual language.
 
-## Change
-- Crate sends the finish pair right as the song ends instead: the timer aims for the final moment (about 0.3 seconds before the end, just to cover the network round-trip to Spotify), not 3 seconds early.
-- The safety net for the old bug already exists and stays: if Spotify still jumps straight past the finish song, Crate notices (the finish song never showed as playing) and re-sends it once, without counting it as your skip.
-- The background finish helper (used when the page is asleep on phones/tablets) gets the same timing, so both paths behave identically.
+## Inspiration translated into Songweaver
 
-## What you may notice
-- The playing song now runs to its real end — no more cut fade-outs.
-- In exchange there can be a very short silence (a fraction of a second) while Spotify starts the next song, since it begins loading only at the end. This is the trade-off of pushing at the literal end; the early push existed to hide exactly that gap.
+Apply the useful parts of the School of Motion references:
 
-## Technical details
-- `src/components/crate/radio-context.tsx` `handOver`: change the final wait from `end - 3_000` to about `end - 300`, and update the comment. The pre-send Spotify re-check, the hand-over guard and the one-time recovery stay unchanged.
-- `src/routes/api/public/handover-tick.ts`: change its matching `remaining - 3_000` wait to the same ~0.3 s offset.
-- Verify with mocked playback: (a) send fires within ~0.5 s of the song end; (b) a Spotify jump-past is still recovered once with no skip logged; (c) a user skip right before the end still cancels the hand-over.
+- **Eszter Bial:** restrained movement, polished easing and continuity between related states.
+- **Uncommon Studio:** short, rhythmic staggers that guide the eye without delaying work.
+- **Unseen Studio:** simple but unmistakable hover states and navigation that feels alive.
+- **Dropbox:** animation that explains what changed, especially loading, saved, connected and active states.
+- **Apple:** limited color, strong focal hierarchy and consistently smooth performance on older phones/tablets.
+- **Epic / Active Theory:** purposeful anticipation only for meaningful events such as entering a session or choosing a maze door.
+- **Rive:** approachable stateful microinteractions, implemented with the motion tools already in the project rather than adding Rive.
+
+Do not copy the unsuitable parts: no custom cursor, inertial-scroll takeover, pointer-reactive WebGL/3D, cinematic scroll scrubbing, hover-only navigation or recurring full-screen spectacle.
+
+## 1. One interaction language
+
+- Expand the shared motion foundation into named patterns for hover, press, focus, state swap, shared-element travel, list stagger, anchored panel, success/error/status and reduced motion.
+- Give every interactive control an obvious desktop hover response: a coordinated surface/border/text change plus a small icon or content movement. Avoid making everything simply grow.
+- Give touch devices an equivalent immediate press response and persistent selected state; no essential feedback depends on hover.
+- Standardize mouse pointers, focus rings, disabled/busy states and tooltips across buttons, icon controls, links, rows, cards and draggable handles.
+- Keep actions immediate. Animation observes and explains state changes; it never delays Spotify commands, navigation or data updates.
+
+## 2. Navigation and page flow
+
+- Add restrained route entrances/exits for Home, sign-in, Studio, “What Crate knows” and “How Crate uses Walrus”: small directional movement, clipped reveal and a stable header/logo anchor rather than a slideshow transition.
+- Make Studio Chat/Maze switching feel spatial: the active marker travels between tabs, incoming content follows the selected direction, and scroll/focus remain stable.
+- Refine Studio's desktop column resizing so Chat and Maze rebalance as one continuous movement when a session starts or ends, without text reflow jumps.
+- Animate back links, header icons and public calls to action with directional icon movement and clear focus/hover feedback.
+
+## 3. The maze as the strongest motion moment
+
+- Preserve the existing JunctionTree promotion/reset logic, but make the door-to-current-song handoff a true shared visual transition: artwork, title and card geometry travel as one object while the old current song and unchosen path exit coherently.
+- Synchronize the chosen-path pulse, travelling song, label change, new branch draw and new-door arrival into one interruption-safe sequence.
+- Smooth changes between two doors, one centered queued door and a multi-song queued chain. Existing cards should reposition rather than disappear and reappear.
+- Animate “Finding…” resolving into a real door in place, and make branch/status changes readable without replaying the whole tree.
+- Keep animation state isolated from playback and queue state. Rapid skips, finishes, searches and road changes resolve to the latest confirmed state.
+
+## 4. Studio controls and feedback
+
+- Upgrade search results, suggestion cards, recommendation cards and memory rows with clear row/card hover treatment, artwork response, action reveal and immediate selected/saved/skipped feedback.
+- Make prompt submission one continuous handoff: the prompt settles into the transcript, Crate's working state appears in its place, streamed content stays stable, then recommendations arrive in a short rhythm.
+- Animate Spotify pill ↔ expanded panel from the same anchor; preserve the pill's iPad reliability. Connection dot, sync progress and completion update in place with restrained status motion.
+- Give session start/end, play/pause, next, alternative roads, Feedbacker, Crate reflection, copy actions and onboarding controls meaningful icon/state transitions.
+- Expand/collapse Walrus log and Crate console from their trigger bars with measured movement; new memories and pending → stored updates resolve in place without replaying the entire list.
+- Keep dialogs, popovers, tooltips and toasts anchored to their origin with crisp reverse exits and no decorative waiting.
+
+## 5. Graphics and atmosphere
+
+- Use Songweaver's existing artwork, maze paths, EQ bars and geometric lines as the visual material. Add subtle path traces, edge highlights and state indicators only where they communicate live playback, direction, progress or success.
+- Let album artwork supply visual variation while preserving the current dark palette and semantic color roles. Crate actions remain plain strong yellow with no green fill or glow.
+- Avoid decorative 3D, particles and perpetual motion. Only playback, active processing and live progress may loop.
+
+## Reduced motion and performance
+
+- Under `prefers-reduced-motion`, replace travel, scale, stagger and path motion with a 100–120 ms state fade while retaining essential progress indication.
+- Favor transform, opacity and clip-path; reserve measured height for panels. Prevent background polling, streaming tokens and query refreshes from replaying entrances.
+- Keep hover effects behind hover-capable media queries so touch interactions do not stick in a hover state.
+- Maintain stable dimensions so animation never shifts controls, overlaps content, clips the Spotify pill or creates horizontal scrolling.
+
+## Technical scope
+
+- Extend `src/lib/motion.ts` and the existing global kinetic utilities; use the installed `motion` package only.
+- Apply shared behavior through the existing Button and UI primitives first, then focused component choreography in Studio, PathMaze, chat/search/cards, Spotify panel, Memory inspector, onboarding and content routes.
+- Use shared layout identity only inside safe visual boundaries; do not let it couple Chat, Maze or playback state.
+- Preserve the architecture rule in `AGENTS.md`: motion remains client-safe, accessible and independent from product actions.
+- Opus 5.5 is not selectable from this project workspace; implementation will use the strongest available coding agent while keeping the reviewed plan as the source of truth.
+
+## Verification
+
+- Exercise Home → sign-in → Studio, Chat/Maze switching, start/end session, search, prompt/results, suggestions, Spotify panel, side roads, door promotion, queued chain, Walrus log, console, dialogs, onboarding and both information pages.
+- Check desktop with mouse, keyboard-only use, iPhone and tablet touch layouts, short screens and `prefers-reduced-motion`.
+- Stress rapid repeated clicks and consecutive maze changes; verify the latest state wins and controls remain usable throughout.
+- Inspect animation smoothness, layout shift, clipping and horizontal overflow. Confirm the preview remains error-free and run relevant existing interaction tests.
+- Real Spotify door handoffs remain a live-device check because playback cannot be exercised in the sandbox; motion must not alter their timing or commands.
