@@ -83,6 +83,18 @@ export function SpotifyOpenDialog({
             >
               <ExternalLink /> Open Spotify
             </AlertDialogAction>
+            {typeof window !== "undefined" && window.top !== window.self && /iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1 && (
+              <p className="text-center text-xs text-muted-foreground">
+                In the editor preview, iOS can only open Spotify Web. The app opens on the published site.
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => { window.open("https://open.spotify.com/", "_blank"); onDismiss(); }}
+              className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+            >
+              Use Spotify Web instead
+            </button>
             <AlertDialogCancel className="h-auto border-none bg-transparent p-0 text-xs font-normal text-muted-foreground shadow-none underline underline-offset-2 hover:bg-transparent hover:text-foreground">
               Not now
             </AlertDialogCancel>
