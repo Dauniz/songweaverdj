@@ -1,6 +1,6 @@
 # Songweaver interaction and motion overhaul
 
-Make navigation and every interactive state feel deliberate, responsive and musical without changing Songweaver's layout, copy, colors, Spotify behavior, Crate logic, Walrus behavior, queue rules or maze rules. The direction builds on the existing Kinetic Geometry system rather than adding a second visual language.
+Make navigation and every interactive state feel deliberate, responsive and musical without changing Songweaver's layout, copy, Spotify behavior, Crate logic, Walrus behavior, queue rules or maze rules. Preserve Songweaver's visual identity exactly: the black/dark foundation, vivid green and pink accents, strong yellow reserved for Crate actions, and the existing bold Syne display type with Manrope body type. Motion should amplify that identity, never restyle it. The direction builds on the existing Kinetic Geometry system rather than adding a second visual language.
 
 ## Inspiration translated into Songweaver
 
@@ -51,7 +51,8 @@ Do not copy the unsuitable parts: no custom cursor, inertial-scroll takeover, po
 ## 5. Graphics and atmosphere
 
 - Use Songweaver's existing artwork, maze paths, EQ bars and geometric lines as the visual material. Add subtle path traces, edge highlights and state indicators only where they communicate live playback, direction, progress or success.
-- Let album artwork supply visual variation while preserving the current dark palette and semantic color roles. Crate actions remain plain strong yellow with no green fill or glow.
+- Keep the existing black, green and pink color profile unchanged. Let album artwork add variation, while green continues to signal playback/maze direction, pink provides the contrasting Songweaver accent, and Crate actions remain plain strong yellow with no green fill or glow.
+- Preserve the current weighty typographic character: Syne for bulky titles and display moments, Manrope for substantial, readable interface and body text. Motion may reveal or shift type, but must not replace, thin out or soften the fonts.
 - Avoid decorative 3D, particles and perpetual motion. Only playback, active processing and live progress may loop.
 
 ## Reduced motion and performance
