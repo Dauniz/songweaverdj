@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRadio } from "./radio-context";
 import type { CardTrack } from "./TrackCard";
 import { geometricEnter, reducedFade, staggerChildren } from "@/lib/motion";
+import { Button } from "@/components/ui/button";
 
 type Row = {
   id: string;
@@ -109,9 +110,9 @@ export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
           className="min-w-0 flex-1 bg-transparent text-lg leading-7 text-foreground outline-none placeholder:text-base placeholder:text-muted-foreground"
         />
         {q && (
-          <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="kinetic-control text-muted-foreground hover:text-foreground">
+          <Button type="button" variant="ghost" size="icon-xs" onClick={() => setQ("")} aria-label="Clear search" className="rounded-full text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
-          </button>
+          </Button>
         )}
       </div>
       <AnimatePresence>
@@ -129,8 +130,9 @@ export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
             <motion.div variants={staggerChildren} initial="hidden" animate="visible">
             {results.map((r) => (
               <motion.div key={r.id} variants={reduced ? reducedFade : geometricEnter} layout="position" className="flex items-center gap-1">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => play(r)}
                 className="kinetic-control group flex min-w-0 flex-1 items-center gap-3 rounded-md border border-transparent px-2 py-1.5 text-left hover:bg-accent focus-visible:bg-accent"
               >
@@ -144,17 +146,19 @@ export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
                   <p className="truncate text-sm text-foreground">{r.name}</p>
                   <p className="truncate text-xs text-muted-foreground">{r.artists}</p>
                 </div>
-              </button>
+              </Button>
               {sessionLive && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => queue(r)}
                   aria-label={`Queue ${r.name}`}
                   title="Queue: plays next, finish or skip"
                   className="kinetic-control flex shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
                 >
                   <ListPlus className="h-4 w-4" /> Queue
-                </button>
+                </Button>
               )}
               </motion.div>
             ))}

@@ -163,18 +163,20 @@ export function MemoryInspector() {
         {isAdmin && <DoorDebug />}
       </div>
       <div className="shrink-0 px-4 pt-3 pb-3 text-xs">
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           aria-expanded={showLog}
           onClick={() => {
             setShowLog((v) => !v);
             setLogFilter("All");
           }}
-          className="kinetic-control inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 py-1.5 font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="min-h-8 text-muted-foreground"
         >
           {showLog ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           {showLog ? "Hide Walrus log" : "Show Walrus log"}
-        </button>
+        </Button>
       </div>
       <AnimatePresence initial={false}>
       {showLog && (
@@ -189,20 +191,22 @@ export function MemoryInspector() {
         {nodes.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pb-1">
             {["All", ...visibleFilters].map((f) => (
-              <button
+              <Button
                 key={f}
                 type="button"
+                variant="outline"
+                size="xs"
                 aria-pressed={logFilter === f}
                 onClick={() => setLogFilter((cur) => (cur === f ? "All" : f))}
                 className={cn(
-                  "kinetic-control rounded-full border px-2.5 py-1 text-[10px] font-semibold",
+                  "h-auto rounded-full px-2.5 py-1 text-[10px] font-semibold",
                   logFilter === f
                     ? "border-primary/50 bg-primary/15 text-primary"
                     : "border-border text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
               >
                 {f}{f !== "All" ? ` · ${filterCounts[f]}` : ""}
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -232,9 +236,9 @@ export function MemoryInspector() {
                   <TooltipProvider delayDuration={150}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button type="button" aria-label="What is a Crate insight?" className="rounded-full p-0.5 text-muted-foreground hover:text-foreground">
+                        <Button type="button" variant="ghost" size="icon-xs" aria-label="What is a Crate insight?" className="h-5 w-5 rounded-full text-muted-foreground hover:text-foreground">
                           <CircleHelp className="h-3 w-3" />
-                        </button>
+                        </Button>
                       </TooltipTrigger>
                       <TooltipContent side="bottom" className="max-w-[260px] text-left">
                         {anchor
@@ -254,8 +258,10 @@ export function MemoryInspector() {
                   <TooltipProvider delayDuration={150}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="xs"
                           aria-label="Copy Walrus blob ID"
                           onClick={async () => {
                             try {
@@ -266,10 +272,10 @@ export function MemoryInspector() {
                               // clipboard unavailable — ignore
                             }
                           }}
-                          className="min-w-0 cursor-pointer truncate text-left hover:text-foreground"
+                          className="h-auto min-w-0 justify-start truncate p-0 font-mono text-[10px] text-muted-foreground hover:bg-transparent hover:text-foreground"
                         >
                           {copiedId === n.id ? "Copied ✓" : `blob ${n.blob_id.slice(0, 18)}…`}
-                        </button>
+                        </Button>
                       </TooltipTrigger>
                       <TooltipContent side="right" className="max-w-xs break-all font-mono text-[10px]">
                         {n.blob_id}
@@ -301,16 +307,18 @@ export function MemoryInspector() {
           <Info className="h-3 w-3" /> How Crate uses Walrus
         </Link>
         {isAdmin && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="xs"
           onClick={() => {
             setResetText("");
             setResetOpen(true);
           }}
-          className="inline-flex min-h-8 items-center gap-1 py-1.5 text-[11px] text-destructive/80 underline-offset-2 hover:text-destructive hover:underline"
+          className="min-h-8 text-[11px] text-destructive/80 hover:text-destructive"
         >
           <Trash2 className="h-3 w-3" /> Reset Walrus log
-        </button>
+        </Button>
         )}
       </div>
       <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>

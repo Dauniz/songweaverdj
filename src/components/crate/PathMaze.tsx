@@ -651,11 +651,12 @@ export function CrateConsole({
             )}
           </div>
       </div>
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-accent/50"
+        className="h-auto w-full justify-start rounded-none px-4 py-3 text-left hover:bg-accent/50"
       >
         <MessagesSquare className="h-4 w-4 text-primary" />
         <span className="text-sm font-bold uppercase tracking-wider">Crate console</span>
@@ -663,7 +664,7 @@ export function CrateConsole({
           {events.length > 0 && <span>{events.length} steps</span>}
           {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
         </span>
-      </button>
+      </Button>
     </div>
   );
 }
@@ -708,7 +709,7 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
+            <Button
               type="button"
               data-onboarding="feedbacker"
               onClick={() => {
@@ -716,13 +717,15 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
               }}
               aria-label={done ? "Note saved — add another" : "Feedbacker"}
               title={done ? "Note saved — add another" : "Feedbacker"}
+              variant="ghost"
+              size="icon-xs"
               className={cn(
-                "absolute right-2.5 top-2.5 grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary",
+                "absolute right-2.5 top-2.5 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary",
                 done && !open && "text-primary",
               )}
             >
               {done ? <Check className="h-3.5 w-3.5" /> : <NotebookPen className="h-3.5 w-3.5" />}
-            </button>
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="left">Feedbacker</TooltipContent>
         </Tooltip>

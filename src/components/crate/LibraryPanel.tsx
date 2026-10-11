@@ -243,15 +243,17 @@ export function LibraryPanel() {
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={toggleCollapsed}
                 aria-label="Expand Spotify panel"
-                className="kinetic-control flex h-9 items-center gap-2 rounded-full border bg-card px-3 shadow-lg hover:bg-accent"
+                className="h-9 rounded-full bg-card px-3 shadow-lg"
               >
                 <motion.span key={orbLabel} initial={reduced ? false : { scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={cn("inline-block h-2 w-2 rounded-full", orbClass)} />
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="right">{orbLabel}</TooltipContent>
           </Tooltip>
@@ -283,14 +285,16 @@ export function LibraryPanel() {
         <span className="ml-auto text-xs font-normal text-muted-foreground">
           {tracks.length} tracks
         </span>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={toggleCollapsed}
           aria-label="Minimize Spotify panel"
-          className="kinetic-control -m-1.5 rounded-sm p-2 text-muted-foreground hover:text-foreground"
+          className="-m-1.5 rounded-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronUp className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
       <div className="mt-2 rounded-lg border bg-muted/40 px-2.5 py-2">
         <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
