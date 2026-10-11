@@ -94,8 +94,8 @@ export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
 
   return (
     <div ref={boxRef} className="relative">
-      <div className="flex h-14 items-center gap-2 rounded-md border border-input bg-surface/90 px-4 shadow-sm focus-within:border-primary">
-        <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
+      <div className="group flex h-14 items-center gap-2 rounded-md border border-input bg-surface/90 px-4 shadow-sm transition-[border-color,box-shadow,background-color] duration-200 focus-within:border-primary focus-within:bg-surface focus-within:shadow-[0_10px_28px_-22px_var(--primary)]">
+        <Search className="h-5 w-5 shrink-0 text-muted-foreground transition-[color,transform] duration-200 group-focus-within:scale-110 group-focus-within:text-primary" />
         <input
           value={q}
           onChange={(e) => { setQ(e.target.value); setDismissed(false); }}
@@ -128,14 +128,14 @@ export function LibrarySearch({ onSelect }: { onSelect?: () => void }) {
           ) : (
             <motion.div variants={staggerChildren} initial="hidden" animate="visible">
             {results.map((r) => (
-              <motion.div key={r.id} variants={reduced ? reducedFade : geometricEnter} className="flex items-center gap-1">
+              <motion.div key={r.id} variants={reduced ? reducedFade : geometricEnter} layout="position" className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => play(r)}
-                className="kinetic-control group flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-1.5 text-left hover:bg-accent"
+                className="kinetic-control group flex min-w-0 flex-1 items-center gap-3 rounded-md border border-transparent px-2 py-1.5 text-left hover:bg-accent focus-visible:bg-accent"
               >
                 <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-muted">
-                  {r.image_url && <img src={r.image_url} alt="" className="h-full w-full object-cover" />}
+                  {r.image_url && <img src={r.image_url} alt="" className="kinetic-art h-full w-full object-cover" />}
                   <span className="absolute inset-0 hidden place-items-center bg-background/60 group-hover:grid">
                     <Play className="h-4 w-4 fill-current text-foreground" />
                   </span>

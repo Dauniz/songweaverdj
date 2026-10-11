@@ -247,9 +247,9 @@ export function LibraryPanel() {
                 type="button"
                 onClick={toggleCollapsed}
                 aria-label="Expand Spotify panel"
-                className="flex h-9 items-center gap-2 rounded-full border bg-card px-3 shadow-lg transition-colors hover:bg-accent active:scale-95"
+                className="kinetic-control flex h-9 items-center gap-2 rounded-full border bg-card px-3 shadow-lg hover:bg-accent"
               >
-                <span className={cn("inline-block h-2 w-2 rounded-full", orbClass)} />
+                <motion.span key={orbLabel} initial={reduced ? false : { scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={cn("inline-block h-2 w-2 rounded-full", orbClass)} />
                 <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
               </button>
             </TooltipTrigger>
@@ -297,7 +297,7 @@ export function LibraryPanel() {
           Spotify connection status
         </p>
         <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-foreground">
-          <span className={cn("inline-block h-2 w-2 shrink-0 rounded-full", orbClass)} />
+          <motion.span key={conn.label} initial={reduced ? false : { scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className={cn("inline-block h-2 w-2 shrink-0 rounded-full", orbClass)} />
           {conn.label}
         </p>
         <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{conn.hint}</p>

@@ -46,14 +46,16 @@ export function BugReportButton() {
 
   return (
     <>
-      <button
+      <Button
         onClick={() => setOpen(true)}
         aria-label="Report a bug"
         title="Report a bug"
-        className="rounded-full border bg-card p-2 text-muted-foreground transition hover:scale-110 hover:text-foreground"
+        variant="outline"
+        size="icon-sm"
+        className="rounded-full bg-card text-muted-foreground hover:text-foreground"
       >
         <Bug className="h-4 w-4" />
-      </button>
+      </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>

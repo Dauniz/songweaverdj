@@ -123,31 +123,35 @@ function StudioLayout({
           </TooltipProvider>
         </div>
       </header>
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
         <LibraryPanel />
-        <main
+        <motion.main
+          layout={!reduced}
           className={cn(
-            "min-w-0 overflow-hidden bg-glow pt-12 xl:pt-0 xl:flex-none xl:transition-[width] xl:duration-500 xl:ease-in-out",
-            mobileTab === "chat" ? "block" : "hidden xl:block",
+            "absolute inset-0 min-w-0 overflow-hidden bg-glow pt-12 transition-[opacity,transform] duration-300 ease-out xl:static xl:block xl:pt-0 xl:flex-none",
+            mobileTab === "chat" ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-3 opacity-0 xl:pointer-events-auto xl:translate-x-0 xl:opacity-100",
             live
               ? "w-full xl:w-2/3"
               : "w-full xl:w-[calc(100%-20rem)]",
           )}
+          transition={{ duration: reduced ? 0.12 : 0.36, ease: MOTION_EASE }}
         >
           <h1 className="sr-only">Songweaver Studio</h1>
           <MoodChat onSearchSelection={() => onTab("memory")} />
-        </main>
-        <aside
+        </motion.main>
+        <motion.aside
+          layout={!reduced}
           className={cn(
-            "w-full min-h-0 overflow-hidden border-l bg-sidebar pt-12 xl:pt-0 xl:flex-none xl:transition-[width] xl:duration-500 xl:ease-in-out",
-            mobileTab === "memory" ? "block" : "hidden xl:block",
+            "absolute inset-0 min-h-0 w-full overflow-hidden border-l bg-sidebar pt-12 transition-[opacity,transform] duration-300 ease-out xl:static xl:block xl:pt-0 xl:flex-none",
+            mobileTab === "memory" ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-3 opacity-0 xl:pointer-events-auto xl:translate-x-0 xl:opacity-100",
             live
               ? "xl:w-1/3"
               : "xl:w-80",
           )}
+          transition={{ duration: reduced ? 0.12 : 0.36, ease: MOTION_EASE }}
         >
           <MemoryInspector />
-        </aside>
+        </motion.aside>
       </div>
       <OnboardingTour showMemory={showMemory} showChat={() => onTab("chat")} />
     </div>

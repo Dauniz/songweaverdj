@@ -40,11 +40,11 @@ export function StudioSuggestions({ onPlay }: { onPlay?: () => void }) {
           <motion.div
             key={t.spotify_id}
             variants={reduced ? reducedFade : geometricEnter}
-            className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border bg-surface p-2 [@media(max-height:720px)]:p-1.5", i >= 4 && "hidden sm:grid")}
+            className={cn("kinetic-card group grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border bg-surface p-2 [@media(max-height:720px)]:p-1.5", i >= 4 && "hidden sm:grid")}
           >
             <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
               {t.image_url ? (
-                <img src={t.image_url} alt="" className="h-9 w-9 shrink-0 rounded object-cover [@media(max-height:720px)]:h-8 [@media(max-height:720px)]:w-8" />
+                <img src={t.image_url} alt="" className="kinetic-art h-9 w-9 shrink-0 rounded object-cover [@media(max-height:720px)]:h-8 [@media(max-height:720px)]:w-8" />
               ) : (
                 <div className="h-9 w-9 shrink-0 rounded bg-surface-2 [@media(max-height:720px)]:h-8 [@media(max-height:720px)]:w-8" />
               )}
