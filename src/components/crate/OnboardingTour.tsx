@@ -3,6 +3,8 @@ import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRadio } from "./radio-context";
 import { supabase } from "@/integrations/supabase/client";
+import { motion, useReducedMotion } from "motion/react";
+import { MOTION_EASE } from "@/lib/motion";
 
 const SETUP_KEY = "songweaver-onboarding-setup-v1";
 const FEEDBACK_KEY = "songweaver-onboarding-feedback-v1";
@@ -81,6 +83,7 @@ function markDone(userId: string | null, key: string) {
 }
 
 export function OnboardingTour({ showMemory, showChat }: { showMemory: () => void; showChat: () => void }) {
+  const reduced = useReducedMotion();
   const { sessionLive, radio } = useRadio();
   const [setupStep, setSetupStep] = useState<number | null>(null);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -203,19 +206,25 @@ export function OnboardingTour({ showMemory, showChat }: { showMemory: () => voi
           <div className="absolute inset-x-0 bottom-0 bg-background/75" style={{ top: rect.top + rect.height + pad }} />
           <div className="absolute bg-background/75" style={{ top: rect.top - pad, left: 0, width: Math.max(0, rect.left - pad), height: rect.height + pad * 2 }} />
           <div className="absolute bg-background/75" style={{ top: rect.top - pad, left: rect.left + rect.width + pad, right: 0, height: rect.height + pad * 2 }} />
-          <div
-            className="absolute rounded-lg border-2 border-primary shadow-[0_0_0_4px_color-mix(in_oklab,var(--primary)_18%,transparent)] transition-all duration-300 motion-reduce:transition-none"
+          <motion.div
+            layout={!reduced}
+            transition={{ duration: reduced ? 0.12 : 0.3, ease: MOTION_EASE }}
+            className="absolute rounded-lg border-2 border-primary shadow-[0_0_0_4px_color-mix(in_oklab,var(--primary)_18%,transparent)]"
             style={{ top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }}
           />
         </>
       )}
       {!rect && <div className="absolute inset-0 bg-background/75" />}
 
-      <section
+      <motion.section
         role="dialog"
         aria-modal="false"
         aria-labelledby="onboarding-title"
-        className="scrollbar-thin pointer-events-auto absolute overflow-y-auto rounded-lg border bg-popover p-4 text-popover-foreground shadow-2xl transition-[top,left] duration-300 motion-reduce:transition-none"
+        layout={!reduced}
+        initial={{ opacity: 0, y: reduced ? 0 : 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: reduced ? 0.12 : 0.3, ease: MOTION_EASE }}
+        className="scrollbar-thin pointer-events-auto absolute overflow-y-auto rounded-lg border bg-popover p-4 text-popover-foreground shadow-2xl"
         style={{ top: cardTop, left: cardLeft, width: cardWidth, maxHeight: Math.max(240, vh - 32) }}
       >
         <div className="flex items-start gap-3">
@@ -256,7 +265,7 @@ export function OnboardingTour({ showMemory, showChat }: { showMemory: () => voi
             </Button>
           )}
         </div>
-      </section>
+      </motion.section>
     </div>
   );
 }

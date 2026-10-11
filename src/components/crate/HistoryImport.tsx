@@ -9,9 +9,12 @@ import { parseHistoryFiles, saveHistory } from "@/lib/listening-history";
 import { useServerFn } from "@tanstack/react-start";
 import { studyHistory } from "@/lib/history-learning.functions";
 import { cn } from "@/lib/utils";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { Button } from "@/components/ui/button";
 
 /** Optional: drop Spotify Extended Streaming History (the same files stats.fm uses). Parsed locally. */
 export function HistoryImport({ libraryIds }: { libraryIds: Set<string> }) {
+  const reduced = useReducedMotion();
   const qc = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -66,11 +69,13 @@ export function HistoryImport({ libraryIds }: { libraryIds: Set<string> }) {
 
   if (!open) {
     return (
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => setOpen(true)}
         className={cn(
-          "mt-1 flex items-center gap-1.5 py-2 text-xs transition-colors",
+          "mt-1 h-auto px-0 py-2 text-xs hover:bg-transparent",
           imported ? "text-primary hover:text-primary/80" : "text-muted-foreground hover:text-foreground",
         )}
       >
@@ -83,7 +88,7 @@ export function HistoryImport({ libraryIds }: { libraryIds: Set<string> }) {
             <History className="h-3.5 w-3.5" /> Import listening history (optional)
           </>
         )}
-      </button>
+      </Button>
     );
   }
 
@@ -131,9 +136,11 @@ export function HistoryImport({ libraryIds }: { libraryIds: Set<string> }) {
           e.target.value = "";
         }}
       />
-      {result && (
-        <p className="mt-2 rounded-lg border border-primary/30 bg-primary/10 p-2 text-xs text-primary">✓ {result}</p>
-      )}
+      <AnimatePresence>
+        {result && (
+          <motion.p initial={{ opacity: 0, y: reduced ? 0 : 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mt-2 rounded-lg border border-primary/30 bg-primary/10 p-2 text-xs text-primary">✓ {result}</motion.p>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -75,7 +75,7 @@ export function TrackCard({
       variants={reduced ? reducedFade : geometricEnter}
       layout="position"
       className={cn(
-        "group rounded-lg border bg-surface p-2 transition hover:bg-surface-2",
+        "kinetic-card group rounded-lg border bg-surface p-2",
         acted === "skip" && "opacity-50",
       )}
     >
@@ -85,7 +85,7 @@ export function TrackCard({
             <img
               src={track.image_url}
               alt={track.album ?? track.name}
-              className="h-full w-full object-cover"
+              className="kinetic-art h-full w-full object-cover"
               loading="lazy"
             />
           ) : (

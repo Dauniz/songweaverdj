@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
 import type { RadioTrack } from "@/components/crate/radio-context";
 import { AlertTriangle, Check, ChevronDown, ChevronUp, CornerDownRight, Flag, GitBranch, ListPlus, MessagesSquare, NotebookPen, Pause, Play, Route, SkipForward, Sparkles } from "lucide-react";
 import { useRadio, type Road } from "@/components/crate/radio-context";
@@ -286,6 +286,7 @@ function JunctionTree({
   );
 
   return (
+    <LayoutGroup id="songweaver-maze">
     <motion.div
       ref={box}
       className="relative mt-1"
@@ -383,6 +384,8 @@ function JunctionTree({
       {/* Doors — one centered "Queued" door while a song is queued, else the usual pair */}
       <motion.div
         ref={lRef}
+        layout={!reduced}
+        layoutId={queued ? "maze-queued-door" : "maze-finish-door"}
         className="absolute"
         style={{ left: queued ? cX : lX, top: doorsTop, width: doorW }}
         key={`door-${queued ? "C" : "L"}-${shown.upNext?.spotify_id ?? "none"}`}
@@ -416,14 +419,18 @@ function JunctionTree({
           />
         )}
       </motion.div>
+      <AnimatePresence initial={false}>
       {chain.map((t, i) => (
         <motion.div
           key={`chain-door-${t.spotify_id}`}
+          layout={!reduced}
+          layoutId={`maze-chain-${t.spotify_id}`}
           className="absolute"
           style={{ left: cX, top: doorsTop + (i + 1) * step, width: doorW }}
           initial={reduced ? false : { opacity: 0, y: 8, scale: 0.96 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.3, delay: reduced ? 0 : 0.3, ease: TREE_EASE }}
+          exit={reduced ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.97 }}
         >
           <Door
             tone="keep"
@@ -438,6 +445,7 @@ function JunctionTree({
           />
         </motion.div>
       ))}
+      </AnimatePresence>
       {chainMore > 0 && (
         <p className="absolute text-center text-xs text-muted-foreground" style={{ left: 0, right: 0, top: doorsTop + dH + chain.length * step + 8 }}>
           +{chainMore} more queued
@@ -446,6 +454,8 @@ function JunctionTree({
       {!queued && (
         <motion.div
           ref={rRef}
+          layout={!reduced}
+          layoutId="maze-skip-door"
           className="absolute"
           style={{ left: rX, top: doorsTop, width: doorW }}
           key={`doorR-${shown.upSkip?.track.spotify_id ?? "none"}`}
@@ -500,6 +510,7 @@ function JunctionTree({
         </motion.div>
       )}
     </motion.div>
+    </LayoutGroup>
   );
 }
 
@@ -640,11 +651,12 @@ export function CrateConsole({
             )}
           </div>
       </div>
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={() => setOpen(!open)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-accent/50"
+        className="h-auto w-full justify-start rounded-none px-4 py-3 text-left hover:bg-accent/50"
       >
         <MessagesSquare className="h-4 w-4 text-primary" />
         <span className="text-sm font-bold uppercase tracking-wider">Crate console</span>
@@ -652,7 +664,7 @@ export function CrateConsole({
           {events.length > 0 && <span>{events.length} steps</span>}
           {open ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronUp className="h-3.5 w-3.5" />}
         </span>
-      </button>
+      </Button>
     </div>
   );
 }
@@ -697,7 +709,7 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
-            <button
+            <Button
               type="button"
               data-onboarding="feedbacker"
               onClick={() => {
@@ -705,13 +717,15 @@ function SongNote({ trackName, artists }: { trackName: string; artists: string }
               }}
               aria-label={done ? "Note saved — add another" : "Feedbacker"}
               title={done ? "Note saved — add another" : "Feedbacker"}
+              variant="ghost"
+              size="icon-xs"
               className={cn(
-                "absolute right-2.5 top-2.5 grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary",
+                "absolute right-2.5 top-2.5 rounded-full text-muted-foreground hover:bg-primary/10 hover:text-primary",
                 done && !open && "text-primary",
               )}
             >
               {done ? <Check className="h-3.5 w-3.5" /> : <NotebookPen className="h-3.5 w-3.5" />}
-            </button>
+            </Button>
           </TooltipTrigger>
           <TooltipContent side="left">Feedbacker</TooltipContent>
         </Tooltip>
@@ -829,9 +843,10 @@ function Door({
   const roadName = useRoadName();
   const keep = tone === "keep";
   return (
-    <div
+    <motion.div
+      layout="position"
       className={cn(
-        "rounded-xl border bg-surface p-3",
+        "kinetic-card rounded-xl border bg-surface p-3",
         keep ? "border-primary/40" : "border-magenta/40",
       )}
     >
@@ -846,9 +861,20 @@ function Door({
       </div>
       <div className="mt-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">{sublabel}</div>
       <div className="mt-2 flex items-center gap-2.5">
-        <Art src={image ?? null} alt={title ?? label} className="h-10 w-10" />
+        <Art src={image ?? null} alt={title ?? label} className="kinetic-art h-10 w-10" />
         <div className="min-w-0">
-          <div className="truncate text-sm font-medium">{title ?? "Finding…"}</div>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={title ?? "finding"}
+              initial={{ opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -2 }}
+              transition={{ duration: 0.16 }}
+              className="truncate text-sm font-medium"
+            >
+              {title ?? "Finding…"}
+            </motion.div>
+          </AnimatePresence>
           {artists && <div className="truncate text-[11px] text-muted-foreground">{artists}</div>}
         </div>
       </div>
@@ -856,7 +882,7 @@ function Door({
         <CornerDownRight className="mt-0.5 h-3 w-3 shrink-0" />
         <span>{roadName(road, track)}</span>
       </div>
-    </div>
+    </motion.div>
   );
 }
 

@@ -6,9 +6,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { getSpotifyAuthUrl, getSpotifyStatus } from "@/lib/spotify.functions";
 import { openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
+import { motion, useReducedMotion } from "motion/react";
+import { MOTION_EASE } from "@/lib/motion";
 
 /** Asks to connect Spotify on entry (or right after onboarding) so Crate can follow what you play. */
 export function SpotifyConnectPrompt() {
+  const reduced = useReducedMotion();
   const statusFn = useServerFn(getSpotifyStatus);
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const { data: status, refetch } = useQuery({ queryKey: ["spotify-status"], queryFn: () => statusFn() });
@@ -54,7 +57,7 @@ export function SpotifyConnectPrompt() {
   if (!open || dismissed || tourRunning || !status?.configured || status.connected) return null;
 
   return (
-    <div className="fixed inset-x-3 bottom-4 z-50 mx-auto max-w-sm rounded-xl border bg-card/95 p-4 shadow-lg backdrop-blur">
+    <motion.div initial={{ opacity: 0, y: reduced ? 0 : 14, clipPath: reduced ? "none" : "inset(12% 0 0 0)" }} animate={{ opacity: 1, y: 0, clipPath: "inset(0)" }} transition={{ duration: reduced ? 0.12 : 0.3, ease: MOTION_EASE }} className="fixed inset-x-3 bottom-4 z-50 mx-auto max-w-sm rounded-xl border bg-card/95 p-4 shadow-lg backdrop-blur">
       <div className="flex items-center gap-2 text-sm font-semibold">
         <Disc3 className="h-4 w-4 text-primary" /> Connect Crate to Spotify
       </div>
@@ -74,6 +77,6 @@ export function SpotifyConnectPrompt() {
           Connect
         </Button>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -1,4 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { ArrowRight } from "lucide-react";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, useReducedMotion } from "motion/react";
@@ -64,9 +65,9 @@ function Index() {
         <div className="mt-10">
           <Link
             to="/studio"
-            className="kinetic-control inline-flex h-12 items-center rounded-full bg-primary px-8 font-semibold text-primary-foreground hover:scale-[1.02]"
+            className="kinetic-control kinetic-link-forward inline-flex h-12 items-center gap-2 rounded-full bg-primary px-8 font-semibold text-primary-foreground"
           >
-            Open the studio
+            Open the studio <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
         </motion.div>
