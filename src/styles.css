@@ -211,10 +211,54 @@
 }
 
 @utility kinetic-control {
+  position: relative;
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
   transition-duration: 160ms;
   transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform;
+  -webkit-tap-highlight-color: transparent;
+  &:focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--color-ring) 78%, transparent);
+    outline-offset: 2px;
+  }
   &:active:not(:disabled) { transform: scale(0.96); transition-duration: 90ms; }
+  & > svg { transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .kinetic-control:not(:disabled):hover {
+    border-color: color-mix(in oklab, currentColor 28%, var(--color-border));
+    box-shadow: 0 8px 22px -18px color-mix(in oklab, currentColor 45%, transparent);
+  }
+  .kinetic-control:not(:disabled):hover > svg { transform: translateY(-1px) scale(1.06); }
+  .kinetic-card:hover {
+    border-color: color-mix(in oklab, var(--color-primary) 34%, var(--color-border));
+    background-color: var(--color-surface-2);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px -24px color-mix(in oklab, var(--color-primary) 40%, transparent);
+  }
+  .kinetic-card:hover .kinetic-art { transform: scale(1.045); }
+  .kinetic-link:hover > svg:first-child { transform: translateX(-3px); }
+  .kinetic-link-forward:hover > svg:last-child { transform: translateX(3px); }
+}
+
+@utility kinetic-card {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: 220ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@utility kinetic-art {
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@utility kinetic-link {
+  transition: color 160ms ease;
+  & > svg:first-child { transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1); }
+}
+
+@utility kinetic-link-forward {
+  transition: color 160ms ease;
+  & > svg:last-child { transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1); }
 }
 
 @utility kinetic-status {
@@ -272,6 +316,11 @@
     animation: none;
   }
   .kinetic-control:active:not(:disabled) { transform: none; }
+  .kinetic-card { transform: none; transition-duration: 120ms; }
+  .kinetic-art { transform: none; transition-duration: 120ms; }
+  .kinetic-link > svg,
+  .kinetic-link-forward > svg { transform: none; transition-duration: 120ms; }
+  .eq-bar { animation: none; transform: scaleY(0.45); }
   .kinetic-status { animation-duration: 120ms; clip-path: none; transform: none; }
   .kinetic-progress-edge::after { animation: none; display: none; }
 }
