@@ -1,4 +1,5 @@
 # Roadmap
+- [x] Keep session chat and original prompt playlist in a bounded history, restore on resume, and rebalance the steering heading; verified prompt, steering, end, resume and reload signed-in.
 - [x] Complete the approved Songweaver interaction and motion overhaul while preserving its black, green, pink, Syne and Manrope identity.
 - [x] Fit pre-session Studio suggestions, intro, search and prompt on desktop, tablet and iPhone; verified signed-in layouts, with scrolling available for extra welcome content on short screens.
 - [x] Step 1: mood chat, library browser (Spotify + demo), rediscovery cards, Walrus Memory Inspector, presets/filters
@@ -8,7 +9,7 @@
 
 - [x] Refine chat density, loading motion, personalized prompts, and compact song controls
 - [x] Move playback fully to Spotify live, open the Spotify app when needed, and remove Crate's bottom player
-- [x] Reset the center chat on studio entry, preserve Walrus Memory, and refine the composer
+- [x] Reset visible chat when the session ends, restore it on resume, preserve Walrus Memory, and refine the composer
 - [x] Add auto-send voice prompts to the studio chat
 - [x] Rename the product to Songweaver while keeping Crate as the AI companion
 - [x] Add first-time Studio onboarding for Spotify sync, session start, and prompting
@@ -35,7 +36,7 @@
 - [x] Skips put songs/artists on a short cooldown (max a few sessions), never a permanent block
 - [x] Your own Spotify pick mid-song counts as a skip with instant w push; far picks steer
 - [x] Background finish helper for frozen phone/tablet pages (cost check after a few days of use)
-- [x] Prompt playlist shown above the live steering screen; disappears when the playlist ends or is left
+- [x] Original prompt playlist stays at the top of session chat history, independent of playback queue progress
 - [x] Prompt playlist is one compact unified chain: number, cover, title, artist — no like/Spotify/skip buttons (pause and skip live in the maze tab)
 
 - [x] Tune Crate picking rules: real-finish rule, new Era scores, 25-song Vibe / 15-song New Angle shortlists, playlist-name meanings, one forgotten-favorite definition
