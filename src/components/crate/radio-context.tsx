@@ -222,7 +222,24 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   }, [playbackRawFn]);
   const authUrlFn = useServerFn(getSpotifyAuthUrl);
   const qc = useQueryClient();
-  const [playbackIssue, setPlaybackIssue] = useState<SpotifyPlaybackIssue | null>(null);
+  const [playbackIssue, setPlaybackIssueRaw] = useState<SpotifyPlaybackIssue | null>(null);
+  // "Open Spotify" popup gate: never outside a session, never during the cooldown after
+  // "Open Spotify" was pressed, and never in the first seconds after returning to the tab
+  // (iOS freezes the page while you're in Spotify, so detection needs a moment to catch up).
+  const popupBlockUntil = useRef(0);
+  const sessionLiveRef = useRef(false);
+  const setPlaybackIssue = useCallback(
+    (next: SpotifyPlaybackIssue | null | ((cur: SpotifyPlaybackIssue | null) => SpotifyPlaybackIssue | null)) => {
+      setPlaybackIssueRaw((cur) => {
+        const value = typeof next === "function" ? next(cur) : next;
+        if (!value) return null;
+        if (!sessionLiveRef.current) return null;
+        if (value.status === "no_device" && Date.now() < popupBlockUntil.current) return cur;
+        return value;
+      });
+    },
+    [],
+  );
   const [awaitingSpotify, setAwaitingSpotify] = useState(false);
   /** When the Start button resumed an open app; a still-paused loaded song is adopted 5 s later. */
   const resumeSentAt = useRef(0);
@@ -262,6 +279,21 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reopenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionLive, setSessionLive] = useState(false);
+  sessionLiveRef.current = sessionLive;
+  useEffect(() => {
+    if (!sessionLive) setPlaybackIssueRaw(null);
+  }, [sessionLive]);
+  useEffect(() => {
+    const onBack = () => {
+      if (!document.hidden) popupBlockUntil.current = Math.max(popupBlockUntil.current, Date.now() + 6_000);
+    };
+    document.addEventListener("visibilitychange", onBack);
+    window.addEventListener("pageshow", onBack);
+    return () => {
+      document.removeEventListener("visibilitychange", onBack);
+      window.removeEventListener("pageshow", onBack);
+    };
+  }, []);
   const [chatSessionId, setChatSessionId] = useState("");
   const startingFor = useRef<{ id: string; at: number; sent?: boolean; logged?: boolean } | null>(null);
   /** Song the start effect already handled — re-renders must never start it twice. */
@@ -2143,23 +2175,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [sessionLive, playbackFn, adoptPlaying, note]);
 
-  // Outside a session, keep the Spotify pill dot live: check every 20 s while the
-  // tab is visible, and immediately when you come back (iPad freezes timers away).
-  useEffect(() => {
-    if (sessionLive) return;
-    let busy = false;
-    const tick = async () => {
-      if (document.hidden || busy) return;
-      busy = true;
-      try { await playbackFn(); } catch { /* dot already went red */ }
-      finally { busy = false; }
-    };
-    void tick();
-    const id = setInterval(tick, 20_000);
-    const onVis = () => { if (!document.hidden) void tick(); };
-    document.addEventListener("visibilitychange", onVis);
-    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
-  }, [sessionLive, playbackFn]);
+  // Outside a session Songweaver never talks to Spotify (no polls, no app links).
 
   // Waiting for Spotify (popup shown OR in its 10 s cooldown after "Open Spotify"):
   // check every 3 s, and immediately when the tab comes back into view (iPad/iPhone
@@ -2299,18 +2315,33 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   }, [startSpotifyPlayback]);
 
   const openSpotify = useCallback(() => {
+    if (!sessionLiveRef.current) return;
     const track = radioRef.current.current;
     const shownIssue = playbackIssue;
     // Hide the popup for a 10 s cooldown while Crate looks for Spotify; if it
     // still can't see it after that, the popup comes back.
     setPlaybackIssue(null);
     setAwaitingSpotify(true);
+    // 30 s cooldown: coming back from the Spotify app must not bring the popup straight back.
+    popupBlockUntil.current = Date.now() + 30_000;
     const cycle = { ok: false };
     if (reopenTimer.current) clearTimeout(reopenTimer.current);
-    reopenTimer.current = setTimeout(() => {
+    // Count only visible time — iOS fires frozen timers the instant you return.
+    let visibleMs = 0;
+    let last = Date.now();
+    const check = () => {
+      const now = Date.now();
+      if (!document.hidden) visibleMs += Math.min(now - last, 1_500);
+      last = now;
+      if (cycle.ok || !sessionLiveRef.current) { reopenTimer.current = null; return; }
+      if (visibleMs < 30_000 || Date.now() < popupBlockUntil.current) {
+        reopenTimer.current = setTimeout(check, 1_000);
+        return;
+      }
       reopenTimer.current = null;
-      if (!cycle.ok && shownIssue) setPlaybackIssue((cur) => cur ?? shownIssue);
-    }, 10_000);
+      if (shownIssue) setPlaybackIssue((cur) => cur ?? shownIssue);
+    };
+    reopenTimer.current = setTimeout(check, 1_000);
     // Open Spotify itself, not the track: a track link makes Spotify play it inside
     // its album, filling "Next up" with album songs. Crate sends its own list instead.
     const webUrl = "https://open.spotify.com/";
@@ -2370,7 +2401,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         if (reopenTimer.current) { clearTimeout(reopenTimer.current); reopenTimer.current = null; }
         return;
       }
-      if (attempts < 4 && reopenTimer.current) retryTimer.current = setTimeout(() => void retry(), 2_500);
+      if (attempts < 15 && reopenTimer.current) retryTimer.current = setTimeout(() => void retry(), 2_000);
     };
     retryTimer.current = setTimeout(() => void retry(), 1_500);
   }, [startSpotifyPlayback, playbackIssue, playbackFn, adoptPlaying]);
@@ -2380,7 +2411,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   // dialog returns after openSpotify's 10 s cooldown as before.
   const autoOpenAt = useRef(0);
   useEffect(() => {
-    if (playbackIssue?.status !== "no_device") return;
+    if (playbackIssue?.status !== "no_device" || !sessionLive) return;
     if (typeof window === "undefined") return;
     const touch = isAppleTouchDevice() || /Android|Mobi/i.test(navigator.userAgent);
     // Phones/tablets (test): only on the published site — inside the editor's
@@ -2390,7 +2421,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     autoOpenAt.current = Date.now();
     pushSpotifyLog({ kind: "event", at: Date.now(), text: `AUTO-OPEN — opening Spotify on ${touch ? "phone/tablet" : "desktop"}` });
     openSpotify();
-  }, [playbackIssue, openSpotify]);
+  }, [playbackIssue, openSpotify, sessionLive]);
 
   const preparedAuth = usePreparedSpotifyUrl(() =>
     authUrlFn({ data: { origin: window.location.origin, framed: window.top !== window.self } }),
