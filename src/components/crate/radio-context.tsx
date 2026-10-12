@@ -910,7 +910,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           text: `Starts from "${first.name}" on ${ROAD_NAME[road]}${startRoad ? " (read from your prompt)" : road === "era" ? " (you mentioned nostalgia)" : ""}`,
         },
       ]);
-      setSessionLive(true);
+      sessionLiveRef.current = true; setSessionLive(true);
       idleSince.current = 0;
     },
     [note],
@@ -927,7 +927,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         return;
       }
       // Mid-session: the current song keeps playing; the pick becomes the finish door (B).
-      if (!sessionLive) setSessionLive(true);
+      if (!sessionLive) sessionLiveRef.current = true; setSessionLive(true);
       void steerRef.current?.("", [track], { source: prompt ? "prompt" : "search", keepW: true, keepQueue: !!prompt, prompt });
     },
     [startRadio, log, note, sessionLive],
@@ -1020,7 +1020,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       setEvents([...(saved.events ?? []), { at: Date.now(), kind: "reroot" as const, text: `Resumed last session at "${saved.radio.current?.name}"` }].slice(-30));
       setRadio({ ...saved.radio, active: true, sessionId: crypto.randomUUID() });
       setChatSessionId(saved.chatSessionId ?? saved.radio.sessionId);
-      setSessionLive(true);
+      sessionLiveRef.current = true; setSessionLive(true);
     } catch {
       localStorage.removeItem(LAST_KEY);
       setHasLastSession(false);
@@ -2254,7 +2254,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     watchOff.current = false;
     setChatSessionId((id) => id || crypto.randomUUID());
     setAwaitingSpotify(false);
-    setSessionLive(true);
+    sessionLiveRef.current = true; setSessionLive(true);
     idleSince.current = 0;
     if (radioRef.current.active) return;
     // A playing song: keep it going and build the maze from it (adopt pushes the skip door).
