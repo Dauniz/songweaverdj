@@ -34,11 +34,16 @@ function Index() {
   const reduced = useReducedMotion();
   useEffect(() => {
     // Returning users go straight to the studio; the homepage is for
-    // newcomers and devices without a saved sign-in.
+    // newcomers and devices without a saved sign-in. Also listen for a
+    // session that finishes restoring (or refreshing) just after load.
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) void navigate({ to: "/studio" });
     });
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") void navigate({ to: "/studio" });
+    });
     if (readLiveSession()) void navigate({ to: "/studio" });
+    return () => sub.subscription.unsubscribe();
   }, [navigate]);
   return (
     <main className="min-h-screen bg-glow">
