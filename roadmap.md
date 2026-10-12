@@ -36,6 +36,6 @@
 - [x] Your own Spotify pick mid-song counts as a skip with instant w push; far picks steer
 - [x] Background finish helper for frozen phone/tablet pages (cost check after a few days of use)
 - [x] Prompt playlist shown above the live steering screen; disappears when the playlist ends or is left
-- [x] Prompt playlist cards are display-only (no play buttons)
+- [x] Prompt playlist is one compact unified chain: number, cover, title, artist — no like/Spotify/skip buttons (pause and skip live in the maze tab)
 
 - [x] Tune Crate picking rules: real-finish rule, new Era scores, 25-song Vibe / 15-song New Angle shortlists, playlist-name meanings, one forgotten-favorite definition
