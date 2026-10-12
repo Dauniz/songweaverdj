@@ -20,7 +20,7 @@ import {
   PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import { TrackCard, type CardTrack } from "./TrackCard";
+import { type CardTrack } from "./TrackCard";
 import { PromptPlaylist } from "./PromptPlaylist";
 import { useRadio } from "./radio-context";
 import { LoaderCircle, Mic, Square } from "lucide-react";
@@ -32,7 +32,8 @@ import logo from "@/assets/crate-logo.jpg";
 import { recordWav, type VoiceRecording } from "@/lib/record-wav";
 import { LibrarySearch } from "./LibrarySearch";
 import { StudioSuggestions } from "./StudioSuggestions";
-import { geometricEnter, reducedFade, staggerChildren } from "@/lib/motion";
+import { Tool, ToolHeader, ToolContent } from "@/components/ai-elements/tool";
+import { initialPromptPlaylist, readSessionChat, sessionChatKey } from "@/lib/session-chat";
 
 type PromptMemory = { id: string; kind: string; content: string };
 
@@ -110,8 +111,12 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const recordingRef = useRef<VoiceRecording | null>(null);
   const stoppingRef = useRef(false);
-  const { startRadio, steerSession, sessionLive, lens, deepCuts, promptPlaylist } = useRadio();
-  const [playlistTitle, setPlaylistTitle] = useState("");
+  const { startRadio, steerSession, sessionLive, chatSessionId, lens, deepCuts } = useRadio();
+  const [chatUserId, setChatUserId] = useState<string | null>(null);
+  const visibleSession = useRef<string | null>(null);
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => setChatUserId(data.user?.id ?? null));
+  }, []);
   const lastUserText = useRef("");
   const { data: promptMemories = [] } = useQuery({
     queryKey: ["prompt-memories"],
@@ -163,6 +168,35 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   // Auto-start the radio as soon as a fresh answer with picks lands.
   const autoStarted = useRef(new Set<string>());
   useEffect(() => {
+    if (!chatUserId) return;
+    if (!sessionLive || !chatSessionId) {
+      if (visibleSession.current) {
+        visibleSession.current = null;
+        stop();
+        setMessages([]);
+        setText("");
+      }
+      return;
+    }
+    const key = sessionChatKey(chatUserId, chatSessionId);
+    if (visibleSession.current !== key) {
+      const previous = visibleSession.current;
+      visibleSession.current = key;
+      const saved = readSessionChat(localStorage, key);
+      if (saved) {
+        for (const message of saved.messages) autoStarted.current.add(message.id);
+        setMessages(saved.messages);
+        return;
+      }
+      if (previous) {
+        stop();
+        setMessages([]);
+        return;
+      }
+    }
+    try { localStorage.setItem(key, JSON.stringify({ messages })); } catch { /* Storage unavailable. */ }
+  }, [chatUserId, sessionLive, chatSessionId, messages, setMessages, stop]);
+  useEffect(() => {
     if (status !== "ready") return;
     const last = messages[messages.length - 1];
     if (!last || last.role !== "assistant" || autoStarted.current.has(last.id)) return;
@@ -179,7 +213,6 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
         if (out.steer_only) {
           // Mid-session chat steering: re-scout the upcoming doors, never touch the playing song.
           void steerSession(out.steer_note ?? "", out.tracks ?? []);
-          setMessages([]);
           break;
         }
         if (out.tracks.length) {
@@ -191,8 +224,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             return n.length > 1 && asked.includes(n);
           });
           startRadio(out.tracks, lastUserText.current || out.vibe_title, Math.max(0, idx), out.start_road);
-          setPlaylistTitle(out.vibe_title);
-          setMessages([]);
+
         }
         break;
       }
@@ -310,19 +342,17 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   );
 
   const empty = messages.length === 0;
-  // The complete start experience stays centered unless a prompt playlist occupies the top.
-  const centered = !(sessionLive && promptPlaylist && promptPlaylist.length > 0);
+  const originalPlaylist = initialPromptPlaylist(messages);
+  const centered = true;
 
   const composer = (
     <div
       className={cn(
         "composer-reveal w-full",
-        empty
-          ? "w-full shrink-0 px-0 sm:px-5 lg:px-7"
-          : "border-t px-5 pb-8 pt-3 lg:px-7 lg:pb-10",
+        "w-full shrink-0 px-0",
       )}
     >
-      <div className="mx-auto w-full max-w-4xl">
+      <div className="mx-auto w-full max-w-2xl">
         <div data-onboarding="prompt">
         {empty && welcome && !sessionLive && (
           <motion.div
@@ -411,7 +441,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
 
   const suggestions = empty && !sessionLive ? (
     <div className="composer-reveal w-full shrink-0 px-0 sm:px-5 lg:px-7">
-      <div className="mx-auto w-full max-w-4xl">
+      <div className="mx-auto w-full max-w-2xl">
         <div className="mt-5 sm:mt-6 [@media(max-height:720px)]:mt-3">
           <StudioSuggestions {...(onSearchSelection ? { onPlay: onSearchSelection } : {})} />
         </div>
@@ -427,11 +457,6 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
           centered ? "justify-center" : "justify-start",
         )}
       >
-        {sessionLive && promptPlaylist && promptPlaylist.length > 0 && (
-          <div className="mb-5 w-full sm:mb-6">
-            <PromptPlaylist title={playlistTitle || "Crate's playlist"} tracks={promptPlaylist} />
-          </div>
-        )}
         <div className={cn("flex w-full shrink-0 flex-col items-center", centered && "my-auto")}>
           <div className="flex w-full flex-col items-center text-center">
             <img
@@ -465,9 +490,16 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   }
 
   return (
-    <div className="chat-enter flex h-full flex-col">
-      <Conversation className="flex-1">
-        <ConversationContent className="chat-transcript mx-auto w-full max-w-4xl gap-4 px-5 pb-8 pt-48 text-[1.0625rem] leading-7 lg:px-7">
+    <div className="chat-enter scrollbar-thin flex h-full min-h-0 flex-col overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
+      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-4">
+      <div className="h-64 min-h-0 shrink-0 overflow-hidden rounded-lg border bg-surface/40 sm:h-80" data-session-history>
+      <Conversation className="h-full min-h-0" aria-label="Session chat history">
+        <ConversationContent className="chat-transcript mx-auto w-full gap-4 px-4 py-4 text-sm leading-6 sm:px-5 sm:text-base">
+          {originalPlaylist && (
+            <div className="mb-2" data-original-playlist>
+              <PromptPlaylist title={originalPlaylist.title} tracks={originalPlaylist.tracks} />
+            </div>
+          )}
           {messages.map((m) => (
             <motion.div
               key={m.id}
@@ -494,38 +526,20 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
                         : part.text;
                     return <MessageResponse key={i}>{shown}</MessageResponse>;
                   }
-                  if (part.type === "tool-recommend_tracks") {
-                    const out =
-                      part.state === "output-available"
-                        ? (part.output as { vibe_title: string; start_road?: "vibe" | "era"; tracks: CardTrack[] })
-                        : null;
+                  if (part.type === "tool-recommend_tracks" || part.type === "tool-save_memory") {
+                    const out = part.type === "tool-recommend_tracks" && part.state === "output-available"
+                      ? part.output as { vibe_title: string; tracks: CardTrack[]; steer_only?: boolean }
+                      : null;
                     return (
-                      <div key={i} className="song-results-reveal my-1 w-full">
-                        {out ? (
-                          <>
-                            <div className="mb-1.5 font-display text-lg font-bold text-primary">
-                              {out.vibe_title}
-                            </div>
-                            <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="grid gap-1.5 sm:grid-cols-2">
-                              {out.tracks.slice(0, 6).map((t, j) => (
-                                <TrackCard
-                                  key={t.id}
-                                  track={t}
-                                  index={j}
-                                />
-                              ))}
-                            </motion.div>
-                          </>
-                        ) : part.state === "output-error" ? (
-                          <p className="text-sm text-destructive">Couldn't load picks.</p>
-                        ) : (
-                          <Shimmer>Digging through your crates…</Shimmer>
-                        )}
-                      </div>
+                      <Tool key={i} defaultOpen={false} className="mb-0">
+                        <ToolHeader type={part.type} state={part.state} title={part.type === "tool-save_memory" ? "Taste noted" : out?.steer_only ? "Session direction" : "Crate's picks"} />
+                        <ToolContent>
+                          {out ? <p className="text-sm">{out.vibe_title}</p> : part.state === "output-error" ? (
+                            <p className="text-sm text-destructive">Couldn't complete this request.</p>
+                          ) : part.state === "output-available" ? <p className="text-sm text-muted-foreground">Noted for your taste.</p> : <Shimmer>Digging through your crates…</Shimmer>}
+                        </ToolContent>
+                      </Tool>
                     );
-                  }
-                  if (part.type === "tool-save_memory") {
-                    return null;
                   }
                   return null;
                 })}
@@ -543,8 +557,17 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
-
+      </div>
+      <div className="text-center">
+        <h2 className="font-display text-3xl font-bold leading-tight sm:text-4xl">
+          {sessionLive ? "Steer your session" : "What does today sound like?"}
+        </h2>
+        <p className="mt-2 text-base leading-6 text-muted-foreground sm:text-lg sm:leading-7">
+          {sessionLive ? "Are you missing something? Tweak the session with your own input." : "Describe your mood, where you are, what you're doing."}
+        </p>
+      </div>
       {composer}
+      </div>
     </div>
   );
 }
