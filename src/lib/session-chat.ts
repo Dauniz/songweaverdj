@@ -12,16 +12,26 @@ export function initialPromptPlaylist(messages: UIMessage[]) {
     if (message.role !== "assistant") continue;
     for (const part of message.parts) {
       if (part.type !== "tool-recommend_tracks" || part.state !== "output-available") continue;
-      const output = part.output as { steer_only?: boolean; vibe_title?: string; tracks?: CardTrack[] };
+      const output = part.output as {
+        steer_only?: boolean;
+        vibe_title?: string;
+        tracks?: CardTrack[];
+      };
       if (!output.steer_only && output.tracks?.length) {
-        return { title: output.vibe_title || "Crate's playlist", tracks: output.tracks.slice(0, 6) };
+        return {
+          title: output.vibe_title || "Crate's playlist",
+          tracks: output.tracks.slice(0, 6),
+        };
       }
     }
   }
   return null;
 }
 
-export function readSessionChat(storage: Pick<Storage, "getItem">, key: string): SessionChat | null {
+export function readSessionChat(
+  storage: Pick<Storage, "getItem">,
+  key: string,
+): SessionChat | null {
   try {
     const raw = storage.getItem(key);
     if (!raw) return null;
