@@ -11,7 +11,7 @@
 
 ## Songweaver architecture
 - Load Spotify credential/signing helpers dynamically inside server handlers or server-only helpers, never at module scope in client-reachable function files. Why: Studio must not evaluate Node crypto in the browser.
-- Chat streams through authenticated `/api/chat` and persists, but Studio opens a fresh visible chat. Why: Walrus carries taste continuity.
+- Chat streams through authenticated `/api/chat`; visible history is stored per account and stable presentation-session ID on this device, including the original prompt playlist. End clears the visible transcript; resume restores it without re-running tools, while playback session IDs remain independent. Why: conversation continuity must follow session resume without changing playback or Walrus memory.
 - Voice prompts capture WAV in-browser and transcribe through authenticated `/api/transcribe`. Why: cross-browser reliability and private credentials.
 - Walrus Memory (MemWal SDK) is the source of truth for taste memories; `memory_nodes` is a local mirror for the Inspector UI, with `blob_id` = `job:<id>` until the Walrus job finishes. Why: MemWal has no list API.
 - Spotify uses custom OAuth; tokens stay server-only. iOS authorizes in the same tab and returns to Studio; desktop uses a popup with fallback. Why: Safari blocks delayed popups.

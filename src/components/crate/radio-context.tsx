@@ -89,6 +89,8 @@ type RadioContextValue = {
   deepCuts: boolean;
   setDeepCuts: (enabled: boolean) => void;
   sessionLive: boolean;
+  /** Presentation identity retained when the last session is resumed. */
+  chatSessionId: string;
   /** Crate's prompt playlist while it is still running (display only). */
   promptPlaylist: CardTrack[] | null;
   /** Songs queued from search, in order (head = next song). */
@@ -260,6 +262,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reopenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [sessionLive, setSessionLive] = useState(false);
+  const [chatSessionId, setChatSessionId] = useState("");
   const startingFor = useRef<{ id: string; at: number; sent?: boolean; logged?: boolean } | null>(null);
   /** Song the start effect already handled — re-renders must never start it twice. */
   const handledFor = useRef("");
@@ -401,6 +404,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     deepCutsRef.current = savedDeepCuts;
     setDeepCutsState(savedDeepCuts);
     setRadio(saved.radio);
+    setChatSessionId(saved.chatSessionId ?? saved.radio.sessionId);
     setSessionLive(saved.sessionLive);
   }, []);
   useEffect(() => {
@@ -412,13 +416,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(
       LIVE_KEY,
       JSON.stringify({
-        radio, sessionLive, events, played: played.current,
+        radio, sessionLive, chatSessionId, events, played: played.current,
         artistSkips: [...artistSkips.current], savedAt: Date.now(),
         upNext, upSkip, door: door.current, branchKey: branches.current?.key ?? null,
         lens: lensRef.current, deepCuts: deepCutsRef.current,
       }),
     );
-  }, [restored, radio, sessionLive, events, upNext, upSkip, lens, deepCuts]);
+  }, [restored, radio, sessionLive, chatSessionId, events, upNext, upSkip, lens, deepCuts]);
   const note = useCallback((kind: MazeEvent["kind"], text: string) => {
     setEvents((e) => [...e, { at: Date.now(), kind, text }].slice(-80));
   }, []);
@@ -857,6 +861,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         return;
       }
       const road: Road = startRoad ?? (NOSTALGIA.test(seedPrompt) ? "era" : "vibe");
+      setChatSessionId((id) => id || crypto.randomUUID());
       setRadio({
         ...IDLE,
         active: true,
@@ -927,7 +932,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     if (s.active && s.current) {
       localStorage.setItem(
         LAST_KEY,
-        JSON.stringify({ radio: s, events: eventsRef.current, played: played.current, artistSkips: [...artistSkips.current], lens: lensRef.current, deepCuts: deepCutsRef.current, savedAt: Date.now() }),
+        JSON.stringify({ radio: s, chatSessionId, events: eventsRef.current, played: played.current, artistSkips: [...artistSkips.current], lens: lensRef.current, deepCuts: deepCutsRef.current, savedAt: Date.now() }),
       );
       setHasLastSession(true);
     }
@@ -946,18 +951,19 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     listGeneration.current += 1;
     awaitingSkipPair.current = false;
     setSessionLive(false);
+    setChatSessionId("");
     setSpotifyIdle(false);
     setRadio(IDLE);
     localStorage.removeItem(LIVE_KEY);
     // Hand Spotify back clean: pause and drop the songs Crate had lined up.
     if (!opts?.keepSpotify) void endSpotifySession().catch(() => undefined);
-  }, [reflect]);
+  }, [reflect, chatSessionId]);
 
   const resumeLastSession = useCallback(() => {
     try {
       const raw = localStorage.getItem(LAST_KEY);
       if (!raw) return;
-      const saved = JSON.parse(raw) as { radio: RadioState; events: MazeEvent[]; played: string[]; artistSkips: [string, number][]; lens?: LensId | null; deepCuts?: boolean };
+      const saved = JSON.parse(raw) as { radio: RadioState; chatSessionId?: string; events: MazeEvent[]; played: string[]; artistSkips: [string, number][]; lens?: LensId | null; deepCuts?: boolean };
       played.current = saved.played ?? [];
       // Bring back the side road the session was on.
       const savedLens = saved.lens && (LENS_IDS as string[]).includes(saved.lens) ? saved.lens : null;
@@ -981,6 +987,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       lastPlayback.current = { spotifyId: "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: 0 };
       setEvents([...(saved.events ?? []), { at: Date.now(), kind: "reroot" as const, text: `Resumed last session at "${saved.radio.current?.name}"` }].slice(-30));
       setRadio({ ...saved.radio, active: true, sessionId: crypto.randomUUID() });
+      setChatSessionId(saved.chatSessionId ?? saved.radio.sessionId);
       setSessionLive(true);
     } catch {
       localStorage.removeItem(LAST_KEY);
@@ -2229,6 +2236,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
 
   const startSession = useCallback(async () => {
     watchOff.current = false;
+    setChatSessionId((id) => id || crypto.randomUUID());
     setAwaitingSpotify(false);
     setSessionLive(true);
     idleSince.current = 0;
@@ -2656,6 +2664,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         deepCuts,
         setDeepCuts,
         sessionLive,
+        chatSessionId,
         promptPlaylist,
         userQueue: userQueueList,
         startSession,
