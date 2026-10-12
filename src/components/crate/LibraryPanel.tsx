@@ -180,20 +180,16 @@ export function LibraryPanel() {
 
   const hasDemo = tracks.some((t) => t.is_demo);
   const { spotifyLost, spotifyAlive, sessionLive } = useRadio();
-  // During a session: red the moment Crate can't reach Spotify, green while it
-  // can. Between sessions the dot sits solid grey — nothing is being steered.
-  const lost = spotifyLost || (status?.connected === true && spotifyAlive === false);
-  const waiting = sessionLive && !lost && spotifyAlive !== true;
-  const orbClass = waiting
-    ? "bg-muted-foreground"
-    : sessionLive
+  // Grey is the standard state whenever no session is on. During a session the dot
+  // only ever says red (Crate can't reach Spotify) or green (it can) — no waiting grey.
+  const lost =
+    sessionLive && (spotifyLost || spotifyAlive === false || status?.connected === false);
+  const orbClass = sessionLive
     ? lost
       ? "bg-destructive shadow-[0_0_6px_var(--destructive)]"
       : "bg-primary shadow-[0_0_6px_var(--primary)]"
     : "bg-muted-foreground";
-  const orbLabel = waiting
-    ? "Waiting for Spotify to play"
-    : sessionLive
+  const orbLabel = sessionLive
     ? lost
       ? "Spotify connection not found"
       : "Spotify connected"
@@ -205,9 +201,7 @@ export function LibraryPanel() {
     : !status.configured
       ? { label: "No session ongoing", hint: "Spotify app keys not added yet." }
       : sessionLive
-        ? waiting
-          ? { label: "Waiting for Spotify to play", hint: "Press play in Spotify — Crate picks up the song right away." }
-          : lost
+        ? lost
           ? {
               label: "Spotify connection not found",
               hint: "Open Spotify and press play — the maze waits until music is on.",
@@ -217,7 +211,7 @@ export function LibraryPanel() {
               hint:
                 spotifyAlive === true
                   ? "Spotify is answering and the maze is live."
-                  : "Signed in; waiting for Spotify to answer.",
+                  : "Spotify is answering — press play and Crate picks up the song.",
             }
         : {
             label: "No session ongoing",
@@ -225,6 +219,7 @@ export function LibraryPanel() {
               ? "Between sessions the dot stays grey. Start a session and Crate wakes Spotify."
               : "Connect Spotify so Crate can build your maze from your library.",
           };
+
 
   function toggleCollapsed() {
     setCollapsed((c) => {
