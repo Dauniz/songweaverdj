@@ -184,6 +184,11 @@ SESSION IS LIVE: music is already playing — never start a new session or a new
     system,
     messages: await convertToModelMessages(messages),
     abortSignal: request.signal,
+    // A stopped/closed chat aborts the request on purpose — don't treat it as a crash.
+    onError: ({ error }) => {
+      if (isAbortError(error) || request.signal.aborted) return;
+      console.error("chat model error", error);
+    },
     stopWhen: stepCountIs(4),
     tools: {
       recommend_tracks: tool({
@@ -276,13 +281,15 @@ SESSION IS LIVE: music is already playing — never start a new session or a new
   const response = result.toUIMessageStreamResponse({
     originalMessages: messages,
     sendReasoning: true,
-    onFinish: async ({ responseMessage }) => {
+    onFinish: async ({ responseMessage, isAborted }) => {
+      if (isAborted) return;
       const { error } = await supabase
         .from("chat_messages")
         .insert({ user_id: userId, message: responseMessage as never });
       if (error) console.error("save assistant message failed", error);
     },
     onError: (e) => {
+      if (isAbortError(e) || request.signal.aborted) return "Stopped.";
       console.error("chat stream error", e);
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.includes("402"))
@@ -292,4 +299,8 @@ SESSION IS LIVE: music is already playing — never start a new session or a new
     },
   });
   return withLovableAiGatewayRunIdHeader(response, runIdFetch);
+}
+
+function isAbortError(e: unknown) {
+  return e instanceof Error && (e.name === "AbortError" || e.name === "ResponseAborted" || /aborted/i.test(e.message));
 }
