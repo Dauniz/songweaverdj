@@ -99,6 +99,7 @@ export async function withLovableAiGatewayRunIdHeader(
 
   const reader = response.body.getReader();
   const firstChunk = reader.read();
+  firstChunk.catch(() => {}); // avoid an unhandled rejection if aborted before headers
   const runId = await gateway.waitForRunId();
   const headers = getLovableAiGatewayResponseHeaders(undefined, response.headers);
   new Headers(init).forEach((value, name) => headers.set(name, value));
@@ -120,7 +121,11 @@ export async function withLovableAiGatewayRunIdHeader(
         }
         controller.close();
       } catch (error) {
-        controller.error(error);
+        try {
+          controller.error(error);
+        } catch {
+          // Stream already closed by the client — nothing to report.
+        }
       }
     },
     cancel(reason?: unknown) {
