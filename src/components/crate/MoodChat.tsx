@@ -21,6 +21,7 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { TrackCard, type CardTrack } from "./TrackCard";
+import { PromptPlaylist } from "./PromptPlaylist";
 import { useRadio } from "./radio-context";
 import { LoaderCircle, Mic, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -427,15 +428,8 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
         )}
       >
         {sessionLive && promptPlaylist && promptPlaylist.length > 0 && (
-          <div className="song-results-reveal mb-8 w-full max-w-3xl">
-            <div className="mb-1.5 font-display text-lg font-bold text-primary">
-              {playlistTitle || "Crate's playlist"}
-            </div>
-            <motion.div variants={staggerChildren} initial="hidden" animate="visible" className="grid gap-1.5 sm:grid-cols-2">
-              {promptPlaylist.slice(0, 6).map((t, j) => (
-                <TrackCard key={t.id} track={t} index={j} />
-              ))}
-            </motion.div>
+          <div className="mb-5 w-full sm:mb-6">
+            <PromptPlaylist title={playlistTitle || "Crate's playlist"} tracks={promptPlaylist} />
           </div>
         )}
         <div className={cn("flex w-full shrink-0 flex-col items-center", centered && "my-auto")}>
