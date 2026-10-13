@@ -385,7 +385,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
 
   const composer = (
     <div className={cn("composer-reveal w-full", "w-full shrink-0 px-0")}>
-      <div className="mx-auto w-full max-w-2xl">
+      <div className={cn("mx-auto w-full", empty && "max-w-2xl")}>
         <div data-onboarding="prompt">
           {empty && welcome && !sessionLive && (
             <motion.div
@@ -542,15 +542,12 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
 
   return (
     <div className="chat-enter scrollbar-thin flex h-full min-h-0 flex-col overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center gap-4">
-        <div
-          className="h-64 min-h-0 shrink-0 overflow-hidden rounded-lg border bg-surface/40 sm:h-80"
-          data-session-history
-        >
+      <div className="mx-auto flex min-h-0 w-full flex-1 flex-col gap-4">
+        <div className="min-h-48 w-full flex-1 overflow-hidden" data-session-history>
           <Conversation className="h-full min-h-0" aria-label="Session chat history">
-            <ConversationContent className="chat-transcript mx-auto w-full gap-4 px-4 py-4 text-sm leading-6 sm:px-5 sm:text-base">
+            <ConversationContent className="chat-transcript mx-auto w-full gap-4 px-0 py-4 text-sm leading-6 sm:text-base">
               {originalPlaylist && (
-                <div className="mb-2" data-original-playlist>
+                <div className="mb-2 [&>div]:max-w-none" data-original-playlist>
                   <PromptPlaylist title={originalPlaylist.title} tracks={originalPlaylist.tracks} />
                 </div>
               )}
@@ -648,7 +645,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
             <ConversationScrollButton />
           </Conversation>
         </div>
-        <div className="text-center">
+        <div className="shrink-0 text-center">
           <h2 className="font-display text-3xl font-bold leading-tight sm:text-4xl">
             {sessionLive ? "Steer your session" : "What does today sound like?"}
           </h2>
