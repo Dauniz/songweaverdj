@@ -10,11 +10,18 @@ const detailsSchema = z.array(z.discriminatedUnion("type", [
   z.object({ ...detailBase, type: z.literal("reasoning.summary"), summary: z.string() }),
   z.object({ ...detailBase, type: z.literal("reasoning.server_tool_call"), arguments: z.string(), result: z.string(), tool_name: z.string(), tool_call_id: z.string().nullable().optional() }),
 ]));
-function reasoningDetails(value: unknown) {
+function reasoningDetails(value: unknown): NonNullable<Extract<GeminiChatMessage, { role: "assistant" }>["reasoning_details"]> {
   const parsed = detailsSchema.safeParse(value);
   if (!parsed.success) return [];
-  // Object spreads avoid assigning explicitly undefined optional contract fields.
-  return parsed.data.map((d) => JSON.parse(JSON.stringify(d))).map((d: unknown) => detailsSchema.element.parse(d));
+  return parsed.data.map((d) => {
+    const base = { ...(d.id !== undefined ? { id: d.id } : {}), ...(d.index !== undefined ? { index: d.index } : {}), ...(d.format !== undefined ? { format: d.format } : {}) };
+    switch (d.type) {
+      case "reasoning.encrypted": return { ...base, type: d.type, data: d.data };
+      case "reasoning.summary": return { ...base, type: d.type, summary: d.summary };
+      case "reasoning.text": return { ...base, type: d.type, ...(d.text !== undefined ? { text: d.text } : {}), ...(d.signature !== undefined ? { signature: d.signature } : {}) };
+      case "reasoning.server_tool_call": return { ...base, type: d.type, arguments: d.arguments, result: d.result, tool_name: d.tool_name, ...(d.tool_call_id !== undefined ? { tool_call_id: d.tool_call_id } : {}) };
+    }
+  });
 }
 
 export function gatewayPayload(options: LanguageModelV4CallOptions): GeminiChatFields & { model: typeof TEXT_MODEL } {
