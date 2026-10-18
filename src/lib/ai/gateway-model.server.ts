@@ -1,7 +1,21 @@
 import { generateChatCompletion, streamChatCompletion, type GeminiChatFields, type GeminiChatMessage, type ChatCompletion, type CallOptions } from "@lovable.dev/ai-gateway";
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4Content, LanguageModelV4FinishReason, LanguageModelV4StreamPart, LanguageModelV4Usage } from "@ai-sdk/provider";
+import { z } from "zod";
 
 export const TEXT_MODEL = "google/gemini-3-flash-preview";
+const detailBase = { id: z.string().nullable().optional(), index: z.number().optional(), format: z.enum(["unknown", "openai-responses-v1", "azure-openai-responses-v1", "bedrock-openai-responses-v1", "bedrock-xai-responses-v1", "xai-responses-v1", "meta-responses-v1", "anthropic-claude-v1", "google-gemini-v1"]).nullable().optional() };
+const detailsSchema = z.array(z.discriminatedUnion("type", [
+  z.object({ ...detailBase, type: z.literal("reasoning.encrypted"), data: z.string() }),
+  z.object({ ...detailBase, type: z.literal("reasoning.text"), text: z.string().nullable().optional(), signature: z.string().nullable().optional() }),
+  z.object({ ...detailBase, type: z.literal("reasoning.summary"), summary: z.string() }),
+  z.object({ ...detailBase, type: z.literal("reasoning.server_tool_call"), arguments: z.string(), result: z.string(), tool_name: z.string(), tool_call_id: z.string().nullable().optional() }),
+]));
+function reasoningDetails(value: unknown) {
+  const parsed = detailsSchema.safeParse(value);
+  if (!parsed.success) return [];
+  // Object spreads avoid assigning explicitly undefined optional contract fields.
+  return parsed.data.map((d) => JSON.parse(JSON.stringify(d))).map((d: unknown) => detailsSchema.element.parse(d));
+}
 
 export function gatewayPayload(options: LanguageModelV4CallOptions): GeminiChatFields & { model: typeof TEXT_MODEL } {
   const messages: GeminiChatMessage[] = [];
@@ -16,26 +30,27 @@ export function gatewayPayload(options: LanguageModelV4CallOptions): GeminiChatF
       }
       continue;
     }
-    const text = message.content.filter((p) => p.type === "text").map((p) => p.text).join("");
+    const text = message.content.map((p) => p.type === "text" ? p.text : "").join("");
     if (message.role === "user") {
       if (message.content.some((p) => p.type !== "text")) throw new Error("Crate chat expects text; voice is transcribed separately");
       messages.push({ role: "user", content: text });
     } else {
       const calls = message.content.filter((p) => p.type === "tool-call").map((p) => ({ type: "function" as const, id: p.toolCallId, function: { name: p.toolName, arguments: JSON.stringify(p.input) } }));
       const reasoning = message.content.filter((p) => p.type === "reasoning").map((p) => p.text).join("");
-      messages.push({ role: "assistant", content: text || null, ...(calls.length ? { tool_calls: calls } : {}), ...(reasoning ? { reasoning } : {}) });
+      const details = message.content.flatMap((p) => reasoningDetails(p.providerOptions?.["lovable"]?.["reasoningDetails"]));
+      messages.push({ role: "assistant", content: text || null, ...(calls.length ? { tool_calls: calls } : {}), ...(reasoning ? { reasoning } : {}), ...(details.length ? { reasoning_details: details } : {}) });
     }
   }
   const tools = options.tools?.map((t) => {
     if (t.type !== "function") throw new Error("Unsupported provider tool");
-    return { type: "function" as const, function: { name: t.name, description: t.description, parameters: t.inputSchema } };
+    return { type: "function" as const, function: { name: t.name, ...(t.description ? { description: t.description } : {}), parameters: { ...t.inputSchema } } };
   });
   const choice = options.toolChoice;
   const format = options.responseFormat;
   return {
-    model: TEXT_MODEL, messages, tools,
+    model: TEXT_MODEL, messages, ...(tools ? { tools } : {}),
     ...(choice ? { tool_choice: choice.type === "tool" ? { type: "function", function: { name: choice.toolName } } : choice.type } : {}),
-    ...(format?.type === "json" ? { response_format: format.schema ? { type: "json_schema", json_schema: { name: format.name ?? "response", schema: format.schema, strict: true } } : { type: "json_object" } } : {}),
+    ...(format?.type === "json" ? { response_format: format.schema ? { type: "json_schema", json_schema: { name: format.name ?? "response", schema: { ...format.schema }, strict: true } } : { type: "json_object" } } : {}),
     ...(options.maxOutputTokens !== undefined ? { max_tokens: options.maxOutputTokens } : {}),
     ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
     ...(options.topP !== undefined ? { top_p: options.topP } : {}),
@@ -61,26 +76,33 @@ export function createGatewayModel(initialRunId?: string) {
   let runId = initialRunId;
   let publish: (id: string | undefined) => void = () => {};
   const ready = new Promise<string | undefined>((resolve) => { publish = resolve; });
-  const optionsFor = (options: LanguageModelV4CallOptions): CallOptions => ({ signal: options.abortSignal, runId });
+  const optionsFor = (options: LanguageModelV4CallOptions): CallOptions => ({ ...(options.abortSignal ? { signal: options.abortSignal } : {}), ...(runId ? { runId } : {}) });
   const model: LanguageModelV4 = {
     specificationVersion: "v4", provider: "lovable.gateway", modelId: TEXT_MODEL, supportedUrls: {},
     async doGenerate(options) {
       try {
         const response = await generateChatCompletion(gatewayPayload(options), optionsFor(options));
         const choice = response.choices[0];
+        if (!choice) throw new Error("Gateway returned no completion");
         const content: LanguageModelV4Content[] = [];
+        if (choice.message.reasoning) content.push({ type: "reasoning", text: choice.message.reasoning });
+        const details = choice.message.reasoning_details;
         if (choice?.message.refusal) content.push({ type: "text", text: choice.message.refusal });
         else if (choice?.message.content) content.push({ type: "text", text: choice.message.content });
         for (const call of choice?.message.tool_calls ?? []) {
-          if (call.type === "function") content.push({ type: "tool-call", toolCallId: call.id, toolName: call.function.name, input: call.function.arguments });
+          if (!choice.message.refusal && call.type === "function") content.push({ type: "tool-call", toolCallId: call.id, toolName: call.function.name, input: call.function.arguments, ...(details?.length ? { providerMetadata: { lovable: { reasoningDetails: details } } } : {}) });
         }
         return { content, finishReason: finish(choice?.finish_reason), usage: usage(response.usage), warnings: [], response: { id: response.id, modelId: response.model, timestamp: new Date(response.created * 1000) } };
       } finally { publish(runId); }
     },
     async doStream(options) {
+      const abort = new AbortController();
+      const onAbort = () => abort.abort(options.abortSignal?.reason);
+      if (options.abortSignal?.aborted) onAbort();
+      options.abortSignal?.addEventListener("abort", onAbort, { once: true });
       let source;
-      try { source = await streamChatCompletion(gatewayPayload(options), optionsFor(options)); }
-      catch (error) { publish(runId); throw error; }
+      try { source = await streamChatCompletion(gatewayPayload(options), { ...optionsFor(options), signal: abort.signal }); }
+      catch (error) { options.abortSignal?.removeEventListener("abort", onAbort); publish(runId); throw error; }
       runId = source.runId ?? runId;
       publish(runId);
       const iterator = source[Symbol.asyncIterator]();
@@ -91,6 +113,8 @@ export function createGatewayModel(initialRunId?: string) {
           const calls = new Map<number, { id: string; name: string; input: string; started: boolean }>();
           let lastUsage: ChatCompletion["usage"];
           let reason: string | null | undefined;
+          let refused = false;
+          const details: NonNullable<NonNullable<ChatCompletion["choices"][number]["message"]["reasoning_details"]>> = [];
           controller.enqueue({ type: "stream-start", warnings: [] });
           try {
             while (!cancelled) {
@@ -103,6 +127,8 @@ export function createGatewayModel(initialRunId?: string) {
               if (!choice) continue;
               if (choice.finish_reason) reason = choice.finish_reason;
               const delta = choice.delta;
+              if (delta.reasoning_details) details.push(...delta.reasoning_details);
+              if (delta.refusal) refused = true;
               if (delta.content || delta.refusal) {
                 if (!textOpen) { controller.enqueue({ type: "text-start", id: "text" }); textOpen = true; }
                 controller.enqueue({ type: "text-delta", id: "text", delta: delta.refusal || delta.content || "" });
@@ -128,18 +154,18 @@ export function createGatewayModel(initialRunId?: string) {
             if (options.abortSignal?.aborted) throw new DOMException("This operation was aborted", "AbortError");
             if (textOpen) controller.enqueue({ type: "text-end", id: "text" });
             if (reasoningOpen) controller.enqueue({ type: "reasoning-end", id: "reasoning" });
-            for (const call of calls.values()) {
+            for (const call of refused ? [] : calls.values()) {
               if (!call.id || !call.name) throw new Error("Incomplete Gateway tool call");
               controller.enqueue({ type: "tool-input-end", id: call.id });
-              controller.enqueue({ type: "tool-call", toolCallId: call.id, toolName: call.name, input: call.input });
+              controller.enqueue({ type: "tool-call", toolCallId: call.id, toolName: call.name, input: call.input, ...(details.length ? { providerMetadata: { lovable: { reasoningDetails: details } } } : {}) });
             }
             controller.enqueue({ type: "finish", finishReason: finish(reason), usage: usage(lastUsage) });
             controller.close();
           } catch (error) {
             if (!cancelled) { controller.enqueue({ type: "error", error }); controller.close(); }
-          } finally { await iterator.return?.(); }
+          } finally { options.abortSignal?.removeEventListener("abort", onAbort); await iterator.return?.(); }
         },
-        async cancel() { cancelled = true; await iterator.return?.(); },
+        async cancel() { cancelled = true; abort.abort(); await iterator.return?.(); },
       });
       return { stream, response: { headers: runId ? { "x-lovable-aig-run-id": runId } : {} } };
     },
