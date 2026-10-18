@@ -87,7 +87,7 @@ The fixes on our side are smaller: repair pending jobs on app load and on a sche
 | Frontend | TanStack Start v1, React 19, Tailwind CSS v4, shadcn/ui |
 | Server | TanStack server functions and server routes (edge runtime) |
 | Database & auth | Lovable Cloud (Postgres with row-level security) |
-| AI | Google Gemini 3.6 Flash via Lovable AI Gateway (chat, song picking, synthesis) — no OpenAI or Anthropic models |
+| AI | Google Gemini 3 Flash Preview via Lovable AI Gateway SDK (chat, song picking, synthesis); Gemini 3.5 Transcribe for voice — no OpenAI or Anthropic models |
 | Memory | Walrus Memory via MemWal SDK |
 | Music | Spotify Web API + Spotify Connect (custom OAuth, tokens server-only) |
 

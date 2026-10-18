@@ -1,4 +1,5 @@
 # Roadmap
+- [ ] Replace deprecated text model with supported Gemini Flash, preserve streaming/tools and verify without controlling real Spotify.
 - [x] Keep session chat and original prompt playlist in a bounded history, restore on resume, and rebalance the steering heading; verified prompt, steering, end, resume and reload signed-in.
 - [x] Complete the approved Songweaver interaction and motion overhaul while preserving its black, green, pink, Syne and Manrope identity.
 - [x] Fit pre-session Studio suggestions, intro, search and prompt on desktop, tablet and iPhone; verified signed-in layouts, with scrolling available for extra welcome content on short screens.
