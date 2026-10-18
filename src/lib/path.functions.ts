@@ -1,6 +1,5 @@
 import { readAllRows, libraryPoolCache } from "@/lib/keyset";
 import { createServerFn } from "@tanstack/react-start";
-import { createGatewayModel } from "./ai/gateway-model.server";
 import { stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -471,8 +470,6 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     }
 
     // VIBE / MIXED (or era with chips): AI picks one from a shortlist.
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) throw new Error("AI is not configured.");
 
     const liked = data.history.filter((h) => h.outcome === "played").slice(-6);
     const skipped = data.history.filter((h) => h.outcome === "skipped").slice(-6);
@@ -575,6 +572,7 @@ ${walrus.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
 
 Pick the next song.`;
 
+    const { createGatewayModel } = await import("./ai/gateway-model.server");
     const gateway = createGatewayModel();
     const result = streamText({
       model: gateway.model,
@@ -621,8 +619,7 @@ export const judgeForeignPick = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) return { far: false, note: "" };
+    const { createGatewayModel } = await import("./ai/gateway-model.server");
     const gateway = createGatewayModel();
     const result = streamText({
       model: gateway.model,

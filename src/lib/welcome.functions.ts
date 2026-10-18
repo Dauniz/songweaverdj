@@ -16,8 +16,6 @@ export const getWelcomeSuggestion = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }): Promise<WelcomeSuggestion> => {
     const { supabase, userId } = context;
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) return null;
     const localNow = new Date(Date.now() - data.tzOffsetMin * 60_000);
     const day = localNow.getUTCDay();
     const hour = localNow.getUTCHours();

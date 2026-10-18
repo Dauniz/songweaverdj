@@ -200,8 +200,6 @@ export async function synthesizeTasteMemories(
   userId: string,
   opts: { sessionId?: string | null; tzOffsetMin?: number; scope: "session" | "history"; displayName?: string | null },
 ) {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) return { saved: 0, insights: [] as Insight[], reason: "not_configured" };
   const tz = opts.tzOffsetMin ?? 0;
 
   let q = supabase

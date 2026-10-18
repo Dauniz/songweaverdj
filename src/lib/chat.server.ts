@@ -51,8 +51,6 @@ export async function handleChat(request: Request) {
   const auth = await authed(request);
   if (!auth) return json(401, { error: "Please sign in again." });
   const { supabase, userId } = auth;
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) return json(500, { error: "AI is not configured." });
 
   let body: { messages: UIMessage[] };
   try {

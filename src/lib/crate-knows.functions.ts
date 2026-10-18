@@ -35,8 +35,7 @@ export const getCrateKnows = createServerFn({ method: "POST" })
 
     let portrait: string | null = null;
     let rhythms: CrateKnows["rhythms"] = [];
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (apiKey && (learned.length || history.length)) {
+    if (learned.length || history.length) {
       const prompt = `Memories LEARNED IN SESSIONS (Crate figured these out by listening alongside the user):
 ${learned.slice(0, 60).map((m) => `- ${m.content}`).join("\n") || "- (none)"}
 Memories FROM IMPORTED STREAMING HISTORY (baseline, known before Crate met them):

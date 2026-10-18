@@ -11,8 +11,6 @@ export const readPlaylistMeanings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) return { read: 0 };
     const rows = await readAllRows<{ id: string; name: string; artists: string; genres: string | null; source_name: string; source_type: string }>(
       supabase,
       "library_tracks",

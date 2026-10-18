@@ -93,8 +93,7 @@ export const getStudioSuggestions = createServerFn({ method: "POST" })
       const a = (e.artists ?? "").split(",")[0]!.trim().toLowerCase();
       if (a) artistFin.set(a, (artistFin.get(a) ?? 0) + 1);
     }
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (sessions.size < 3 || !(strong ?? []).length || !apiKey || !artistFin.size) return fallback();
+    if (sessions.size < 3 || !(strong ?? []).length || !artistFin.size) return fallback();
 
     // Shortlist ~40: songs by the window's artists, then songs sharing their genres.
     const topArtists = [...artistFin.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([a]) => a);

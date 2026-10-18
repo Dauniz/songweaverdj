@@ -30,8 +30,6 @@ Binge days: ${d.bingeDays.map((b) => `${b.date} ${b.track} ${b.plays}x`).join(";
 
 /** Crate studies years of streaming history and writes durable long-term memories (origin history_profile). */
 export async function learnFromHistory(supabase: SupabaseClient<Database>, userId: string, digest: HistoryDigest, who: string) {
-  const apiKey = process.env["LOVABLE_API_KEY"];
-  if (!apiKey) return { saved: 0, insights: [] as { kind: string; content: string }[] };
 
   const { data: old } = await supabase.from("memory_nodes").select("id").eq("origin", "history_profile");
   const { data: existing } = await supabase
