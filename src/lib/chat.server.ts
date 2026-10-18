@@ -1,19 +1,17 @@
 import { readAllRows } from "@/lib/keyset";
-import { createOpenAI } from "@ai-sdk/openai";
+import { createGatewayModel } from "./ai/gateway-model.server";
 import { dedupePicks } from "@/lib/dedupe-picks";
 import { createClient } from "@supabase/supabase-js";
 import { convertToModelMessages, stepCountIs, streamText, tool, type UIMessage } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import {
-  createLovableAiGatewayRunIdFetch,
   getLovableAiGatewayRunId,
   withLovableAiGatewayRunIdHeader,
 } from "./ai/run-id.server";
 import { recallMemories, submitMemory } from "./memwal.server";
 import { isForeverSkipMemory } from "./cooldowns";
 
-const MODEL = "google/gemini-3.6-flash";
 
 function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -171,16 +169,10 @@ ${deepCuts ? `
 DEEP CUTS IS ON: at least 5 of the picks must come from playlists dated 12+ months ago (the older the better — nostalgic, long-forgotten songs). Never pick tracks marked HEARD RECENTLY. Avoid the user's most obvious/most-repeated artists. Mention the playlist month in the reason (e.g. "from your March 2021 playlist"). A song the user names explicitly still goes first.` : ""}${liveSession ? `
 SESSION IS LIVE: music is already playing — never start a new session or a new playlist. Call recommend_tracks with steer_only: true and steer_note set to the user's message distilled into one short instruction for the radio's next-door picker (e.g. "more rap", "less energy, more Swedish", "keep this exact vibe going"). Include picks (1-3, library codes only, in play order) ONLY when the user asks for specific songs; for approval like "I'm loving it" send no picks and a steer_note like "keep this exact vibe going".` : ""}`;
 
-  const runIdFetch = createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(request));
-  const provider = createOpenAI({
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    apiKey,
-    headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-    fetch: runIdFetch.fetch,
-  });
+  const gateway = createGatewayModel(getLovableAiGatewayRunId(request));
 
   const result = streamText({
-    model: provider.chat(MODEL),
+    model: gateway.model,
     system,
     messages: await convertToModelMessages(messages),
     abortSignal: request.signal,
@@ -298,7 +290,7 @@ SESSION IS LIVE: music is already playing — never start a new session or a new
       return "Something went wrong generating a reply.";
     },
   });
-  return withLovableAiGatewayRunIdHeader(response, runIdFetch);
+  return withLovableAiGatewayRunIdHeader(response, gateway);
 }
 
 function isAbortError(e: unknown) {

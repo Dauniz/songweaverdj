@@ -1,3 +1,4 @@
+import { generateChatCompletion } from "@lovable.dev/ai-gateway";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -121,20 +122,14 @@ Pick exactly 8 different songs from the shortlist that fit their recurring ${DAY
 {"title": "short header, e.g. 'Your ${DAYS[day]} ${part} picks'", "ids": ["8 ids from the shortlist"]}`;
 
     try {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { "content-type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: "google/gemini-3.6-flash",
+      const j = await generateChatCompletion({
+          model: "google/gemini-3-flash-preview",
           messages: [
             { role: "system", content: "You are Crate, a careful music DJ. Only use ids from the shortlist." },
             { role: "user", content: prompt },
           ],
           response_format: { type: "json_object" },
-        }),
       });
-      if (!res.ok) return fallback();
-      const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
       const raw = j.choices?.[0]?.message?.content ?? "";
       const out = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)) as { title?: string; ids?: string[] };
       const byShort = new Map(shortlist.map((s) => [s.spotify_id, s]));

@@ -1,11 +1,9 @@
-import { createOpenAI } from "@ai-sdk/openai";
+import { createGatewayModel } from "./ai/gateway-model.server";
 import { streamText } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { createLovableAiGatewayRunIdFetch } from "./ai/run-id.server";
 import { submitMemory, type MemoryKind } from "./memwal.server";
 
-const MODEL = "google/gemini-3.6-flash";
 const KINDS: MemoryKind[] = ["taste", "genre", "mood_trigger", "skipped", "session", "favorite"];
 
 type Db = SupabaseClient<Database>;
@@ -344,16 +342,10 @@ ${notes.length ? `\nOptional listener hints (feedbacker notes):\n${notes.join("\
 ${intents.length ? `\nStated intents & prior observations (candidates for promotion — verify against the trace):\n${intents.join("\n")}` : ""}
 ${profile.length ? `\nLong-term baseline from their years of Spotify streaming history. Evaluate the trace against it: where does this listening confirm, deepen or break the long-term habit? A break (new time of day, a faded artist returning, a usually-skipped artist finished) is a strong memory candidate — say what changed compared to the baseline. Never restate the baseline itself:\n${profile.join("\n")}` : ""}`;
 
-  const runIdFetch = createLovableAiGatewayRunIdFetch();
-  const provider = createOpenAI({
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    apiKey,
-    headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-    fetch: runIdFetch.fetch,
-  });
+  const gateway = createGatewayModel();
 
   const result = streamText({
-    model: provider.chat(MODEL),
+    model: gateway.model,
     system,
     prompt,
   });

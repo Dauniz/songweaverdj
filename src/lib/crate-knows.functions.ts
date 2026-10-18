@@ -1,3 +1,4 @@
+import { generateChatCompletion } from "@lovable.dev/ai-gateway";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { isForeverSkipMemory, loadCooldowns, type Cooldowns } from "./cooldowns";
@@ -45,20 +46,15 @@ Using ONLY these memories (never invent), reply with JSON:
 {"portrait": "2-3 warm sentences addressed to the user ('You ...'), leading with what was learned in sessions",
  "rhythms": [{"text": "short day/time/season pattern, e.g. 'Sad vibes on Wednesdays'", "source": "sessions"|"history"}]  (max 6, only real time/day/season patterns)}`;
       try {
-        const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { "content-type": "application/json", Authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({
-            model: "google/gemini-3.6-flash",
+        const j = await generateChatCompletion({
+            model: "google/gemini-3-flash-preview",
             messages: [
               { role: "system", content: "You are Crate, a warm music companion summarising what you know about your listener." },
               { role: "user", content: prompt },
             ],
             response_format: { type: "json_object" },
-          }),
         });
-        if (res.ok) {
-          const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+        {
           const raw = j.choices?.[0]?.message?.content ?? "";
           const out = JSON.parse(raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1)) as Partial<CrateKnows>;
           portrait = typeof out.portrait === "string" ? out.portrait.slice(0, 600) : null;

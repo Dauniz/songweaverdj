@@ -1,3 +1,4 @@
+import { generateChatCompletion, GatewayError } from "@lovable.dev/ai-gateway";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { readAllRows, libraryPoolCache } from "@/lib/keyset";
@@ -40,11 +41,10 @@ export const readPlaylistMeanings = createServerFn({ method: "POST" })
         const sample = songs.slice(0, 15).map((s) => `${s.name} — ${s.artists}${s.genres ? ` {${s.genres.split(", ").slice(0, 2).join(", ")}}` : ""}`);
         return `P${k} | "${name}" (${songs.length} songs): ${sample.join("; ")}`;
       });
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "google/gemini-3.6-flash",
+      let j;
+      try {
+        j = await generateChatCompletion({
+          model: "google/gemini-3-flash-preview",
           messages: [
             {
               role: "system",
@@ -76,14 +76,12 @@ export const readPlaylistMeanings = createServerFn({ method: "POST" })
               },
             },
           },
-        }),
       });
-      if (!res.ok) {
-        console.error("playlist meanings failed", res.status, await res.text().catch(() => ""));
-        if (res.status === 402 || res.status === 403 || res.status === 429) break;
+      } catch (error) {
+        console.error("playlist meanings failed", error);
+        if (error instanceof GatewayError && [402, 403, 429].includes(error.httpStatus ?? 0)) break;
         continue;
       }
-      const j = (await res.json()) as { choices?: { message?: { content?: string } }[] };
       let parsed: { playlists: { code: string; meaning: string; tags: string[] }[] } = { playlists: [] };
       try {
         parsed = JSON.parse(j.choices?.[0]?.message?.content ?? "{}");

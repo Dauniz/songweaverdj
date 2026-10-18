@@ -1,8 +1,7 @@
-import { createOpenAI } from "@ai-sdk/openai";
+import { createGatewayModel } from "./ai/gateway-model.server";
 import { generateText } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { createLovableAiGatewayRunIdFetch } from "./ai/run-id.server";
 import { submitMemory, type MemoryKind } from "./memwal.server";
 import type { HistoryDigest } from "./listening-history";
 
@@ -42,16 +41,10 @@ export async function learnFromHistory(supabase: SupabaseClient<Database>, userI
     .order("created_at", { ascending: false })
     .limit(30);
 
-  const runIdFetch = createLovableAiGatewayRunIdFetch();
-  const provider = createOpenAI({
-    baseURL: "https://ai.gateway.lovable.dev/v1",
-    apiKey,
-    headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-    fetch: runIdFetch.fetch,
-  });
+  const gateway = createGatewayModel();
 
   const { text } = await generateText({
-    model: provider.chat("google/gemini-3.6-flash"),
+    model: gateway.model,
     system: `You are Crate, a music companion. ${who} just handed you their full Spotify streaming history. Study it carefully like a detective and write a LONG-TERM LISTENER PROFILE as 5–7 durable memories.
 
 Look for: daily/weekly rituals (when they listen, and what), how their taste evolved year by year (phases, eras, turning points), artists they outgrew vs. artists that survived every era, songs they protect, what they reliably skip, patience (skip rate, shuffle habit), late-night vs daytime sound, binge behaviour, and contradictions.
