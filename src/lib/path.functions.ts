@@ -1,6 +1,5 @@
 import { readAllRows, libraryPoolCache } from "@/lib/keyset";
 import { createServerFn } from "@tanstack/react-start";
-import { createOpenAI } from "@ai-sdk/openai";
 import { stepCountIs, streamText, tool } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -15,7 +14,6 @@ import { isForgotten, playlistWeight as eraPlaylistWeight, savedCloseWeight, ERA
 const altKind = (lens: LensId | null, deepCuts: boolean): AltKind | null =>
   deepCuts ? "deep" : lens === "wormhole" || lens === "texture" || lens === "scene" ? lens : null;
 
-const MODEL = "google/gemini-3.6-flash";
 
 type Row = {
   id: string;
@@ -472,8 +470,6 @@ export const nextPathTrack = createServerFn({ method: "POST" })
     }
 
     // VIBE / MIXED (or era with chips): AI picks one from a shortlist.
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) throw new Error("AI is not configured.");
 
     const liked = data.history.filter((h) => h.outcome === "played").slice(-6);
     const skipped = data.history.filter((h) => h.outcome === "skipped").slice(-6);
@@ -576,13 +572,10 @@ ${walrus.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
 
 Pick the next song.`;
 
-    const provider = createOpenAI({
-      baseURL: "https://ai.gateway.lovable.dev/v1",
-      apiKey,
-      headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-    });
+    const { createGatewayModel } = await import("./ai/gateway-model.server");
+    const gateway = createGatewayModel();
     const result = streamText({
-      model: provider.chat(MODEL),
+      model: gateway.model,
       system,
       messages: [{ role: "user", content: live }],
       stopWhen: stepCountIs(1),
@@ -626,15 +619,10 @@ export const judgeForeignPick = createServerFn({ method: "POST" })
       .parse(d),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) return { far: false, note: "" };
-    const provider = createOpenAI({
-      baseURL: "https://ai.gateway.lovable.dev/v1",
-      apiKey,
-      headers: { "Lovable-API-Key": apiKey, "X-Lovable-AIG-SDK": "vercel-ai-sdk" },
-    });
+    const { createGatewayModel } = await import("./ai/gateway-model.server");
+    const gateway = createGatewayModel();
     const result = streamText({
-      model: provider.chat(MODEL),
+      model: gateway.model,
       system:
         "You judge whether a song a listener chose themselves is clearly far (different genre/scene, era or mood) from the music session so far. Be strict: similar sound = not far.",
       messages: [
