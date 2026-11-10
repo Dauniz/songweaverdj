@@ -327,6 +327,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const finishedTracks = useRef<RadioTrack[]>([]);
   /** Songbook entry being replayed: its songs come back as finish doors every few songs. */
   const songbookPool = useRef<RadioTrack[]>([]);
+  /** History length when a Songbook replay began: only songs heard since then count as recent. */
+  const songbookFrom = useRef(0);
   const [userQueueList, setUserQueueList] = useState<RadioTrack[]>([]);
   const setUQ = (q: RadioTrack[]) => {
     userQueue.current = q;
@@ -630,7 +632,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const qNext = queuedNext(cid);
       const qPos = promptQueue.current;
       const poolNext = !uqHead && !qNext && s.history.length > 0
-        ? pickSongbookTrack(songbookPool.current, s.history, songbookGap(cid), [cid, knownSkipId, ...played.current.slice(-50)])
+        ? pickSongbookTrack(songbookPool.current, s.history.slice(songbookFrom.current), songbookGap(cid), [cid, knownSkipId, ...played.current.slice(-50)])
         : null;
       const qOff = qPos?.offset ?? 0;
       const skippedState = advance(s, "skipped");
@@ -1065,6 +1067,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     resumeFrom(entry.resume_state);
     const pool = (Array.isArray(entry.tracks) ? entry.tracks : []) as RadioTrack[];
     songbookPool.current = pool.filter((t) => t && typeof t.spotify_id === "string" && isPlayable(t));
+    // The saved session's own plays aren't "recent" for a replay, or saved songs could
+    // only come back 50 songs later (and door checks would reject them as already heard).
+    const poolIds = new Set(songbookPool.current.map((t) => t.spotify_id));
+    const curId = radioRef.current.current?.spotify_id;
+    played.current = played.current.filter((id) => id === curId || !poolIds.has(id));
+    songbookFrom.current = radioRef.current.history.length;
   }, [stopRadio, resumeFrom]);
 
   const next = useCallback(
