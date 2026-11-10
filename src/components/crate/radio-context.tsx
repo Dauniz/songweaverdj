@@ -1362,11 +1362,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         // A song started inside Spotify brings its playlist/album along as "next up". Take over
         // fast so Spotify doesn't drift into that list (and Crate chase it) while Crate thinks.
         pendingSkip = (b ? b.skipped : fetchBranch(advance(radioRef.current, "skipped"))).catch(() => null);
-        branch = await withTimeout(
-          pendingSkip,
-          alreadyPlaying ? 15_000 : 6_000, // fresh start: A must not wait long for C
-          null,
-        );
+        // Fresh start waits for C so [A, C] goes out together (sending A alone means a second
+        // push later = audible glitch). The server answers within ~6 s even when the AI stalls
+        // (backup reply + plain-code fallback); 20 s is only a dead-network safety net.
+        branch = await withTimeout(pendingSkip, alreadyPlaying ? 15_000 : 20_000, null);
       }
       if (stale()) return;
       const skip = branch?.track && isPlayable(branch.track) && branch.track.spotify_id !== current.spotify_id ? branch : null;
