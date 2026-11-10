@@ -42,3 +42,4 @@
 
 - [x] Tune Crate picking rules: real-finish rule, new Era scores, 25-song Vibe / 15-song New Angle shortlists, playlist-name meanings, one forgotten-favorite definition
 - [x] Spotify dot: grey whenever no session is on, red during a session when Spotify can't be reached, green otherwise (no waiting grey)
+- [x] Songbook: save, edit and replay sessions

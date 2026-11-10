@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CrateInfoRouteImport } from './routes/crate-info'
 import { Route as AuthenticatedCrateKnowsRouteImport } from './routes/_authenticated/crate-knows'
+import { Route as AuthenticatedSongbookRouteImport } from './routes/_authenticated/songbook'
 import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated/studio'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
@@ -45,6 +46,11 @@ const CrateInfoRoute = CrateInfoRouteImport.update({
 const AuthenticatedCrateKnowsRoute = AuthenticatedCrateKnowsRouteImport.update({
   id: '/crate-knows',
   path: '/crate-knows',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSongbookRoute = AuthenticatedSongbookRouteImport.update({
+  id: '/songbook',
+  path: '/songbook',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedStudioRoute = AuthenticatedStudioRouteImport.update({
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/crate-info': typeof CrateInfoRoute
   '/crate-knows': typeof AuthenticatedCrateKnowsRoute
+  '/songbook': typeof AuthenticatedSongbookRoute
   '/studio': typeof AuthenticatedStudioRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -110,6 +117,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/crate-info': typeof CrateInfoRoute
   '/crate-knows': typeof AuthenticatedCrateKnowsRoute
+  '/songbook': typeof AuthenticatedSongbookRoute
   '/studio': typeof AuthenticatedStudioRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -126,6 +134,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/crate-info': typeof CrateInfoRoute
   '/_authenticated/crate-knows': typeof AuthenticatedCrateKnowsRoute
+  '/_authenticated/songbook': typeof AuthenticatedSongbookRoute
   '/_authenticated/studio': typeof AuthenticatedStudioRoute
   '/api/chat': typeof ApiChatRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/crate-info'
     | '/crate-knows'
+    | '/songbook'
     | '/studio'
     | '/api/chat'
     | '/api/transcribe'
@@ -156,6 +166,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/crate-info'
     | '/crate-knows'
+    | '/songbook'
     | '/studio'
     | '/api/chat'
     | '/api/transcribe'
@@ -171,6 +182,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/crate-info'
     | '/_authenticated/crate-knows'
+    | '/_authenticated/songbook'
     | '/_authenticated/studio'
     | '/api/chat'
     | '/api/transcribe'
@@ -227,6 +239,13 @@ declare module '@tanstack/react-router' {
       path: '/crate-knows'
       fullPath: '/crate-knows'
       preLoaderRoute: typeof AuthenticatedCrateKnowsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/songbook': {
+      id: '/_authenticated/songbook'
+      path: '/songbook'
+      fullPath: '/songbook'
+      preLoaderRoute: typeof AuthenticatedSongbookRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/studio': {
@@ -290,6 +309,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCrateKnowsRoute: typeof AuthenticatedCrateKnowsRoute
+  AuthenticatedSongbookRoute: typeof AuthenticatedSongbookRoute
   AuthenticatedStudioRoute: typeof AuthenticatedStudioRoute
   AuthenticatedAdminBugsRoute: typeof AuthenticatedAdminBugsRoute
   AuthenticatedAdminMemoryRoute: typeof AuthenticatedAdminMemoryRoute
@@ -298,6 +318,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCrateKnowsRoute: AuthenticatedCrateKnowsRoute,
+  AuthenticatedSongbookRoute: AuthenticatedSongbookRoute,
   AuthenticatedStudioRoute: AuthenticatedStudioRoute,
   AuthenticatedAdminBugsRoute: AuthenticatedAdminBugsRoute,
   AuthenticatedAdminMemoryRoute: AuthenticatedAdminMemoryRoute,

@@ -29,3 +29,4 @@
 
 ## AI models
 - All text/chat AI calls use the supported Gemini Flash model through the Gateway SDK; the server-only language-model adapter preserves AI SDK UI streaming and tool orchestration, including Gemini signatures and cancellation. Transcription retains its independently supported speech model. Why: model support can evolve without changing playback, memories, or conversation behavior.
+- Songbook (src/lib/songbook.functions.ts, songbook-pool.ts): saved sessions store played-through songs + the maze resume state per account; the page shows only name/description/edit/play (no song list), play hands off to Studio and resumes the maze, with saved songs returning as finish doors every 4–6 songs (never recent ones). Why: replay a vibe without browsing.

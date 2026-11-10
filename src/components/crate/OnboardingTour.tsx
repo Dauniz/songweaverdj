@@ -21,21 +21,27 @@ type Step = {
 const SETUP_STEPS: Step[] = [
   {
     target: "spotify-sync",
-    eyebrow: "Step 1 of 3",
+    eyebrow: "Step 1 of 4",
     title: "Bring in your music",
     body: "Sync imports your liked songs and songs from playlists you created. Crate uses this as the map for every session.",
   },
   {
     target: "prompt",
-    eyebrow: "Step 2 of 3",
+    eyebrow: "Step 2 of 4",
     title: "Start a session from here",
     body: "Describe a vibe, search for a song, or press Start session. Once live, Crate follows Spotify: finishes, skips, and songs you pick there steer the maze.",
   },
   {
     target: "side-roads",
-    eyebrow: "Step 3 of 3",
+    eyebrow: "Step 3 of 4",
     title: "Switch to an alternative road",
     body: "The road buttons in the Walrus Memory tab, just above the current song, are alternative roads — Deep cuts, Wormhole, Scene and Texture. Turning one on replaces the default roads (Vibe, Era, New Angle) with its own rules for what Crate plays next. Only one can be on at a time, and turning it off puts you back on the default roads. Tap the question mark for what each one does.",
+  },
+  {
+    target: "songbook",
+    eyebrow: "Step 4 of 4",
+    title: "Your Songbook",
+    body: "Save a session you love to your Songbook, then replay its vibe any time. Crate picks up where it left off and brings the saved songs back now and then.",
   },
 ];
 

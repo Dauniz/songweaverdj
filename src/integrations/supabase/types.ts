@@ -352,6 +352,39 @@ export type Database = {
         }
         Relationships: []
       }
+      songbook_entries: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          name: string
+          resume_state: Json
+          tracks: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          name: string
+          resume_state?: Json
+          tracks?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          name?: string
+          resume_state?: Json
+          tracks?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       spotify_connections: {
         Row: {
           access_token: string
