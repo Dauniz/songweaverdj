@@ -1,6 +1,7 @@
 import { LIVE_KEY, readLiveSession } from "@/lib/live-session";
 import { isFinished } from "@/lib/pick-rules";
 import { dedupePicks, nextDistinctIndex } from "@/lib/dedupe-picks";
+import { pickSongbookTrack, songbookGap } from "@/lib/songbook-pool";
 
 const LAST_KEY = "songweaver-last-session";
 /** End the session when Spotify shows no open device for this long. */
@@ -98,6 +99,10 @@ type RadioContextValue = {
   startSession: () => Promise<void>;
   endSession: () => void;
   hasLastSession: boolean;
+  /** Songbook: what to save for the live session (finished songs + maze position), or null. */
+  getSongbookSnapshot: () => { tracks: RadioTrack[]; resume_state: unknown } | null;
+  /** Songbook: continue a saved session's maze; its songs return as finish doors now and then. */
+  playSongbook: (entry: { tracks: unknown; resume_state: unknown }) => void;
   resumeLastSession: () => void;
   events: MazeEvent[];
   spotifyIdle: boolean;
@@ -318,6 +323,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   };
   /** Search queue: songs you queued, in order. The head is the next song (finish or skip). */
   const userQueue = useRef<RadioTrack[]>([]);
+  /** Songs played through this session (for Songbook saves). */
+  const finishedTracks = useRef<RadioTrack[]>([]);
+  /** Songbook entry being replayed: its songs come back as finish doors every few songs. */
+  const songbookPool = useRef<RadioTrack[]>([]);
   const [userQueueList, setUserQueueList] = useState<RadioTrack[]>([]);
   const setUQ = (q: RadioTrack[]) => {
     userQueue.current = q;
@@ -620,6 +629,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const knownSkipId = pre?.track.spotify_id ?? plan?.doorVal?.track.spotify_id;
       const qNext = queuedNext(cid);
       const qPos = promptQueue.current;
+      const poolNext = !uqHead && !qNext && s.history.length > 0
+        ? pickSongbookTrack(songbookPool.current, s.history, songbookGap(cid), [cid, knownSkipId, ...played.current.slice(-50)])
+        : null;
       const qOff = qPos?.offset ?? 0;
       const skippedState = advance(s, "skipped");
       // The skip door must not be a later playlist song.
@@ -631,6 +643,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         ? Promise.resolve({ track: uqHead, road: advance(s, "played").road })
         : qNext
         ? Promise.resolve({ track: { ...qNext, why: `Your playlist, song ${(qPos?.idx ?? 0) + 2 - qOff} of ${(qPos?.list.length ?? 0) - qOff}` }, road: advance(s, "played").road })
+        : poolNext
+        ? Promise.resolve({ track: { ...poolNext, why: "Back from your Songbook" }, road: advance(s, "played").road })
         : earlyC
           ? earlyC.catch(() => null).then((c) => fetchBranch(advance(s, "played"), ctrl.signal, [c?.track.spotify_id].filter(Boolean) as string[]))
           : fetchBranch(advance(s, "played"), ctrl.signal, knownSkipId ? [knownSkipId] : []);
@@ -968,6 +982,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       );
       setHasLastSession(true);
     }
+    finishedTracks.current = [];
+    songbookPool.current = [];
     // A brand new session starts clean: no side road carried over.
     lensRef.current = null;
     setLensState(null);
@@ -992,10 +1008,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   }, [reflect, chatSessionId]);
 
   const resumeLastSession = useCallback(() => {
+    const raw = localStorage.getItem(LAST_KEY);
+    if (!raw) return;
+    try { resumeFrom(JSON.parse(raw)); } catch { /* handled inside */ }
+  }, []);
+
+  const resumeFrom = useCallback((input: unknown) => {
     try {
-      const raw = localStorage.getItem(LAST_KEY);
-      if (!raw) return;
-      const saved = JSON.parse(raw) as { radio: RadioState; chatSessionId?: string; events: MazeEvent[]; played: string[]; artistSkips: [string, number][]; lens?: LensId | null; deepCuts?: boolean };
+      if (!input || typeof input !== "object" || !(input as { radio?: unknown }).radio) throw new Error("bad state");
+      const saved = input as { radio: RadioState; chatSessionId?: string; events: MazeEvent[]; played: string[]; artistSkips: [string, number][]; lens?: LensId | null; deepCuts?: boolean };
       played.current = saved.played ?? [];
       // Bring back the side road the session was on.
       const savedLens = saved.lens && (LENS_IDS as string[]).includes(saved.lens) ? saved.lens : null;
@@ -1039,6 +1060,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       log(cur, outcome === "played" ? "play_through" : "early_skip", s);
       if (cur.spotify_id) played.current.push(cur.spotify_id);
+      if (outcome === "played" && isPlayable(cur) && !finishedTracks.current.some((t) => t.spotify_id === cur.spotify_id)) {
+        finishedTracks.current = [...finishedTracks.current, cur].slice(-100);
+      }
       if (outcome === "skipped") {
         artistSkips.current.set(cur.artists, (artistSkips.current.get(cur.artists) ?? 0) + 1);
       }
