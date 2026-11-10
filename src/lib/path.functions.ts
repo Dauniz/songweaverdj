@@ -7,6 +7,7 @@ import { recallMemories } from "./memwal.server";
 import { isForeverSkipMemory, loadCooldowns, songKey, type Cooldowns } from "./cooldowns";
 import { LENS_IDS, type LensId } from "./lenses";
 import { altPool, planAltRoad, type AltKind } from "./alt-roads";
+import { hedged } from "./hedge";
 
 import { isForgotten, playlistWeight as eraPlaylistWeight, savedCloseWeight, ERA_CUTOFF, vibeShortlist, newAngleShortlist, violatesVariety } from "./pick-rules";
 
@@ -303,6 +304,41 @@ async function cooldownsFor(supabase: any, userId: string): Promise<Cooldowns> {
   return c;
 }
 
+/** Learned memories + Walrus recall for one pick. The Walrus recall is only a hint, so it never
+ *  holds the pick for more than 1.5 s; a late answer is still cached for the next pick. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function loadMemory(supabase: any, userId: string, recallKey: string) {
+  const cachedMem = memoryCache.get(userId);
+  const fresh = cachedMem && Date.now() - cachedMem.at < MEMORY_TTL ? cachedMem.bundle : null;
+  const learnedP: Promise<{ content: string; origin: string }[]> = fresh
+    ? Promise.resolve(fresh.learned)
+    : Promise.resolve(
+        supabase
+          .from("memory_nodes")
+          .select("content, origin, created_at")
+          .or("origin.eq.cross_session,origin.eq.synthesis,origin.eq.history_profile,origin.eq.steer,content.like.Note on%")
+          .order("created_at", { ascending: false })
+          .limit(50),
+      )
+        .then((r: { data: { content: string; origin: string }[] | null }) => (r.data ?? []).filter((m) => !isForeverSkipMemory(m.content)))
+        .catch(() => []);
+  const cachedRecall = fresh?.walrusBy.get(recallKey);
+  const recallP: Promise<{ text: string }[]> = cachedRecall
+    ? Promise.resolve(cachedRecall)
+    : recallMemories(userId, recallKey, 6)
+        .then((m) => m.filter((x: { text: string }) => !isForeverSkipMemory(x.text)))
+        .catch(() => []);
+  const [learned, recalledOrNull] = await Promise.all([
+    learnedP,
+    Promise.race([recallP, new Promise<null>((res) => setTimeout(() => res(null), 1_500))]),
+  ]);
+  const bundle: MemoryBundle = fresh ?? { learned, walrusBy: new Map() };
+  if (recalledOrNull) bundle.walrusBy.set(recallKey, recalledOrNull);
+  else void recallP.then((r) => bundle.walrusBy.set(recallKey, r));
+  memoryCache.set(userId, { at: fresh ? (cachedMem?.at ?? Date.now()) : Date.now(), bundle });
+  return { learned, recalled: recalledOrNull ?? [] };
+}
+
 
 const reserveSchema = z.object({
   seed: z.object({ spotifyId: z.string(), name: z.string(), artists: z.string() }),
@@ -394,12 +430,22 @@ export const nextPathTrack = createServerFn({ method: "POST" })
   .inputValidator((d) => inputSchema.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const pool = await loadPool(supabase, userId);
+    // Local clock for the listener: lets Crate apply time-of-day / weekday rituals it learned.
+    const local = new Date(Date.now() - data.tzOffsetMin * 60_000);
+    const weekday = local.toLocaleString("en-US", { weekday: "long", timeZone: "UTC" });
+    const hour = local.getUTCHours();
+    const partOfDay = hour < 5 ? "late night" : hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 22 ? "evening" : "late night";
+    const nowLabel = `${weekday} ${partOfDay}, ${String(hour).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
+    const recallKey = `${weekday} ${partOfDay} ${data.seedPrompt} ${data.seed.name} ${data.seed.artists}`;
+    // Speed: library, cooldowns and memory load side by side. Memory is skipped up front only
+    // when the pick will almost surely be the plain-code Era path (no AI, no memory needed).
+    const likelyInstant = data.road === "era" && !altKind(data.lens, data.deepCuts) && !data.chips.length && !data.steerNote;
+    const memP = likelyInstant ? null : loadMemory(supabase, userId, recallKey);
+    const [pool, cd] = await Promise.all([loadPool(supabase, userId), cooldownsFor(supabase, userId)]);
     const bySpotify = new Map(pool.map((s) => [s.spotify_id, s]));
 
     const excluded = new Set([data.seed.spotifyId, ...data.excludeSpotifyIds]);
     const avoid = new Set(data.avoidArtists);
-    const cd = await cooldownsFor(supabase, userId);
     const resting = new Set(cd.songs.map((x) => songKey(x.name, x.artists)));
     const playableOnly = pool.some((s) => !s.spotify_id.startsWith("demo-") || s.preview_url);
     const unlensed0 = pool.filter(
@@ -487,34 +533,7 @@ export const nextPathTrack = createServerFn({ method: "POST" })
       return `T${i}|${describe(s)}`;
     });
 
-
-    // Local clock for the listener: lets Crate apply time-of-day / weekday rituals it learned.
-    const local = new Date(Date.now() - data.tzOffsetMin * 60_000);
-    const weekday = local.toLocaleString("en-US", { weekday: "long", timeZone: "UTC" });
-    const hour = local.getUTCHours();
-    const partOfDay = hour < 5 ? "late night" : hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 22 ? "evening" : "late night";
-    const nowLabel = `${weekday} ${partOfDay}, ${String(hour).padStart(2, "0")}:${String(local.getUTCMinutes()).padStart(2, "0")}`;
-
-    const recallKey = `${weekday} ${partOfDay} ${data.seedPrompt} ${data.seed.name} ${data.seed.artists}`;
-    const cachedMem = memoryCache.get(userId);
-    const fresh = cachedMem && Date.now() - cachedMem.at < MEMORY_TTL ? cachedMem.bundle : null;
-
-    const learned: { content: string; origin: string }[] = fresh
-      ? fresh.learned
-      : await supabase
-          .from("memory_nodes")
-          .select("content, origin, created_at")
-          .or("origin.eq.cross_session,origin.eq.synthesis,origin.eq.history_profile,origin.eq.steer,content.like.Note on%")
-          .order("created_at", { ascending: false })
-          .limit(50)
-          .then((r: { data: { content: string; origin: string }[] | null }) => (r.data ?? []).filter((m) => !isForeverSkipMemory(m.content)));
-
-    const recalled: { text: string }[] =
-      fresh?.walrusBy.get(recallKey) ?? (await recallMemories(userId, recallKey, 6).then((m) => m.filter((x: { text: string }) => !isForeverSkipMemory(x.text))).catch(() => []));
-
-    const bundle: MemoryBundle = fresh ?? { learned, walrusBy: new Map() };
-    bundle.walrusBy.set(recallKey, recalled);
-    memoryCache.set(userId, { at: fresh ? (cachedMem?.at ?? Date.now()) : Date.now(), bundle });
+    const { learned, recalled } = await (memP ?? loadMemory(supabase, userId, recallKey));
 
     const anchors = learned.filter((m) => m.origin === "cross_session").slice(0, 6);
     const observations = learned.filter((m) => m.origin === "synthesis").slice(0, 4);
@@ -573,31 +592,46 @@ ${walrus.map((m: { text: string }) => `- ${m.text}`).join("\n") || "- (none)"}
 Pick the next song.`;
 
     const { createGatewayModel } = await import("./ai/gateway-model.server");
-    const gateway = createGatewayModel();
-    const result = streamText({
-      model: gateway.model,
-      system,
-      messages: [{ role: "user", content: live }],
-      stopWhen: stepCountIs(1),
-      tools: {
-        pick_next: tool({
-          description: "Choose the next song.",
-          inputSchema: z.object({
-            code: z.string(),
-            why: z.string().describe("Max 6 words, e.g. 'Same warm soul feel'"),
-          }),
-          execute: async (i) => i,
-        }),
+    // Usually answers in 1–2 s, but single replies sometimes stall for 8+ s. A stalled reply
+    // gets an identical backup at 2.5 s (first answer wins); at 5 s plain code picks the
+    // shortlist's best match, so a door (e.g. the session-start skip door) is never late.
+    const t0 = Date.now();
+    const picked = await hedged<{ code: string; why: string }>(
+      async (signal) => {
+        const gateway = createGatewayModel();
+        const result = streamText({
+          model: gateway.model,
+          system,
+          messages: [{ role: "user", content: live }],
+          stopWhen: stepCountIs(1),
+          abortSignal: signal,
+          onError: () => {},
+          tools: {
+            pick_next: tool({
+              description: "Choose the next song.",
+              inputSchema: z.object({
+                code: z.string(),
+                why: z.string().describe("Max 6 words, e.g. 'Same warm soul feel'"),
+              }),
+              execute: async (i) => i,
+            }),
+          },
+        });
+        const steps = await result.steps;
+        for (const st of steps)
+          for (const tc of st.toolCalls)
+            if (tc.toolName === "pick_next") {
+              const p = tc.input as { code: string; why: string };
+              if (index.has(p.code.trim())) return p;
+            }
+        return null;
       },
-    });
-    const steps = await result.steps;
-    let picked: { code: string; why: string } | null = null;
-    for (const st of steps)
-      for (const tc of st.toolCalls)
-        if (tc.toolName === "pick_next") picked = tc.input as { code: string; why: string };
+      { hedgeMs: 2_500, deadlineMs: 5_000 },
+    );
+    if (!picked) console.warn(`[path] AI pick gave nothing after ${Date.now() - t0} ms, code fallback`);
 
     let song = (picked && index.get(picked.code.trim())) || shortlist[0]!;
-    let why = picked?.why || "Continuing the path";
+    let why = picked?.why || "Closest match in your library";
     if (isVibe && violatesVariety(song, sessionSongs)) {
       const alt2 = shortlist.find((s) => !violatesVariety(s, sessionSongs));
       if (alt2) { song = alt2; why = "Same vibe, new artist"; }
