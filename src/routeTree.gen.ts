@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CrateInfoRouteImport } from './routes/crate-info'
 import { Route as AuthenticatedCrateKnowsRouteImport } from './routes/_authenticated/crate-knows'
+import { Route as AuthenticatedSessionsRouteImport } from './routes/_authenticated/sessions'
 import { Route as AuthenticatedSongbookRouteImport } from './routes/_authenticated/songbook'
 import { Route as AuthenticatedStudioRouteImport } from './routes/_authenticated/studio'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
@@ -46,6 +47,11 @@ const CrateInfoRoute = CrateInfoRouteImport.update({
 const AuthenticatedCrateKnowsRoute = AuthenticatedCrateKnowsRouteImport.update({
   id: '/crate-knows',
   path: '/crate-knows',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSessionsRoute = AuthenticatedSessionsRouteImport.update({
+  id: '/sessions',
+  path: '/sessions',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedSongbookRoute = AuthenticatedSongbookRouteImport.update({
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/crate-info': typeof CrateInfoRoute
   '/crate-knows': typeof AuthenticatedCrateKnowsRoute
+  '/sessions': typeof AuthenticatedSessionsRoute
   '/songbook': typeof AuthenticatedSongbookRoute
   '/studio': typeof AuthenticatedStudioRoute
   '/api/chat': typeof ApiChatRoute
@@ -117,6 +124,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/crate-info': typeof CrateInfoRoute
   '/crate-knows': typeof AuthenticatedCrateKnowsRoute
+  '/sessions': typeof AuthenticatedSessionsRoute
   '/songbook': typeof AuthenticatedSongbookRoute
   '/studio': typeof AuthenticatedStudioRoute
   '/api/chat': typeof ApiChatRoute
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/crate-info': typeof CrateInfoRoute
   '/_authenticated/crate-knows': typeof AuthenticatedCrateKnowsRoute
+  '/_authenticated/sessions': typeof AuthenticatedSessionsRoute
   '/_authenticated/songbook': typeof AuthenticatedSongbookRoute
   '/_authenticated/studio': typeof AuthenticatedStudioRoute
   '/api/chat': typeof ApiChatRoute
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/crate-info'
     | '/crate-knows'
+    | '/sessions'
     | '/songbook'
     | '/studio'
     | '/api/chat'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/crate-info'
     | '/crate-knows'
+    | '/sessions'
     | '/songbook'
     | '/studio'
     | '/api/chat'
@@ -182,6 +193,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/crate-info'
     | '/_authenticated/crate-knows'
+    | '/_authenticated/sessions'
     | '/_authenticated/songbook'
     | '/_authenticated/studio'
     | '/api/chat'
@@ -239,6 +251,13 @@ declare module '@tanstack/react-router' {
       path: '/crate-knows'
       fullPath: '/crate-knows'
       preLoaderRoute: typeof AuthenticatedCrateKnowsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/sessions': {
+      id: '/_authenticated/sessions'
+      path: '/sessions'
+      fullPath: '/sessions'
+      preLoaderRoute: typeof AuthenticatedSessionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/songbook': {
@@ -309,6 +328,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCrateKnowsRoute: typeof AuthenticatedCrateKnowsRoute
+  AuthenticatedSessionsRoute: typeof AuthenticatedSessionsRoute
   AuthenticatedSongbookRoute: typeof AuthenticatedSongbookRoute
   AuthenticatedStudioRoute: typeof AuthenticatedStudioRoute
   AuthenticatedAdminBugsRoute: typeof AuthenticatedAdminBugsRoute
@@ -318,6 +338,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCrateKnowsRoute: AuthenticatedCrateKnowsRoute,
+  AuthenticatedSessionsRoute: AuthenticatedSessionsRoute,
   AuthenticatedSongbookRoute: AuthenticatedSongbookRoute,
   AuthenticatedStudioRoute: AuthenticatedStudioRoute,
   AuthenticatedAdminBugsRoute: AuthenticatedAdminBugsRoute,
