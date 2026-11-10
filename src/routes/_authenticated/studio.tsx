@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MOTION_EASE } from "@/lib/motion";
-import { BookHeart, Brain, LogOut } from "lucide-react";
+import { BookHeart, Brain, History, LogOut } from "lucide-react";
 import { useEffect } from "react";
 import {
   Tooltip,
