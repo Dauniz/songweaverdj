@@ -22,6 +22,7 @@ import { endSpotifySession, findOpenSpotify, getForeignQueueCount, getSpotifyAut
 import { isAppleTouchDevice, openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
+import { recordSessionLog } from "@/lib/session-log.functions";
 
 export type Road = "vibe" | "era" | "mixed";
 /** altRoad: the alternative road it was picked under (its tag), if any. */
@@ -1033,7 +1034,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(LIVE_KEY);
     // Hand Spotify back clean: pause and drop the songs Crate had lined up.
     if (!opts?.keepSpotify) void endSpotifySession().catch(() => undefined);
-  }, [reflect, chatSessionId]);
+  }, [reflect, chatSessionId, recordSessionLogNow]);
 
   const resumeLastSession = useCallback(() => {
     const raw = localStorage.getItem(LAST_KEY);
