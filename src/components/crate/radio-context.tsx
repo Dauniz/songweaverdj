@@ -2518,8 +2518,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       attempts += 1;
       const queuedDoor = door.current;
       let ok = false;
-      if (track?.spotify_id) {
-        ok = await startSpotifyPlayback(track, true, queuedDoor && queuedDoor.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry");
+      if (track?.spotify_id && wakeSending.current) {
+        // The poll just saw Spotify open and is sending Crate's pair itself — don't double-push.
+      } else if (track?.spotify_id && notDelivered.current !== track.spotify_id && lineup.current[0] === track.spotify_id) {
+        ok = true; // already delivered (by the opened-app send)
+      } else if (track?.spotify_id) {
+        ok = await startSpotifyPlayback(track, true, queuedDoor && queuedDoor.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry", null, { wake: true });
       } else {
         // No song yet (session just started): adopt whatever the user plays in Spotify.
         try {
