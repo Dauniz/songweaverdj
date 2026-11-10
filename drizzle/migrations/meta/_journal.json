@@ -15,6 +15,13 @@
       "when": 1791540894510,
       "tag": "0001_playlist_meanings",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794311158764,
+      "tag": "0002_songbook_entries",
+      "breakpoints": true
     }
   ]
 }
