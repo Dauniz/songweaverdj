@@ -1048,6 +1048,25 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const getSongbookSnapshot = useCallback(() => {
+    const s = radioRef.current;
+    if (!s.active || !s.current) return null;
+    const tracks = [...finishedTracks.current];
+    if (isPlayable(s.current) && !tracks.some((t) => t.spotify_id === s.current!.spotify_id)) tracks.push(s.current);
+    return {
+      tracks,
+      resume_state: { radio: s, events: [], played: played.current.slice(-100), artistSkips: [...artistSkips.current], lens: lensRef.current, deepCuts: deepCutsRef.current },
+    };
+  }, []);
+
+  const playSongbook = useCallback((entry: { tracks: unknown; resume_state: unknown }) => {
+    if (radioRef.current.active) stopRadio({ keepSpotify: true });
+    watchOff.current = false;
+    resumeFrom(entry.resume_state);
+    const pool = (Array.isArray(entry.tracks) ? entry.tracks : []) as RadioTrack[];
+    songbookPool.current = pool.filter((t) => t && typeof t.spotify_id === "string" && isPlayable(t));
+  }, [stopRadio, resumeFrom]);
+
   const next = useCallback(
     async (outcome: Outcome) => {
       const s = radioRef.current;
@@ -2730,6 +2749,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         },
         hasLastSession,
         resumeLastSession,
+        getSongbookSnapshot,
+        playSongbook,
         events,
         spotifyIdle,
         musicPlaying: musicPlaying && sessionLive && !spotifyIdle && !calming && !playbackIssue,
