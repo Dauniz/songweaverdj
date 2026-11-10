@@ -1257,14 +1257,13 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           data: { spotifyId: track.spotify_id, nextId, aheadId, positionMs, deviceId: deviceIdRef.current ?? undefined, ...(opts?.wake ? { wake: true } : {}) },
         }).catch((err) => {
           ackSpotifySend(logId, "error");
-          notDelivered.current = track.spotify_id ?? "";
           throw err;
         });
-        // Remember when Crate's song never reached Spotify (it wasn't open yet), so the song a
+        // Remember when Crate's song never reached Spotify because it wasn't open, so the song a
         // freshly opened app resumes on its own is replaced instead of read as your pick.
         if (result.status === "playing") {
           if (notDelivered.current === track.spotify_id) notDelivered.current = "";
-        } else notDelivered.current = track.spotify_id;
+        } else if (result.status === "no_device") notDelivered.current = track.spotify_id;
         const totalMs = Date.now() - sentAt;
         if (result.status === "playing") {
           pushLatency.current = Math.round(pushLatency.current * 0.7 + Math.min(1500, totalMs / 2) * 0.3);
