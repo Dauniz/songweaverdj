@@ -19,3 +19,14 @@ describe("songbook pool", () => {
     expect(pickSongbookTrack(pool, h("a", "b", "c", "d"), 4, ["s1"])?.spotify_id).toBe("s2");
   });
 });
+
+describe("songbook replay", () => {
+  it("brings a saved song back after the gap, counting only songs heard since the replay began", () => {
+    const pool = [{ spotify_id: "saved1" }];
+    const saved = [{ spotifyId: "saved1" }, { spotifyId: "o1" }];
+    const sinceReplay = ["n1", "n2", "n3", "n4"].map((spotifyId) => ({ spotifyId }));
+    const full = [...saved, ...sinceReplay];
+    expect(pickSongbookTrack(pool, full.slice(saved.length), 4)?.spotify_id).toBe("saved1");
+    expect(pickSongbookTrack(pool, full.slice(saved.length, saved.length + 3), 4)).toBeNull();
+  });
+});
