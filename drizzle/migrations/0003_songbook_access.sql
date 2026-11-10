@@ -1,0 +1,11 @@
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.songbook_entries TO authenticated;
+GRANT ALL ON public.songbook_entries TO service_role;
+ALTER TABLE public.songbook_entries ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Own songbook select" ON public.songbook_entries;
+DROP POLICY IF EXISTS "Own songbook insert" ON public.songbook_entries;
+DROP POLICY IF EXISTS "Own songbook update" ON public.songbook_entries;
+DROP POLICY IF EXISTS "Own songbook delete" ON public.songbook_entries;
+CREATE POLICY "Own songbook select" ON public.songbook_entries FOR SELECT TO authenticated USING (auth.uid() = user_id);
+CREATE POLICY "Own songbook insert" ON public.songbook_entries FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Own songbook update" ON public.songbook_entries FOR UPDATE TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Own songbook delete" ON public.songbook_entries FOR DELETE TO authenticated USING (auth.uid() = user_id);

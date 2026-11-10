@@ -22,6 +22,13 @@
       "when": 1794311158764,
       "tag": "0002_songbook_entries",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794311928939,
+      "tag": "0003_songbook_access",
+      "breakpoints": true
     }
   ]
 }
