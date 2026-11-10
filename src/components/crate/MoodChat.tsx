@@ -27,7 +27,8 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { type CardTrack } from "./TrackCard";
 import { PromptPlaylist } from "./PromptPlaylist";
 import { useRadio } from "./radio-context";
-import { LoaderCircle, Mic, Square } from "lucide-react";
+import { LoaderCircle, Mic, Square, X } from "lucide-react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils";
 import { LENSES } from "@/lib/lenses";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -304,6 +305,13 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
     if (accepted) send(welcome.prompt);
     setWelcome(null);
   }
+  // Closing the popup (X, Escape, tapping outside) hides it for this hour without logging an answer.
+  function dismissWelcome() {
+    if (!welcome) return;
+    const now = new Date();
+    sessionStorage.setItem(`songweaver-welcome-${now.getDay()}-${now.getHours()}`, "dismissed");
+    setWelcome(null);
+  }
 
   function send(raw: string) {
     const t = raw.trim();
@@ -387,30 +395,46 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
     <div className={cn("composer-reveal w-full", "w-full shrink-0 px-0")}>
       <div className={cn("mx-auto w-full", empty && "max-w-2xl")}>
         <div data-onboarding="prompt">
-          {empty && welcome && !sessionLive && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: reduced ? 0.12 : 0.35 }}
-              className="mb-3 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-lg border bg-surface/90 p-3 shadow-sm sm:flex"
-            >
-              <img src={logo} alt="" className="h-9 w-9 shrink-0 rounded-lg" />
-              <p className="min-w-0 flex-1 text-xs leading-5 sm:text-sm">{welcome.greeting}</p>
-              <div className="col-start-2 flex shrink-0 gap-2">
-                <Button size="sm" className="rounded-full" onClick={() => answerWelcomeGuess(true)}>
-                  Yes, play it
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="rounded-full"
-                  onClick={() => answerWelcomeGuess(false)}
+          <DialogPrimitive.Root
+            open={Boolean(welcome) && !sessionLive}
+            onOpenChange={(open) => {
+              if (!open) dismissWelcome();
+            }}
+          >
+            <DialogPrimitive.Portal>
+              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-background/55 backdrop-blur-md data-[state=open]:animate-[kinetic-overlay-in_220ms_ease-out] data-[state=closed]:animate-[kinetic-overlay-out_160ms_ease-in]" />
+              <DialogPrimitive.Content
+                data-welcome-popup
+                className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-surface p-6 text-center shadow-2xl focus:outline-none data-[state=open]:animate-[kinetic-dialog-in_320ms_cubic-bezier(0.22,1,0.36,1)] data-[state=closed]:animate-[kinetic-dialog-out_160ms_ease-in] motion-reduce:data-[state=open]:animate-[kinetic-overlay-in_120ms_ease-out] sm:p-8"
+              >
+                <DialogPrimitive.Close
+                  aria-label="Close"
+                  className="absolute right-3 top-3 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  Not now
-                </Button>
-              </div>
-            </motion.div>
-          )}
+                  <X className="h-4 w-4" />
+                </DialogPrimitive.Close>
+                <img src={logo} alt="" className="mx-auto h-14 w-14 rounded-xl" />
+                <DialogPrimitive.Title className="mt-4 font-display text-2xl font-extrabold tracking-tight">
+                  Crate has a hunch
+                </DialogPrimitive.Title>
+                <DialogPrimitive.Description className="mt-2 text-sm leading-6 text-muted-foreground sm:text-base">
+                  {welcome?.greeting}
+                </DialogPrimitive.Description>
+                <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                  <Button className="rounded-full" onClick={() => answerWelcomeGuess(true)}>
+                    Yes, play it
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="rounded-full"
+                    onClick={() => answerWelcomeGuess(false)}
+                  >
+                    Not now
+                  </Button>
+                </div>
+              </DialogPrimitive.Content>
+            </DialogPrimitive.Portal>
+          </DialogPrimitive.Root>
           <div className={cn(empty ? "mb-3" : "mb-4 pt-3")}>
             <LibrarySearch {...(onSearchSelection ? { onSelect: onSearchSelection } : {})} />
           </div>
