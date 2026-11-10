@@ -96,6 +96,14 @@ export function OnboardingTour({ showMemory, showChat }: { showMemory: () => voi
   const [rect, setRect] = useState<TargetRect | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [flags, setFlags] = useState<Flags | null>(null);
+  const [cardHeight, setCardHeight] = useState(0);
+  const cardRef = useCallback((node: HTMLElement | null) => {
+    if (!node) return;
+    const measure = () => setCardHeight(node.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -196,13 +204,20 @@ export function OnboardingTour({ showMemory, showChat }: { showMemory: () => voi
   const cardLeft = rect
     ? Math.max(16, Math.min(vw - cardWidth - 16, rect.left + rect.width / 2 - cardWidth / 2))
     : Math.max(16, (vw - cardWidth) / 2);
-  const placeBelow = rect ? rect.top + rect.height + 190 < vh : false;
-  const preferredTop = rect
-    ? placeBelow
-      ? rect.top + rect.height + 18
-      : Math.max(16, rect.top - 190)
-    : Math.max(16, vh / 2 - 95);
-  const cardTop = Math.max(16, Math.min(preferredTop, Math.max(16, vh - 336)));
+  // Place the card beside the highlighted spot using its real height, so it never covers it.
+  const cardH = cardHeight || 240;
+  const gap = 18;
+  let preferredTop: number;
+  if (!rect) {
+    preferredTop = vh / 2 - cardH / 2;
+  } else {
+    const below = rect.top + rect.height + pad + gap;
+    const above = rect.top - pad - gap - cardH;
+    if (below + cardH <= vh - 16) preferredTop = below;
+    else if (above >= 16) preferredTop = above;
+    else preferredTop = vh - (rect.top + rect.height) > rect.top ? below : above;
+  }
+  const cardTop = Math.max(16, Math.min(preferredTop, vh - cardH - 16));
 
   return (
     <div className="fixed inset-0 z-[90] pointer-events-none" aria-live="polite">
@@ -223,6 +238,7 @@ export function OnboardingTour({ showMemory, showChat }: { showMemory: () => voi
       {!rect && <div className="absolute inset-0 bg-background/75" />}
 
       <motion.section
+        ref={cardRef}
         role="dialog"
         aria-modal="false"
         aria-labelledby="onboarding-title"
