@@ -103,6 +103,7 @@ export function OnboardingTour({ showMemory, showChat }: { showMemory: () => voi
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(node);
+    return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
