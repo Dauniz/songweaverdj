@@ -2309,6 +2309,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             durationMs: state.durationMs,
             at: Date.now(),
           };
+          // Crate's song never reached Spotify: the poll replaces the app's own song instead.
+          if (current?.spotify_id && notDelivered.current === current.spotify_id) return;
           if (current?.spotify_id && state.spotifyId !== current.spotify_id && !lineup.current.includes(state.spotifyId)) {
             // Songs moved while we were away and this one is none of Crate's: follow it fresh.
             note("think", "Welcome back — following what Spotify is playing now");
@@ -2357,8 +2359,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       busyCheck = true;
       try {
         const current = radioRef.current.current;
-        if (current?.spotify_id) {
-          if (await startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, lastPlayback.current.progressMs || undefined, "connection retry")) succeed();
+        if (current?.spotify_id && wakeSending.current) {
+          // The poll saw Spotify open and is sending Crate's pair itself.
+        } else if (current?.spotify_id && notDelivered.current !== current.spotify_id && lineup.current[0] === current.spotify_id) {
+          succeed();
+        } else if (current?.spotify_id) {
+          if (await startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, lastPlayback.current.progressMs || undefined, "connection retry", null, { wake: true })) succeed();
         } else {
           let state = await playbackFn();
           // A playing report without a song ID is usually Spotify mid-switch: ask once more.
