@@ -2,7 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MOTION_EASE } from "@/lib/motion";
-import { Brain, LogOut } from "lucide-react";
+import { BookHeart, Brain, LogOut } from "lucide-react";
+import { useEffect } from "react";
 import {
   Tooltip,
   TooltipContent,
@@ -55,9 +56,22 @@ function Studio() {
     <RadioProvider>
       <StudioLayout mobileTab={mobileTab} onTab={setMobileTab} onSignOut={signOut} />
       <IosBackgroundNotice />
+      <SongbookLauncher />
       {/* Spotify live log hidden for now — re-enable by rendering <SpotifyLogPanel /> */}
     </RadioProvider>
   );
+}
+
+/** Plays a Songbook entry handed over from the Songbook page. */
+function SongbookLauncher() {
+  const { playSongbook } = useRadio();
+  useEffect(() => {
+    const raw = sessionStorage.getItem("songweaver-songbook-play");
+    if (!raw) return;
+    sessionStorage.removeItem("songweaver-songbook-play");
+    try { playSongbook(JSON.parse(raw)); } catch { /* ignore a broken hand-off */ }
+  }, [playSongbook]);
+  return null;
 }
 
 /** Reads the live radio state so the layout can rebalance while a session runs. */
@@ -108,6 +122,16 @@ function StudioLayout({
         </nav>
         <div className="col-start-3 flex shrink-0 items-center gap-1">
           <SessionControl />
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Songbook" data-onboarding="songbook">
+                  <Link to="/songbook"><BookHeart className="h-4 w-4" /></Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Songbook</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="What Crate knows about you">
             <Link to="/crate-knows"><Brain className="h-4 w-4" /></Link>
           </Button>

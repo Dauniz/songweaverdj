@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { History, Loader2, Play, Square } from "lucide-react";
+import { BookmarkPlus, History, Loader2, Play, Square } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { saveSongbook } from "@/lib/songbook.functions";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +26,51 @@ function ago(iso: string) {
   const h = Math.round(m / 60);
   if (h < 48) return `${h} hours ago`;
   return `${Math.round(h / 24)} days ago`;
+}
+
+function SaveToSongbook() {
+  const { getSongbookSnapshot } = useRadio();
+  const saveFn = useServerFn(saveSongbook);
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [desc, setDesc] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    const snap = getSongbookSnapshot();
+    if (!snap) return toast.error("Start playing first, then save");
+    setBusy(true);
+    try {
+      await saveFn({ data: { name, description: desc, tracks: snap.tracks, resume_state: snap.resume_state } });
+      qc.invalidateQueries({ queryKey: ["songbook"] });
+      toast.success(`Saved "${name.trim()}" to your Songbook`);
+      setOpen(false); setName(""); setDesc("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't save");
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <>
+      <Button variant="ghost" size="sm" className="h-8 rounded-full px-1.5 text-muted-foreground lg:px-2.5" onClick={() => setOpen(true)} aria-label="Save to Songbook">
+        <BookmarkPlus className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Save to Songbook</span>
+      </Button>
+      <Dialog open={open} onOpenChange={(o) => !busy && setOpen(o)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save to Songbook</DialogTitle>
+            <DialogDescription>Crate remembers where this session is heading and the songs you played through.</DialogDescription>
+          </DialogHeader>
+          <Input value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="Work music" />
+          <Textarea value={desc} maxLength={200} onChange={(e) => setDesc(e.target.value)} placeholder="Perfect for chill background music while working" />
+          <DialogFooter>
+            <Button onClick={save} disabled={busy || !name.trim()}>{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
 
 /** Live: End session. Otherwise: Start (new) session, plus Resume when a saved session exists. */
@@ -61,9 +109,12 @@ export function SessionControl() {
 
   if (sessionLive) {
     return (
-      <Button variant="outline" size="sm" className="h-8 rounded-full px-2.5 lg:px-4" onClick={endSession}>
-        <Square className="h-3.5 w-3.5" /> <span className="hidden lg:inline">End session</span>
-      </Button>
+      <div className="flex items-center gap-1">
+        <SaveToSongbook />
+        <Button variant="outline" size="sm" className="h-8 rounded-full px-2.5 lg:px-4" onClick={endSession}>
+          <Square className="h-3.5 w-3.5" /> <span className="hidden lg:inline">End session</span>
+        </Button>
+      </div>
     );
   }
   return (
