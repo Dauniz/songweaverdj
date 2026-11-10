@@ -122,6 +122,7 @@ export function OnboardingTour({ showMemory, showChat }: { showMemory: () => voi
 
   useEffect(() => {
     if (!flags || isDone(SETUP_KEY)) return;
+    window.dispatchEvent(new Event("songweaver-onboarding-start"));
     window.dispatchEvent(new Event("songweaver-onboarding-open-spotify"));
     const timer = window.setTimeout(() => setSetupStep(0), 550);
     return () => window.clearTimeout(timer);

@@ -265,6 +265,18 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
   const logWelcome = useServerFn(answerWelcome);
   const [welcome, setWelcome] = useState<WelcomeSuggestion>(null);
   const welcomeAsked = useRef(false);
+  // Hold the greeting while the first-visit tour is running, so it never covers a tour step.
+  const [touring, setTouring] = useState(false);
+  useEffect(() => {
+    const start = () => setTouring(true);
+    const done = () => setTouring(false);
+    window.addEventListener("songweaver-onboarding-start", start);
+    window.addEventListener("songweaver-onboarding-done", done);
+    return () => {
+      window.removeEventListener("songweaver-onboarding-start", start);
+      window.removeEventListener("songweaver-onboarding-done", done);
+    };
+  }, []);
   useEffect(() => {
     if (welcomeAsked.current || sessionLive) return;
     welcomeAsked.current = true;
@@ -396,7 +408,7 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
       <div className={cn("mx-auto w-full", empty && "max-w-2xl")}>
         <div data-onboarding="prompt">
           <DialogPrimitive.Root
-            open={Boolean(welcome) && !sessionLive}
+            open={Boolean(welcome) && !sessionLive && !touring}
             onOpenChange={(open) => {
               if (!open) dismissWelcome();
             }}
