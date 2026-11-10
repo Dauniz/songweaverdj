@@ -39,7 +39,7 @@ function SaveToSongbook() {
 
   async function save() {
     const snap = getSongbookSnapshot();
-    if (!snap) return toast.error("Start playing first, then save");
+    if (!snap) { toast.error("Start playing first, then save"); return; }
     setBusy(true);
     try {
       await saveFn({ data: { name, description: desc, tracks: snap.tracks, resume_state: snap.resume_state } });
