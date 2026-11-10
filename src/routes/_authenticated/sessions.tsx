@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { motion } from "motion/react";
-import { ArrowLeft, BookmarkPlus, History, Loader2, Play } from "lucide-react";
+import { ArrowLeft, BookmarkPlus, ListMusic, Loader2, Play } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -75,7 +75,7 @@ function SessionsPage() {
           <Link to="/studio"><ArrowLeft className="h-4 w-4" /> Studio</Link>
         </Button>
         <h1 className="flex items-center gap-2 font-display text-3xl font-extrabold sm:text-4xl">
-          <History className="h-7 w-7 text-primary" /> Session log
+          <ListMusic className="h-7 w-7 text-primary" /> Session log
         </h1>
         <p className="mt-2 text-sm text-muted-foreground sm:text-base">
           Your recent sessions with Crate. Continue one where it left off, or keep it in your Songbook.
