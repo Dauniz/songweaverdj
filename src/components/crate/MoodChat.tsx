@@ -566,9 +566,10 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
 
   return (
     <div className="chat-enter scrollbar-thin flex h-full min-h-0 flex-col overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
-      <div className="mx-auto flex min-h-0 w-full flex-1 flex-col gap-4">
-        <div className="min-h-48 w-full flex-1 overflow-hidden" data-session-history>
-          <Conversation className="h-full min-h-0" aria-label="Session chat history">
+      {/* Short conversations sit centered with the title and composer; long ones grow to fill the page and scroll. */}
+      <div className="mx-auto flex min-h-0 w-full flex-1 flex-col justify-center gap-4">
+        <div className="flex min-h-0 w-full flex-initial flex-col overflow-hidden" data-session-history>
+          <Conversation className="min-h-0 flex-initial" aria-label="Session chat history">
             <ConversationContent className="chat-transcript mx-auto w-full gap-4 px-0 py-4 text-sm leading-6 sm:text-base">
               {originalPlaylist && (
                 <div className="mb-2 [&>div]:max-w-none" data-original-playlist>
