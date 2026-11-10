@@ -97,6 +97,9 @@ const startInput = playInput.extend({
   deviceId: z.string().min(1).max(128).optional(),
   /** The app just opened or dropped its list: wake it with an official transfer before playing. */
   wake: z.boolean().optional(),
+  /** Confirm the song really loaded: a quit desktop app stays listed and answers "OK" to
+   *  play commands for minutes, but loads nothing (Spotify shows greyed out). */
+  verify: z.boolean().optional(),
 });
 
 /** Pause Spotify — used when the listener skips so fast that Crate needs a breath. */
@@ -237,9 +240,26 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
       deviceCache.delete(context.userId);
       return playbackFailure(response.status, await response.text());
     }
+    const spotifyMs = Date.now() - t0;
+    if (data.verify) {
+      // Cold paths only (session start, reconnects): check the song actually loaded.
+      for (let i = 0; i < 6; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        const st = await fetch("https://api.spotify.com/v1/me/player", { headers }).catch(() => null);
+        if (!st || st.status === 204) continue;
+        if (!st.ok) continue;
+        const b = (await st.json().catch(() => null)) as { item?: { id?: string | null } | null } | null;
+        if (b?.item?.id && chain.includes(b.item.id)) {
+          deviceCache.set(context.userId, { ...device!, at: Date.now() });
+          return { status: "playing" as const, deviceName: device!.name, foreignQueued: 0, spotifyMs, verified: true };
+        }
+      }
+      deviceCache.delete(context.userId);
+      return { status: "no_device" as const, message: "Spotify isn't really open on your devices." };
+    }
     deviceCache.set(context.userId, { ...device!, at: Date.now() });
     // Answer right away; the client's once-a-second poll confirms the song actually plays.
-    return { status: "playing" as const, deviceName: device!.name, foreignQueued: 0, spotifyMs: Date.now() - t0 };
+    return { status: "playing" as const, deviceName: device!.name, foreignQueued: 0, spotifyMs };
   });
 
 /** Counts songs in the listener's own "Next in queue" ahead of Crate's list. */
