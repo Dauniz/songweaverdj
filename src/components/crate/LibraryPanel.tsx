@@ -132,6 +132,12 @@ export function LibraryPanel() {
       qc.invalidateQueries({ queryKey: ["library"] });
       void readMeanings().catch(() => {});
       qc.invalidateQueries({ queryKey: ["spotify-status"] });
+      // Fold the panel away a moment after a finished sync so the result registers first.
+      if (!r.partial)
+        window.setTimeout(() => {
+          setCollapsed(true);
+          localStorage.setItem("spotify-card-collapsed", "1");
+        }, 1200);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Sync failed");
     } finally {
