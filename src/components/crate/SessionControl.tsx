@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { BookmarkPlus, History, Loader2, Play, Square } from "lucide-react";
+import { BookmarkPlus, History, Loader2, Square } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { saveSongbook } from "@/lib/songbook.functions";
@@ -73,9 +73,9 @@ function SaveToSongbook() {
   );
 }
 
-/** Live: End session. Otherwise: Start (new) session, plus Resume when a saved session exists. */
+/** Live: End session. Otherwise only Resume (when a saved session exists) — new sessions start from a prompt, search, suggestion or the welcome guess. */
 export function SessionControl() {
-  const { sessionLive, endSession, startSession, hasLastSession, resumeLastSession } = useRadio();
+  const { sessionLive, endSession, hasLastSession, resumeLastSession } = useRadio();
   const qc = useQueryClient();
   const statusFn = useServerFn(getSpotifyStatus);
   const syncFn = useServerFn(syncRecentSpotify);
@@ -124,9 +124,6 @@ export function SessionControl() {
           <History className="h-3.5 w-3.5" /> <span className="hidden lg:inline">Resume last session</span>
         </Button>
       )}
-      <Button size="sm" className="h-8 rounded-full px-2 lg:px-3" onClick={() => gate(() => void startSession())}>
-        <Play className="h-3.5 w-3.5" /> <span className="hidden lg:inline">{hasLastSession ? "Start new session" : "Start session"}</span>
-      </Button>
       <Dialog open={!!pending} onOpenChange={(o) => !o && !syncing && setPending(null)}>
         <DialogContent>
           <DialogHeader>
