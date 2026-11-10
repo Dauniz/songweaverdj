@@ -41,7 +41,7 @@ const SETUP_STEPS: Step[] = [
     target: "songbook",
     eyebrow: "Step 4 of 4",
     title: "Your Songbook",
-    body: "Save a session you love to your Songbook, then replay its vibe any time. Crate picks up where it left off and brings the saved songs back now and then.",
+    body: "Find your Songbook in the top-right menu. Save a session you love to your Songbook, then replay its vibe any time. Crate picks up where it left off and brings the saved songs back now and then.",
   },
 ];
 

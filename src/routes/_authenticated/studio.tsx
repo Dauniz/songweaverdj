@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MOTION_EASE } from "@/lib/motion";
-import { BookHeart, Brain, History, LogOut } from "lucide-react";
+import { BookHeart, Brain, ListMusic, LogOut, Menu } from "lucide-react";
 import { useEffect } from "react";
 import {
   Tooltip,
@@ -10,6 +10,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { MoodChat } from "@/components/crate/MoodChat";
 import { RadioProvider, useRadio } from "@/components/crate/radio-context";
@@ -122,39 +123,35 @@ function StudioLayout({
         </nav>
         <div className="col-start-3 flex shrink-0 items-center gap-1">
           <SessionControl />
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Songbook" data-onboarding="songbook">
-                  <Link to="/songbook"><BookHeart className="h-4 w-4" /></Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Songbook</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Session log">
-                  <Link to="/sessions"><History className="h-4 w-4" /></Link>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">Session log</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="What Crate knows about you">
-            <Link to="/crate-knows"><Brain className="h-4 w-4" /></Link>
-          </Button>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button onClick={onSignOut} aria-label="Log out" variant="ghost" size="icon-sm" className="text-muted-foreground">
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="left">Log out</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <DropdownMenu>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Open menu" data-onboarding="songbook">
+                      <Menu className="h-5 w-5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">Menu</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DropdownMenuContent align="end" sideOffset={8} className="w-56 max-w-[calc(100vw-2rem)]">
+              <DropdownMenuItem asChild className="min-h-11">
+                <Link to="/songbook"><BookHeart /> Songbook</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="min-h-11">
+                <Link to="/sessions"><ListMusic /> Session log</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="min-h-11">
+                <Link to="/crate-knows"><Brain /> What Crate knows</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={onSignOut} className="min-h-11">
+                <LogOut /> Log out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
