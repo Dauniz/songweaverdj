@@ -22,6 +22,7 @@ import { endSpotifySession, findOpenSpotify, getForeignQueueCount, getSpotifyAut
 import { isAppleTouchDevice, openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
 import type { CardTrack } from "./TrackCard";
 import { SpotifyOpenDialog } from "./SpotifyOpenDialog";
+import { recordSessionLog } from "@/lib/session-log.functions";
 
 export type Road = "vibe" | "era" | "mixed";
 /** altRoad: the alternative road it was picked under (its tag), if any. */
@@ -189,6 +190,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const judgeFn = useServerFn(judgeForeignPick);
   const synthFn = useServerFn(synthesizeMemories);
   const saveSteerFn = useServerFn(saveSteerInsight);
+  const recordLogFn = useServerFn(recordSessionLog);
   /** Songs logged this run — Crate reflects every few of them. */
   const logged = useRef(0);
   const reflecting = useRef(false);
@@ -325,6 +327,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const userQueue = useRef<RadioTrack[]>([]);
   /** Songs played through this session (for Songbook saves). */
   const finishedTracks = useRef<RadioTrack[]>([]);
+  /** Session log bookkeeping for the running session. */
+  const logStats = useRef<{ sessionId: string; startedAt: string; skipped: number }>({ sessionId: "", startedAt: "", skipped: 0 });
   /** Songbook entry being replayed: its songs come back as finish doors every few songs. */
   const songbookPool = useRef<RadioTrack[]>([]);
   /** History length when a Songbook replay began: only songs heard since then count as recent. */
@@ -972,9 +976,32 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [startRadio, rerootTo],
   );
 
+  /** Writes the running session into the Session log (only once a song was played through). */
+  const recordSessionLogNow = useCallback(() => {
+    const s = radioRef.current;
+    if (!s.active || !s.current || !s.sessionId) return;
+    const st = logStats.current;
+    if (st.sessionId !== s.sessionId) return;
+    const tracks = [...finishedTracks.current];
+    if (!tracks.length) return;
+    void recordLogFn({
+      data: {
+        sessionId: s.sessionId,
+        startedAt: st.startedAt,
+        seedPrompt: s.seedPrompt ?? "",
+        firstSong: s.seed?.name ? `${s.seed.name} — ${s.seed.artists}` : `${tracks[0]!.name} — ${tracks[0]!.artists}`,
+        playedCount: tracks.length,
+        skippedCount: st.skipped,
+        tracks,
+        resumeState: { radio: s, events: [], played: played.current.slice(-100), artistSkips: [...artistSkips.current], lens: lensRef.current, deepCuts: deepCutsRef.current },
+      },
+    }).catch(() => {});
+  }, [recordLogFn]);
+
   const stopRadio = useCallback((opts?: { keepSpotify?: boolean }) => {
     // Remember where in the maze Crate was, so the session can be resumed later.
     const s = radioRef.current;
+    recordSessionLogNow();
     // Closing thought: what did this session reveal about their taste?
     if (s.sessionId && logged.current > 0) reflect(s.sessionId, "history");
     if (s.active && s.current) {
@@ -1007,7 +1034,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(LIVE_KEY);
     // Hand Spotify back clean: pause and drop the songs Crate had lined up.
     if (!opts?.keepSpotify) void endSpotifySession().catch(() => undefined);
-  }, [reflect, chatSessionId]);
+  }, [reflect, chatSessionId, recordSessionLogNow]);
 
   const resumeLastSession = useCallback(() => {
     const raw = localStorage.getItem(LAST_KEY);
@@ -1088,8 +1115,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       }
       log(cur, outcome === "played" ? "play_through" : "early_skip", s);
       if (cur.spotify_id) played.current.push(cur.spotify_id);
+      if (logStats.current.sessionId !== s.sessionId) logStats.current = { sessionId: s.sessionId, startedAt: new Date().toISOString(), skipped: 0 };
+      if (outcome === "skipped") logStats.current.skipped += 1;
       if (outcome === "played" && isPlayable(cur) && !finishedTracks.current.some((t) => t.spotify_id === cur.spotify_id)) {
         finishedTracks.current = [...finishedTracks.current, cur].slice(-100);
+        // Let the new state settle, then log the session so far.
+        setTimeout(recordSessionLogNow, 1500);
       }
       if (outcome === "skipped") {
         artistSkips.current.set(cur.artists, (artistSkips.current.get(cur.artists) ?? 0) + 1);

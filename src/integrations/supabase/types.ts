@@ -352,6 +352,48 @@ export type Database = {
         }
         Relationships: []
       }
+      session_log: {
+        Row: {
+          first_song: string
+          id: string
+          played_count: number
+          resume_state: Json
+          seed_prompt: string
+          session_id: string
+          skipped_count: number
+          started_at: string
+          tracks: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          first_song?: string
+          id?: string
+          played_count?: number
+          resume_state?: Json
+          seed_prompt?: string
+          session_id: string
+          skipped_count?: number
+          started_at?: string
+          tracks?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          first_song?: string
+          id?: string
+          played_count?: number
+          resume_state?: Json
+          seed_prompt?: string
+          session_id?: string
+          skipped_count?: number
+          started_at?: string
+          tracks?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       songbook_entries: {
         Row: {
           created_at: string

@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MOTION_EASE } from "@/lib/motion";
-import { BookHeart, Brain, LogOut } from "lucide-react";
+import { BookHeart, Brain, History, LogOut } from "lucide-react";
 import { useEffect } from "react";
 import {
   Tooltip,
@@ -130,6 +130,16 @@ function StudioLayout({
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom">Songbook</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="Session log">
+                  <Link to="/sessions"><History className="h-4 w-4" /></Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">Session log</TooltipContent>
             </Tooltip>
           </TooltipProvider>
           <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground" aria-label="What Crate knows about you">
