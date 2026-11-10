@@ -18,7 +18,7 @@
 - Radio picks one song at a time via `nextPathTrack` (src/lib/path.functions.ts) over a library merged by `spotify_id`; era road is plain code, vibe/mixed roads use AI; the client prefetches both the "played" and "skipped" branches. Why: instant skips and a maze-like path driven by listening.
 - Crate is Songweaver's AI companion; product-facing branding uses Songweaver while assistant and DJ language uses Crate. Why: the product and its AI have distinct identities.
 - Radio playback uses server-side Spotify Connect commands and observes the active Spotify device; Songweaver renders no audio player. Why: listening stays in Spotify while Crate controls the path without exposing OAuth tokens.
-- Sessions start via Start/search/prompt; compact search opens Memory; pause >90 s ends. Why: show the maze promptly.
+- New sessions start only from prompt, search, Studio suggestions or the welcome guess (no manual Start button; Resume last session stays); compact search opens Memory; pause >90 s ends. Why: Crate always starts from an intent, and show the maze promptly.
 - Alternative roads (src/lib/lenses.ts + alt-roads.ts): single-select, replace the default roads while on. Why: each road has its own picking and skip rules.
 - Onboarding runs once per account (auth metadata flag). Why: first Studio visit only.
 - Motion uses the shared timing/easing primitives in `src/lib/motion.ts`; product actions never wait for animation and reduced motion collapses to short fades. Why: motion stays coherent, accessible, and separate from playback state.

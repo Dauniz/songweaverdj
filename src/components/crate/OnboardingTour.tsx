@@ -29,7 +29,7 @@ const SETUP_STEPS: Step[] = [
     target: "prompt",
     eyebrow: "Step 2 of 4",
     title: "Start a session from here",
-    body: "Describe a vibe, search for a song, or press Start session. Once live, Crate follows Spotify: finishes, skips, and songs you pick there steer the maze.",
+    body: "Describe a vibe, search for a song, or pick one of Crate's suggestions. Once live, Crate follows Spotify: finishes, skips, and songs you pick there steer the maze.",
   },
   {
     target: "side-roads",
