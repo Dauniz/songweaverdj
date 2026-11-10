@@ -1070,9 +1070,10 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     // The saved session's own plays aren't "recent" for a replay, or saved songs could
     // only come back 50 songs later (and door checks would reject them as already heard).
     const poolIds = new Set(songbookPool.current.map((t) => t.spotify_id));
-    const curId = radioRef.current.current?.spotify_id;
+    const savedRadio = (entry.resume_state as { radio?: Partial<RadioState> } | null)?.radio;
+    const curId = savedRadio?.current?.spotify_id;
     played.current = played.current.filter((id) => id === curId || !poolIds.has(id));
-    songbookFrom.current = radioRef.current.history.length;
+    songbookFrom.current = savedRadio?.history?.length ?? 0;
   }, [stopRadio, resumeFrom]);
 
   const next = useCallback(
