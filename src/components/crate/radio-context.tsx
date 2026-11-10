@@ -413,6 +413,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const [foreignQueued, setForeignQueued] = useState(0);
   // When Spotify stopped reporting any active device (app closed).
   const noDeviceSince = useRef(0);
+  /** Crate's current song that never reached Spotify (no open device when sent). */
+  const notDelivered = useRef("");
+  const wakeSending = useRef(false);
+  const lastDelivered = useRef<{ id: string; at: number }>({ id: "", at: 0 });
+  /** Spotify open but with nothing loaded (greyed out) after Crate's send: recovery state. */
+  const emptyPlayer = useRef({ polls: 0, lastTry: 0, tries: 0 });
   // Last time we tried to wake Spotify back up after losing the device.
   const lastReconnectTry = useRef(0);
   const [hasLastSession, setHasLastSession] = useState(false);
@@ -1193,7 +1199,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       positionMs?: number,
       reason = "start",
       aheadDoor?: RadioTrack | null,
-      opts?: { stateAt?: RadioState | undefined; frontierDoor?: Promise<Branch> | undefined; allowAlone?: boolean },
+      opts?: { stateAt?: RadioState | undefined; frontierDoor?: Promise<Branch> | undefined; allowAlone?: boolean; wake?: boolean },
     ) => {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
       // Retries (Spotify was closed, "Open Spotify", reconnect) often don't know the skip
@@ -1249,11 +1255,17 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         });
         const sentAt = Date.now();
         const result = await playFn({
-          data: { spotifyId: track.spotify_id, nextId, aheadId, positionMs, deviceId: deviceIdRef.current ?? undefined },
+          data: { spotifyId: track.spotify_id, nextId, aheadId, positionMs, deviceId: deviceIdRef.current ?? undefined, ...(opts?.wake ? { wake: true } : {}) },
         }).catch((err) => {
           ackSpotifySend(logId, "error");
           throw err;
         });
+        // Remember when Crate's song never reached Spotify because it wasn't open, so the song a
+        // freshly opened app resumes on its own is replaced instead of read as your pick.
+        if (result.status === "playing") {
+          if (notDelivered.current === track.spotify_id) notDelivered.current = "";
+          lastDelivered.current = { id: track.spotify_id, at: Date.now() };
+        } else if (result.status === "no_device") notDelivered.current = track.spotify_id;
         const totalMs = Date.now() - sentAt;
         if (result.status === "playing") {
           pushLatency.current = Math.round(pushLatency.current * 0.7 + Math.min(1500, totalMs / 2) * 0.3);
@@ -1887,6 +1899,46 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           state.progressMs > previous.progressMs + 250;
         const playing = state.status === "ready" && (state.isPlaying || progressMoved);
         setMusicPlaying(playing);
+        // Crate's song never reached Spotify (it wasn't open). Whatever a freshly opened app
+        // shows now is just its own last song waking up — not your pick, not a skip. Give the
+        // new app a moment to settle (fed songs cold, the desktop app greys out), then send
+        // Crate's own pair with a wake-up first.
+        if (state.status === "ready" && notDelivered.current && notDelivered.current === current.spotify_id && state.spotifyId !== current.spotify_id) {
+          if (!wakeSending.current) {
+            wakeSending.current = true;
+            pushSpotifyLog({ kind: "event", at: Date.now(), text: `SPOTIFY OPENED — ${state.spotifyId ? `replacing its own "${state.name}"` : "empty player"}, sending "${current.name}" with its skip door` });
+            void (async () => {
+              try {
+                await new Promise((r) => setTimeout(r, 1_500));
+                if (notDelivered.current !== current.spotify_id || radioRef.current.current?.spotify_id !== current.spotify_id) return;
+                lastTransition.current = Date.now();
+                await startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, undefined, "spotify opened", null, { wake: true });
+              } finally {
+                wakeSending.current = false;
+              }
+            })();
+          }
+          return;
+        }
+        // Spotify is open but has nothing loaded (greyed out) although Crate sent its song:
+        // the app dropped the list. Re-send after two empty polls, at most 3 times per song.
+        if (state.status === "ready" && !state.spotifyId && state.deviceId && current.spotify_id) {
+          const ep = emptyPlayer.current;
+          ep.polls += 1;
+          if (ep.polls >= 2 && ep.tries < 3 && Date.now() - ep.lastTry > 6_000 && !wakeSending.current) {
+            ep.lastTry = Date.now();
+            ep.tries += 1;
+            pushSpotifyLog({ kind: "event", at: Date.now(), text: `SPOTIFY EMPTY — nothing loaded, re-sending "${current.name}" (try ${ep.tries})` });
+            const lp = lastPlayback.current;
+            void startSpotifyPlayback(
+              current, true, door.current?.forId === current.spotify_id ? door.current.track : null,
+              lp.spotifyId === current.spotify_id && lp.observed && lp.progressMs > 1_000 ? lp.progressMs : undefined,
+              "empty player", null, { wake: true },
+            );
+          }
+          return;
+        }
+        if (state.status === "ready" && state.spotifyId) emptyPlayer.current = { polls: 0, lastTry: 0, tries: 0 };
         if (!playing) {
           // A second skip runs the two-song context dry. Spotify commonly reports the skip
           // door paused at its beginning; stop and rebuild rather than guessing another song.
@@ -2259,6 +2311,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             durationMs: state.durationMs,
             at: Date.now(),
           };
+          // Crate's song never reached Spotify: the poll replaces the app's own song instead.
+          if (current?.spotify_id && notDelivered.current === current.spotify_id) return;
           if (current?.spotify_id && state.spotifyId !== current.spotify_id && !lineup.current.includes(state.spotifyId)) {
             // Songs moved while we were away and this one is none of Crate's: follow it fresh.
             note("think", "Welcome back — following what Spotify is playing now");
@@ -2307,8 +2361,12 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       busyCheck = true;
       try {
         const current = radioRef.current.current;
-        if (current?.spotify_id) {
-          if (await startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, lastPlayback.current.progressMs || undefined, "connection retry")) succeed();
+        if (current?.spotify_id && wakeSending.current) {
+          // The poll saw Spotify open and is sending Crate's pair itself.
+        } else if (current?.spotify_id && lastDelivered.current.id === current.spotify_id && Date.now() - lastDelivered.current.at < 10_000) {
+          succeed(); // just delivered by the opened-app send
+        } else if (current?.spotify_id) {
+          if (await startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, lastPlayback.current.progressMs || undefined, "connection retry", null, { wake: true })) succeed();
         } else {
           let state = await playbackFn();
           // A playing report without a song ID is usually Spotify mid-switch: ask once more.
@@ -2454,39 +2512,26 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         else window.open(webUrl, "_blank");
       } catch { /* ignore */ }
     } else {
-      // Desktop: try the installed app first; fall back to Spotify Web.
-      let appOpened = false;
-      const onBlur = () => { appOpened = true; };
-      const onVis = () => { if (document.hidden) appOpened = true; };
-      window.addEventListener("blur", onBlur);
-      document.addEventListener("visibilitychange", onVis);
-      const appUrl = "spotify:";
+      // Desktop: the installed app only. No automatic Spotify Web fallback — the browser's
+      // "Open Spotify?" prompt and apps that start without stealing focus made the fallback
+      // fire even when the app opened. Spotify Web is a separate link in the popup.
       const frame = document.createElement("iframe");
       frame.style.display = "none";
-      frame.src = appUrl;
+      frame.src = "spotify:";
       document.body.appendChild(frame);
-      try {
-        const a = document.createElement("a");
-        a.href = appUrl;
-        a.rel = "noopener";
-        a.click();
-      } catch { /* ignore */ }
-      setTimeout(() => {
-        frame.remove();
-        window.removeEventListener("blur", onBlur);
-        document.removeEventListener("visibilitychange", onVis);
-        if (!appOpened && document.hasFocus()) {
-          window.open(webUrl, "_blank", "noopener,noreferrer");
-        }
-      }, 2500);
+      setTimeout(() => frame.remove(), 2500);
     }
     let attempts = 0;
     const retry = async () => {
       attempts += 1;
       const queuedDoor = door.current;
       let ok = false;
-      if (track?.spotify_id) {
-        ok = await startSpotifyPlayback(track, true, queuedDoor && queuedDoor.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry");
+      if (track?.spotify_id && wakeSending.current) {
+        // The poll just saw Spotify open and is sending Crate's pair itself — don't double-push.
+      } else if (track?.spotify_id && lastDelivered.current.id === track.spotify_id && Date.now() - lastDelivered.current.at < 10_000) {
+        ok = true; // just delivered by the opened-app send
+      } else if (track?.spotify_id) {
+        ok = await startSpotifyPlayback(track, true, queuedDoor && queuedDoor.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry", null, { wake: true });
       } else {
         // No song yet (session just started): adopt whatever the user plays in Spotify.
         try {

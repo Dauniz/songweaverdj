@@ -95,6 +95,8 @@ const startInput = playInput.extend({
   aheadId: z.string().min(1).max(64).optional(),
   positionMs: z.number().int().min(0).max(3_600_000).optional(),
   deviceId: z.string().min(1).max(128).optional(),
+  /** The app just opened or dropped its list: wake it with an official transfer before playing. */
+  wake: z.boolean().optional(),
 });
 
 /** Pause Spotify — used when the listener skips so fast that Crate needs a breath. */
@@ -209,6 +211,16 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
     // Only trust the cached device if it was used recently; otherwise it may have gone to sleep.
     const t0 = Date.now();
     const cachedDev = deviceCache.get(context.userId);
+    const wakeId = data.wake ? (data.deviceId ?? cachedDev?.id) : undefined;
+    if (wakeId) {
+      // A just-opened (or greyed-out) desktop app freezes when fed songs cold: transfer first.
+      await fetch("https://api.spotify.com/v1/me/player", {
+        method: "PUT",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ device_ids: [wakeId], play: false }),
+      }).catch(() => undefined);
+      await new Promise((r) => setTimeout(r, 600));
+    }
     // The browser knows the device that's playing right now — use it first (no device lookup).
     let device = data.deviceId
       ? { id: data.deviceId, name: cachedDev?.id === data.deviceId ? cachedDev.name : "Spotify", at: Date.now() }
