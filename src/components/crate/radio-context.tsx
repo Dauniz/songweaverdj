@@ -416,6 +416,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   /** Crate's current song that never reached Spotify (no open device when sent). */
   const notDelivered = useRef("");
   const wakeSending = useRef(false);
+  const lastDelivered = useRef<{ id: string; at: number }>({ id: "", at: 0 });
   /** Spotify open but with nothing loaded (greyed out) after Crate's send: recovery state. */
   const emptyPlayer = useRef({ polls: 0, lastTry: 0, tries: 0 });
   // Last time we tried to wake Spotify back up after losing the device.
@@ -1263,6 +1264,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         // freshly opened app resumes on its own is replaced instead of read as your pick.
         if (result.status === "playing") {
           if (notDelivered.current === track.spotify_id) notDelivered.current = "";
+          lastDelivered.current = { id: track.spotify_id, at: Date.now() };
         } else if (result.status === "no_device") notDelivered.current = track.spotify_id;
         const totalMs = Date.now() - sentAt;
         if (result.status === "playing") {
@@ -2361,8 +2363,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         const current = radioRef.current.current;
         if (current?.spotify_id && wakeSending.current) {
           // The poll saw Spotify open and is sending Crate's pair itself.
-        } else if (current?.spotify_id && notDelivered.current !== current.spotify_id && lineup.current[0] === current.spotify_id) {
-          succeed();
+        } else if (current?.spotify_id && lastDelivered.current.id === current.spotify_id && Date.now() - lastDelivered.current.at < 10_000) {
+          succeed(); // just delivered by the opened-app send
         } else if (current?.spotify_id) {
           if (await startSpotifyPlayback(current, true, door.current?.forId === current.spotify_id ? door.current.track : null, lastPlayback.current.progressMs || undefined, "connection retry", null, { wake: true })) succeed();
         } else {
@@ -2526,8 +2528,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       let ok = false;
       if (track?.spotify_id && wakeSending.current) {
         // The poll just saw Spotify open and is sending Crate's pair itself — don't double-push.
-      } else if (track?.spotify_id && notDelivered.current !== track.spotify_id && lineup.current[0] === track.spotify_id) {
-        ok = true; // already delivered (by the opened-app send)
+      } else if (track?.spotify_id && lastDelivered.current.id === track.spotify_id && Date.now() - lastDelivered.current.at < 10_000) {
+        ok = true; // just delivered by the opened-app send
       } else if (track?.spotify_id) {
         ok = await startSpotifyPlayback(track, true, queuedDoor && queuedDoor.forId === track.spotify_id ? queuedDoor.track : null, undefined, "open Spotify retry", null, { wake: true });
       } else {
