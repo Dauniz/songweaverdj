@@ -18,6 +18,7 @@ import { synthesizeMemories } from "@/lib/taste-synthesis.functions";
 import { saveSteerInsight } from "@/lib/memory.functions";
 import { LENS_IDS, lensName, type LensId } from "@/lib/lenses";
 import { pushSpotifyLog, ackSpotifySend, observeSpotify } from "@/lib/spotify-log";
+import { resolveSentId, type SentSong } from "@/lib/relink";
 import { endSpotifySession, findOpenSpotify, getForeignQueueCount, getSpotifyAuthUrl, getSpotifyPlayback,
   getNextQueuedId, nextSpotifyTrack, pauseSpotifyPlayback, playSpotifyTrack } from "@/lib/spotify.functions";
 import { isAppleTouchDevice, openSpotifyAuth, usePreparedSpotifyUrl } from "@/lib/spotify-open";
@@ -212,9 +213,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
   const pushLatency = useRef(250);
   /** Drives the Spotify pill dot: green while a device answers, red the moment detection fails. */
   const [spotifyAlive, setSpotifyAlive] = useState<boolean | null>(null);
+  /** Songs recently sent to Spotify — a regional copy (other ID) is mapped back to them. */
+  const sentSongs = useRef<SentSong[]>([]);
   const playbackFn = useCallback(async () => {
     try {
       const st = await playbackRawFn();
+      if (st.status === "ready" && st.spotifyId) {
+        const id = resolveSentId({ id: st.spotifyId, name: st.name, artists: st.artists }, sentSongs.current);
+        if (id && id !== st.spotifyId) st.spotifyId = id;
+      }
       if (st.status === "ready" && st.deviceId) deviceIdRef.current = st.deviceId;
       // Green only when Crate is following a song or actually hears Spotify playing.
       setSpotifyAlive(
@@ -1237,6 +1244,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         aheadDoor?.spotify_id && isPlayable(aheadDoor) && aheadDoor.spotify_id !== nextId && aheadDoor.spotify_id !== track.spotify_id
           ? aheadDoor.spotify_id
           : undefined;
+      for (const t of [track, nextId ? skipDoor : null, aheadId ? aheadDoor : null]) {
+        if (t?.spotify_id) sentSongs.current = [{ id: t.spotify_id, name: t.name, artists: t.artists }, ...sentSongs.current.filter((x) => x.id !== t.spotify_id)].slice(0, 12);
+      }
       const generation = ++listGeneration.current;
       const priorWrite = playbackWrite.current;
       let releaseWrite: () => void = () => {};
@@ -1622,6 +1632,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       const curId = cur.spotify_id;
       void nextQueuedFn().then((r) => {
         if (!r.id || r.id === skip.spotify_id) return;
+        if ("name" in r && resolveSentId({ id: r.id, name: r.name ?? "", artists: r.artists ?? "" }, sentSongs.current) === skip.spotify_id) return;
         if (radioRef.current.current?.spotify_id !== curId || swapping.current === curId) return;
         if (lastPlayback.current.spotifyId !== curId) return;
         pushSpotifyLog({ kind: "event", at: Date.now(), text: `Skip door "${skip.name}" missing from next up — re-sending` });

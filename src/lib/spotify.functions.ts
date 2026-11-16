@@ -1,6 +1,7 @@
 import { libraryPoolCache } from "@/lib/keyset";
 import { createServerFn } from "@tanstack/react-start";
-import { recoverStuck, sendVerifyOutcome } from "./send-verify";
+import { playListBody, recoverStuck, sendVerifyOutcome } from "./send-verify";
+import { resolveSentId, type SentSong } from "./relink";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { IngestRow } from "./spotify.server";
@@ -180,7 +181,7 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
     // so landing on it never needs a mid-song resend (Spotify re-buffers audibly on resend).
     const chain = [data.spotifyId, ...(data.nextId ? [data.nextId] : []), ...(data.nextId && data.aheadId ? [data.aheadId] : [])];
     const uris = [...new Set(chain)].slice(0, 3).map((id) => `spotify:track:${id}`);
-    const body = JSON.stringify({ uris, ...(data.positionMs ? { position_ms: data.positionMs } : {}) });
+    const body = JSON.stringify(playListBody(uris, data.positionMs));
 
     const pickDevice = async () => {
       const r = await fetch("https://api.spotify.com/v1/me/player/devices", { headers });
@@ -255,13 +256,23 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
       // An open app that keeps playing its OWN song accepted the command but ignored it —
       // that's not "Spotify closed", so it gets its own answer (and one plain retry first).
       let ownSong = false;
+      let sentCache: SentSong[] | null = null;
+      const sentSongs = async () => {
+        if (sentCache) return sentCache;
+        const r = await fetch(`https://api.spotify.com/v1/tracks?ids=${chain.join(",")}`, { headers }).catch(() => null);
+        const b = r?.ok ? ((await r.json().catch(() => null)) as { tracks?: ({ id: string; name: string; artists: { name: string }[] } | null)[] } | null) : null;
+        sentCache = (b?.tracks ?? []).filter((t): t is NonNullable<typeof t> => Boolean(t)).map((t) => ({ id: t.id, name: t.name, artists: t.artists.map((a) => a.name).join(", ") }));
+        return sentCache;
+      };
       const check = async (polls: number) => {
         for (let i = 0; i < polls; i++) {
           await new Promise((r) => setTimeout(r, 500));
           const st = await fetch("https://api.spotify.com/v1/me/player", { headers }).catch(() => null);
           if (!st || st.status === 204 || !st.ok) continue;
-          const b = (await st.json().catch(() => null)) as { is_playing?: boolean; item?: { id?: string | null } | null; device?: { id?: string | null } | null } | null;
+          const b = (await st.json().catch(() => null)) as { is_playing?: boolean; item?: { id?: string | null; name?: string; artists?: { name: string }[] } | null; device?: { id?: string | null } | null } | null;
           if (b?.item?.id && chain.includes(b.item.id)) return true;
+          // Regional copy under another ID: same name + artist as a song Crate sent.
+          if (b?.item?.id && chain.includes(resolveSentId({ id: b.item.id, name: b.item.name ?? "", artists: (b.item.artists ?? []).map((a) => a.name).join(", ") }, await sentSongs()) ?? "")) return true;
           if (b?.item?.id && b.is_playing && b.device?.id) ownSong = true;
         }
         return false;
@@ -286,7 +297,7 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
         const r = await fetch("https://api.spotify.com/v1/me/player/play", {
           method: "PUT",
           headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ uris, offset: { position: 0 }, ...(data.positionMs ? { position_ms: data.positionMs } : {}) }),
+          body: JSON.stringify(playListBody(uris, data.positionMs)),
         }).catch(() => null);
         return Boolean(r?.ok);
       };
@@ -396,8 +407,9 @@ export const getNextQueuedId = createServerFn({ method: "POST" })
     try {
       const q = await fetch("https://api.spotify.com/v1/me/player/queue", { headers: { Authorization: `Bearer ${token}` } });
       if (!q.ok) return { id: null as string | null };
-      const body = (await q.json()) as { queue?: { id?: string | null }[] };
-      return { id: body.queue?.[0]?.id ?? null };
+      const body = (await q.json()) as { queue?: { id?: string | null; name?: string; artists?: { name: string }[] }[] };
+      const first = body.queue?.[0];
+      return { id: first?.id ?? null, name: first?.name ?? "", artists: (first?.artists ?? []).map((a) => a.name).join(", ") };
     } catch {
       return { id: null as string | null };
     }
@@ -443,7 +455,7 @@ export const endSpotifySession = createServerFn({ method: "POST" })
       await fetch("https://api.spotify.com/v1/me/player/play", {
         method: "PUT",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ uris: [`spotify:track:${trackId}`], position_ms: 0 }),
+        body: JSON.stringify(playListBody([`spotify:track:${trackId}`])),
       });
     }
     await fetch("https://api.spotify.com/v1/me/player/pause", { method: "PUT", headers }).catch(() => undefined);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recoverStuck, sendVerifyOutcome, stuckRecovery } from "./send-verify";
+import { playListBody, recoverStuck, sendVerifyOutcome, stuckRecovery } from "./send-verify";
 
 describe("checked send outcome", () => {
   it("counts the song as playing once Spotify reports it", () => {
@@ -44,5 +44,14 @@ describe("stuck recovery sequence", () => {
   });
   it("gives up after a skip that didn't help, never skips twice", async () => {
     expect(await run(["B"], [false])).toEqual({ ok: false, calls: ["queue", "next", "check"] });
+  });
+});
+
+describe("play-list command", () => {
+  it("always names the first song, so Spotify doesn't restart its current one", () => {
+    expect(playListBody(["spotify:track:B", "spotify:track:C"]).offset).toEqual({ position: 0 });
+  });
+  it("keeps a resume position when given", () => {
+    expect(playListBody(["spotify:track:B"], 42000).position_ms).toBe(42000);
   });
 });

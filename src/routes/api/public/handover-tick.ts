@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { playListBody } from "@/lib/send-verify";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, Math.max(0, ms)));
 
@@ -59,7 +60,7 @@ export const Route = createFileRoute("/api/public/handover-tick")({
             const s = await fetch("https://api.spotify.com/v1/me/player/play", {
               method: "PUT",
               headers: { ...headers, "Content-Type": "application/json" },
-              body: JSON.stringify({ uris }),
+              body: JSON.stringify(playListBody(uris)),
             });
             status = s.ok ? "sent" : "missed";
             console.log("handover-tick", n.user_id.slice(0, 8), status);

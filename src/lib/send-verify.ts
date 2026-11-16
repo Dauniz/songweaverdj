@@ -28,3 +28,9 @@ export async function recoverStuck(target: string, steps: {
   }
   return loaded;
 }
+
+/** Body for every "play this list" command. The offset is required: without it Spotify's
+ *  desktop app restarts its CURRENT song and lines the list up behind it (verified live). */
+export function playListBody(uris: string[], positionMs?: number) {
+  return { uris, offset: { position: 0 }, ...(positionMs ? { position_ms: positionMs } : {}) };
+}
