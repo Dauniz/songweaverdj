@@ -1,3 +1,4 @@
+import { safeSeekMs, staleFinishAction } from "@/lib/handover-guard";
 import { LIVE_KEY, readLiveSession } from "@/lib/live-session";
 import { isFinished } from "@/lib/pick-rules";
 import { dedupePicks, nextDistinctIndex } from "@/lib/dedupe-picks";
@@ -1207,7 +1208,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
       // Never aim at (or past) the song's end: Spotify then restarts it from 0:00 or jumps on.
       const knownDur = lastPlayback.current.spotifyId === track.spotify_id ? lastPlayback.current.durationMs : 0;
-      if (positionMs && knownDur && positionMs > knownDur - 3_000) positionMs = Math.max(1, knownDur - 3_000);
+      positionMs = safeSeekMs(positionMs, knownDur);
       // Retries (Spotify was closed, "Open Spotify", reconnect) often don't know the skip
       // song because it's only confirmed after a successful send. Reuse the last one tried.
       const pending = attemptedDoor.current?.forId === track.spotify_id ? attemptedDoor.current : null;
@@ -2023,9 +2024,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
             // Spotify still reports the song that just finished: it hasn't switched yet.
             // Never read that as a skip or a manual pick — adopting it re-sent the old song at
             // its end position and Spotify started it over (song A on repeat).
-            const since = Date.now() - hg.sentAt;
-            if (since < 4_000) return;
-            if (!hg.resent) {
+            const act = staleFinishAction(Date.now() - hg.sentAt, Boolean(hg.resent));
+            if (act === "wait") return;
+            if (act === "resend") {
               // The hand-over didn't take: send the finish pair once more, checked this time.
               hg.resent = true;
               hg.sentAt = Date.now();
@@ -2041,7 +2042,6 @@ export function RadioProvider({ children }: { children: ReactNode }) {
               }
               return;
             }
-            if (since < 10_000) return;
             handoverGuard.current = null; // still the old song 10 s after the re-send: your own replay
           } else if (
             !hg.finishSeen && !hg.recovered && hg.skip?.spotify_id === state.spotifyId &&
