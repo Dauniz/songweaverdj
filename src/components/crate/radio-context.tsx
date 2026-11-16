@@ -2912,7 +2912,7 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         musicPlaying: musicPlaying && sessionLive && !spotifyIdle && !calming && !playbackIssue,
         calming,
         foreignQueued,
-        spotifyLost: sessionLive && playbackIssue !== null,
+        spotifyLost: sessionLive && playbackIssue !== null && playbackIssue.status !== "not_switched", // open but ignoring: still reached
         spotifyAlive,
       }}
     >
