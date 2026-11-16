@@ -27,6 +27,7 @@ import { Shimmer } from "@/components/ai-elements/shimmer";
 import { type CardTrack } from "./TrackCard";
 import { PromptPlaylist } from "./PromptPlaylist";
 import { useRadio } from "./radio-context";
+import { readLiveSession } from "@/lib/live-session";
 import { LoaderCircle, Mic, Square, X } from "lucide-react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { cn } from "@/lib/utils";
@@ -41,6 +42,9 @@ import { Tool, ToolHeader, ToolContent } from "@/components/ai-elements/tool";
 import { initialPromptPlaylist, readSessionChat, sessionChatKey } from "@/lib/session-chat";
 
 type PromptMemory = { id: string; kind: string; content: string };
+
+/** The hunch is checked once per page load (a new tab or a fresh open), never on return visits. */
+let welcomeCheckedThisLoad = false;
 
 function suggestionFromMemory(memory: PromptMemory) {
   const content = memory.content.replace(/[.!]+$/, "").trim();
@@ -278,8 +282,16 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
     };
   }, []);
   useEffect(() => {
-    if (welcomeAsked.current || sessionLive) return;
+    // A session started (or ended) after the page opened: the hunch is never shown later.
+    if (sessionLive) setWelcome(null);
+  }, [sessionLive]);
+  useEffect(() => {
+    // Only on a fresh open (new tab, reload) with no session on: coming back to Studio from
+    // another page, or after a session ends, never brings it up.
+    if (welcomeAsked.current || welcomeCheckedThisLoad) return;
     welcomeAsked.current = true;
+    welcomeCheckedThisLoad = true;
+    if (sessionLive || readLiveSession()) return;
     const now = new Date();
     const key = `songweaver-welcome-${now.getDay()}-${now.getHours()}`;
     const cached = sessionStorage.getItem(key);
@@ -301,12 +313,13 @@ export function MoodChat({ onSearchSelection }: { onSearchSelection?: () => void
           data: { tzOffsetMin: now.getTimezoneOffset(), firstName: firstName.slice(0, 40) },
         });
         sessionStorage.setItem(key, s ? JSON.stringify(s) : "dismissed");
+        if (readLiveSession()) return; // a session started while Crate was thinking
         setWelcome(s);
       } catch {
         /* silent: no card */
       }
     })();
-  }, [sessionLive, fetchWelcome]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- once per page load
   function answerWelcomeGuess(accepted: boolean) {
     if (!welcome) return;
     const now = new Date();
