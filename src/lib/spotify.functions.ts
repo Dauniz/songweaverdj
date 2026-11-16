@@ -1,5 +1,6 @@
 import { libraryPoolCache } from "@/lib/keyset";
 import { createServerFn } from "@tanstack/react-start";
+import { sendVerifyOutcome } from "./send-verify";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { IngestRow } from "./spotify.server";
@@ -214,7 +215,15 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
     // Only trust the cached device if it was used recently; otherwise it may have gone to sleep.
     const t0 = Date.now();
     const cachedDev = deviceCache.get(context.userId);
-    const wakeId = data.wake ? (data.deviceId ?? cachedDev?.id) : undefined;
+    let wakeId = data.wake ? (data.deviceId ?? cachedDev?.id) : undefined;
+    if (wakeId) {
+      // Already the active, playing device: a transfer only restarts its current song.
+      const cur = await fetch("https://api.spotify.com/v1/me/player", { headers }).catch(() => null);
+      if (cur?.ok && cur.status !== 204) {
+        const b = (await cur.json().catch(() => null)) as { is_playing?: boolean; device?: { id?: string | null; is_active?: boolean } } | null;
+        if (b?.is_playing && b.device?.id === wakeId && b.device.is_active !== false) wakeId = undefined;
+      }
+    }
     if (wakeId) {
       // A just-opened (or greyed-out) desktop app freezes when fed songs cold: transfer first.
       await fetch("https://api.spotify.com/v1/me/player", {
@@ -243,16 +252,37 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
     const spotifyMs = Date.now() - t0;
     if (data.verify) {
       // Cold paths only (session start, reconnects): check the song actually loaded.
-      for (let i = 0; i < 6; i++) {
-        await new Promise((r) => setTimeout(r, 500));
-        const st = await fetch("https://api.spotify.com/v1/me/player", { headers }).catch(() => null);
-        if (!st || st.status === 204) continue;
-        if (!st.ok) continue;
-        const b = (await st.json().catch(() => null)) as { item?: { id?: string | null } | null } | null;
-        if (b?.item?.id && chain.includes(b.item.id)) {
-          deviceCache.set(context.userId, { ...device!, at: Date.now() });
-          return { status: "playing" as const, deviceName: device!.name, foreignQueued: 0, spotifyMs, verified: true };
+      // An open app that keeps playing its OWN song accepted the command but ignored it —
+      // that's not "Spotify closed", so it gets its own answer (and one plain retry first).
+      let ownSong = false;
+      const check = async (polls: number) => {
+        for (let i = 0; i < polls; i++) {
+          await new Promise((r) => setTimeout(r, 500));
+          const st = await fetch("https://api.spotify.com/v1/me/player", { headers }).catch(() => null);
+          if (!st || st.status === 204 || !st.ok) continue;
+          const b = (await st.json().catch(() => null)) as { is_playing?: boolean; item?: { id?: string | null } | null; device?: { id?: string | null } | null } | null;
+          if (b?.item?.id && chain.includes(b.item.id)) return true;
+          if (b?.item?.id && b.is_playing && b.device?.id) ownSong = true;
         }
+        return false;
+      };
+      let loaded = await check(6);
+      if (!loaded && ownSong) {
+        // Retry once without pinning the device, in case the pinned target is the stale part.
+        const again = await fetch("https://api.spotify.com/v1/me/player/play", {
+          method: "PUT",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body,
+        }).catch(() => null);
+        if (again?.ok) loaded = await check(4);
+      }
+      const outcome = sendVerifyOutcome(loaded, ownSong);
+      if (outcome === "playing") {
+        deviceCache.set(context.userId, { ...device!, at: Date.now() });
+        return { status: "playing" as const, deviceName: device!.name, foreignQueued: 0, spotifyMs, verified: true };
+      }
+      if (outcome === "not_switched") {
+        return { status: "not_switched" as const, message: "Spotify is open but kept playing its own song." };
       }
       deviceCache.delete(context.userId);
       return { status: "no_device" as const, message: "Spotify isn't really open on your devices." };

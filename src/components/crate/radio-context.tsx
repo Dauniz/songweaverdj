@@ -29,7 +29,7 @@ export type Road = "vibe" | "era" | "mixed";
 /** altRoad: the alternative road it was picked under (its tag), if any. */
 export type RadioTrack = CardTrack & { why?: string; altRoad?: string };
 export type SpotifyPlaybackIssue = {
-  status: "no_device" | "premium_required" | "connect_required" | "unavailable";
+  status: "no_device" | "premium_required" | "connect_required" | "unavailable" | "not_switched";
   message: string;
 };
 
@@ -249,6 +249,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     [],
   );
   const [awaitingSpotify, setAwaitingSpotify] = useState(false);
+  /** Spotify is open but ignored Crate's last song: the poll leaves its song alone until a send lands. */
+  const wrongSongStuck = useRef<{ on: string } | null>(null);
   /** When the Start button resumed an open app; a still-paused loaded song is adopted 5 s later. */
   const resumeSentAt = useRef(0);
   const lastLostPrompt = useRef(0);
@@ -1273,12 +1275,23 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (notDelivered.current === track.spotify_id) notDelivered.current = "";
           lastDelivered.current = { id: track.spotify_id, at: Date.now() };
         } else if (result.status === "no_device") notDelivered.current = track.spotify_id;
+        else if (result.status === "not_switched") {
+          // Spotify is open but ignores Crate's song (and restarts its own on every push).
+          // Stop every retry loop and ask once — never the "Open Spotify" popup.
+          notDelivered.current = "";
+          wrongSongStuck.current = { on: "" };
+          if (reopenTimer.current) { clearTimeout(reopenTimer.current); reopenTimer.current = null; }
+          setAwaitingSpotify(false);
+          pushSpotifyLog({ kind: "event", at: Date.now(), text: `NOT SWITCHED — Spotify kept its own song instead of "${track.name}"; retries stopped` });
+          setPlaybackIssue({ status: "not_switched", message: result.message });
+        }
         const totalMs = Date.now() - sentAt;
         if (result.status === "playing" && !opts?.verify) {
           pushLatency.current = Math.round(pushLatency.current * 0.7 + Math.min(1500, totalMs / 2) * 0.3);
           pushSpotifyLog({ kind: "event", at: Date.now(), text: `PUSH TIMING — ${totalMs} ms total, ${"spotifyMs" in result ? result.spotifyMs : "?"} ms at Spotify` });
         }
         ackSpotifySend(logId, result.status);
+        if (result.status === "playing") wrongSongStuck.current = null;
         if (result.status === "playing" && generation === listGeneration.current) {
           acceptedGeneration.current = generation;
           lineup.current = !nextId ? [track.spotify_id] : aheadId ? [track.spotify_id, nextId, aheadId] : [track.spotify_id, nextId];
@@ -1906,6 +1919,15 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           state.progressMs > previous.progressMs + 250;
         const playing = state.status === "ready" && (state.isPlaying || progressMoved);
         setMusicPlaying(playing);
+        const stuck = wrongSongStuck.current;
+        if (stuck && state.status === "ready" && state.spotifyId) {
+          // Crate's song never took: the song Spotify kept is neither a skip nor your pick.
+          // Crate's song showing up, or you choosing another song in Spotify, ends the wait.
+          if (!stuck.on) stuck.on = state.spotifyId;
+          if (state.spotifyId === stuck.on && state.spotifyId !== current.spotify_id) return;
+          wrongSongStuck.current = null;
+          setPlaybackIssue((cur) => (cur?.status === "not_switched" ? null : cur));
+        }
         if (state.status === "ready" && notDelivered.current && state.spotifyId === notDelivered.current) {
           notDelivered.current = ""; // it arrived after all (slow app)
           setPlaybackIssue(null);
@@ -2908,7 +2930,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
         onRetry={() => {
           const current = radioRef.current.current;
           const queuedDoor = door.current;
-          void startSpotifyPlayback(current, false, queuedDoor && current?.spotify_id === queuedDoor.forId ? queuedDoor.track : null, undefined, "manual retry");
+          setPlaybackIssue(null);
+          void startSpotifyPlayback(current, false, queuedDoor && current?.spotify_id === queuedDoor.forId ? queuedDoor.track : null, undefined, "manual retry", null, { verify: true });
         }}
       />
     </RadioContext.Provider>

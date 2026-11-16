@@ -33,6 +33,7 @@ export function SpotifyOpenDialog({
 }: Props) {
   const connect = issue?.status === "connect_required";
   const premium = issue?.status === "premium_required";
+  const stuck = issue?.status === "not_switched";
   const needsAuth = connect;
   const showTrack = false;
 
@@ -41,12 +42,14 @@ export function SpotifyOpenDialog({
       <AlertDialogContent className="max-w-sm rounded-lg">
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {connect ? "Connect Spotify" : premium ? "Spotify Premium required" : "Open Spotify"}
+            {connect ? "Connect Spotify" : premium ? "Spotify Premium required" : stuck ? "Spotify won't switch songs" : "Open Spotify"}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {connect || premium
               ? issue?.message
-              : "Crate's knocking, but Spotify isn't answering. Open it and let your DJ in."}
+              : stuck
+                ? "Spotify's open, but it keeps spinning its own record instead of Crate's. Quit and reopen the Spotify app, then try again."
+                : "Crate's knocking, but Spotify isn't answering. Open it and let your DJ in."}
             {showTrack && track ? ` Then Crate will start “${track.name}” there.` : ""}
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -66,6 +69,19 @@ export function SpotifyOpenDialog({
               className="h-11 w-full rounded-md text-base font-semibold"
             >
               Connect
+            </AlertDialogAction>
+            <AlertDialogCancel className="h-auto border-none bg-transparent p-0 text-xs font-normal text-muted-foreground shadow-none underline underline-offset-2 hover:bg-transparent hover:text-foreground">
+              Not now
+            </AlertDialogCancel>
+          </div>
+        ) : stuck ? (
+          <div className="flex flex-col items-center gap-3">
+            <AlertDialogAction
+              onClick={onRetry}
+              disabled={retrying}
+              className="h-11 w-full rounded-md text-base font-semibold"
+            >
+              Try again
             </AlertDialogAction>
             <AlertDialogCancel className="h-auto border-none bg-transparent p-0 text-xs font-normal text-muted-foreground shadow-none underline underline-offset-2 hover:bg-transparent hover:text-foreground">
               Not now
