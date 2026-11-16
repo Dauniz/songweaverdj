@@ -4,3 +4,10 @@ export function sendVerifyOutcome(loaded: boolean, openWithOwnSong: boolean): "p
   if (loaded) return "playing";
   return openWithOwnSong ? "not_switched" : "no_device";
 }
+
+/** Spotify's desktop app sometimes takes Crate's list but restarts its own song instead of
+ *  switching. If Crate's song already sits first in "next up", a plain skip lands on it
+ *  (no restart); otherwise re-send the list naming Crate's song explicitly. */
+export function stuckRecovery(queueFirst: string | null | undefined, target: string): "next" | "resend" {
+  return queueFirst && queueFirst === target ? "next" : "resend";
+}

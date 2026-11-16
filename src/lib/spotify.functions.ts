@@ -1,6 +1,6 @@
 import { libraryPoolCache } from "@/lib/keyset";
 import { createServerFn } from "@tanstack/react-start";
-import { sendVerifyOutcome } from "./send-verify";
+import { sendVerifyOutcome, stuckRecovery } from "./send-verify";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { IngestRow } from "./spotify.server";
@@ -267,14 +267,36 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
         return false;
       };
       let loaded = await check(6);
-      if (!loaded && ownSong) {
-        // Retry once without pinning the device, in case the pinned target is the stale part.
-        const again = await fetch("https://api.spotify.com/v1/me/player/play", {
+      // Open app restarted its own song instead of switching (seen on desktop near a song's
+      // end): first try a plain skip if Crate's song is already next, then an explicit resend.
+      const nextUp = async () => {
+        const q = await fetch("https://api.spotify.com/v1/me/player/queue", { headers }).catch(() => null);
+        if (!q?.ok) return null;
+        const b = (await q.json().catch(() => null)) as { queue?: { id?: string | null }[] } | null;
+        return b?.queue?.[0]?.id ?? null;
+      };
+      const skipForward = async () => {
+        const r = await fetch(`https://api.spotify.com/v1/me/player/next?device_id=${encodeURIComponent(device!.id)}`, {
+          method: "POST",
+          headers,
+        }).catch(() => null);
+        return Boolean(r?.ok);
+      };
+      const resendExplicit = async () => {
+        const r = await fetch("https://api.spotify.com/v1/me/player/play", {
           method: "PUT",
           headers: { ...headers, "Content-Type": "application/json" },
-          body,
+          body: JSON.stringify({ uris, offset: { position: 0 }, ...(data.positionMs ? { position_ms: data.positionMs } : {}) }),
         }).catch(() => null);
-        if (again?.ok) loaded = await check(4);
+        return Boolean(r?.ok);
+      };
+      if (!loaded && ownSong) {
+        const first = stuckRecovery(await nextUp(), data.spotifyId);
+        if (first === "next" ? await skipForward() : await resendExplicit()) loaded = await check(4);
+        // After a resend Spotify may again keep its song but hold Crate's list next: skip once.
+        if (!loaded && first === "resend" && stuckRecovery(await nextUp(), data.spotifyId) === "next" && (await skipForward())) {
+          loaded = await check(4);
+        }
       }
       const outcome = sendVerifyOutcome(loaded, ownSong);
       if (outcome === "playing") {
