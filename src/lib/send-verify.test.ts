@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sendVerifyOutcome, stuckRecovery } from "./send-verify";
+import { recoverStuck, sendVerifyOutcome, stuckRecovery } from "./send-verify";
 
 describe("checked send outcome", () => {
   it("counts the song as playing once Spotify reports it", () => {
@@ -22,5 +22,27 @@ describe("recovering when Spotify restarts its own song", () => {
   });
   it("re-sends when next up can't be read", () => {
     expect(stuckRecovery(null, "B")).toBe("resend");
+  });
+});
+
+describe("stuck recovery sequence", () => {
+  const run = (queues: (string | null)[], checks: boolean[]) => {
+    const calls: string[] = [];
+    const p = recoverStuck("B", {
+      nextUp: async () => { calls.push("queue"); return queues.shift() ?? null; },
+      skipForward: async () => { calls.push("next"); return true; },
+      resendExplicit: async () => { calls.push("resend"); return true; },
+      check: async () => { calls.push("check"); return checks.shift() ?? false; },
+    });
+    return p.then((ok) => ({ ok, calls }));
+  };
+  it("song already lined up: one skip, no resend (no extra restart)", async () => {
+    expect(await run(["B"], [true])).toEqual({ ok: true, calls: ["queue", "next", "check"] });
+  });
+  it("not lined up: resend, then skip once it is lined up", async () => {
+    expect(await run(["X", "B"], [false, true])).toEqual({ ok: true, calls: ["queue", "resend", "check", "queue", "next", "check"] });
+  });
+  it("gives up after a skip that didn't help, never skips twice", async () => {
+    expect(await run(["B"], [false])).toEqual({ ok: false, calls: ["queue", "next", "check"] });
   });
 });

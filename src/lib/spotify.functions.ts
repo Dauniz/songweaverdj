@@ -1,6 +1,6 @@
 import { libraryPoolCache } from "@/lib/keyset";
 import { createServerFn } from "@tanstack/react-start";
-import { sendVerifyOutcome, stuckRecovery } from "./send-verify";
+import { recoverStuck, sendVerifyOutcome } from "./send-verify";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { IngestRow } from "./spotify.server";
@@ -291,12 +291,7 @@ export const playSpotifyTrack = createServerFn({ method: "POST" })
         return Boolean(r?.ok);
       };
       if (!loaded && ownSong) {
-        const first = stuckRecovery(await nextUp(), data.spotifyId);
-        if (first === "next" ? await skipForward() : await resendExplicit()) loaded = await check(4);
-        // After a resend Spotify may again keep its song but hold Crate's list next: skip once.
-        if (!loaded && first === "resend" && stuckRecovery(await nextUp(), data.spotifyId) === "next" && (await skipForward())) {
-          loaded = await check(4);
-        }
+        loaded = await recoverStuck(data.spotifyId, { nextUp, skipForward, resendExplicit, check: () => check(4) });
       }
       const outcome = sendVerifyOutcome(loaded, ownSong);
       if (outcome === "playing") {
