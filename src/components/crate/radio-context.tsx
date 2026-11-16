@@ -365,6 +365,8 @@ export function RadioProvider({ children }: { children: ReactNode }) {
     finish: RadioTrack; skip: RadioTrack | null; stateAt: RadioState; sentAt: number; finishSeen: boolean; recovered: boolean;
     /** The song that just finished — Spotify may keep reporting it for a moment. */
     from: string;
+    /** The finish pair was re-sent once because Spotify stayed on the old song. */
+    resent?: boolean;
   } | null>(null);
   const lastLogged = useRef<{ key: string; at: number }>({ key: "", at: 0 });
   const swapAborted = useRef(""); // you picked your own song during the end hand-over
@@ -1203,6 +1205,9 @@ export function RadioProvider({ children }: { children: ReactNode }) {
       opts?: { stateAt?: RadioState | undefined; frontierDoor?: Promise<Branch> | undefined; allowAlone?: boolean; wake?: boolean; verify?: boolean },
     ) => {
       if (!track?.spotify_id || track.spotify_id.startsWith("demo-")) return false;
+      // Never aim at (or past) the song's end: Spotify then restarts it from 0:00 or jumps on.
+      const knownDur = lastPlayback.current.spotifyId === track.spotify_id ? lastPlayback.current.durationMs : 0;
+      if (positionMs && knownDur && positionMs > knownDur - 3_000) positionMs = Math.max(1, knownDur - 3_000);
       // Retries (Spotify was closed, "Open Spotify", reconnect) often don't know the skip
       // song because it's only confirmed after a successful send. Reuse the last one tried.
       const pending = attemptedDoor.current?.forId === track.spotify_id ? attemptedDoor.current : null;
@@ -2014,10 +2019,30 @@ export function RadioProvider({ children }: { children: ReactNode }) {
           if (state.spotifyId === hg.finish.spotify_id) {
             hg.finishSeen = true; // from now on any move is the user's own skip
             if (hg.recovered) handoverGuard.current = null;
-          } else if (!hg.finishSeen && state.spotifyId === hg.from && Date.now() - hg.sentAt < 5_000) {
+          } else if (!hg.finishSeen && state.spotifyId === hg.from) {
             // Spotify still reports the song that just finished: it hasn't switched yet.
-            // Never read that as a skip or a manual pick — wait for the finish song to show up.
-            return;
+            // Never read that as a skip or a manual pick — adopting it re-sent the old song at
+            // its end position and Spotify started it over (song A on repeat).
+            const since = Date.now() - hg.sentAt;
+            if (since < 4_000) return;
+            if (!hg.resent) {
+              // The hand-over didn't take: send the finish pair once more, checked this time.
+              hg.resent = true;
+              hg.sentAt = Date.now();
+              pushSpotifyLog({ kind: "event", at: Date.now(), text: `FINISH NOT TAKEN — Spotify still on the finished song, re-sending "${hg.finish.name}"` });
+              noPlayFor.current = hg.finish.spotify_id ?? "";
+              lastTransition.current = Date.now();
+              lastPlayback.current = { spotifyId: hg.finish.spotify_id ?? "", ratio: 0, observed: false, progressMs: 0, durationMs: 0, at: Date.now() };
+              committing.current = true;
+              try {
+                await startSpotifyPlayback(hg.finish, true, hg.skip, undefined, "finish resend", null, { stateAt: hg.stateAt, verify: true });
+              } finally {
+                committing.current = false;
+              }
+              return;
+            }
+            if (since < 10_000) return;
+            handoverGuard.current = null; // still the old song 10 s after the re-send: your own replay
           } else if (
             !hg.finishSeen && !hg.recovered && hg.skip?.spotify_id === state.spotifyId &&
             Date.now() - hg.sentAt < 1_500 && current.spotify_id === hg.finish.spotify_id
